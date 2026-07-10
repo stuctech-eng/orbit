@@ -1,4 +1,4 @@
-const CACHE_NAME = 'orbit-cache-v1';
+const CACHE_NAME = 'orbit-cache-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -25,18 +25,19 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Network-first: while online, always fetch the live version so code
+// changes show up immediately. Only fall back to the cache when the
+// network request fails (actually offline).
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => cached);
-    })
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
+
