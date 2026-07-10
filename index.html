@@ -56,16 +56,16 @@
   let W = 0, H = 0;
 
   function resize() {
-    // getBoundingClientRect() returns the OUTER (border-box) size of #stage,
-    // which equals the full viewport since #stage is position:fixed; inset:0 —
-    // regardless of its safe-area padding. But the canvas sits inside that
-    // padded content box. Sizing the canvas to the outer rect made it overflow
-    // past the safe area (most visible at the bottom, near the home indicator),
-    // which is exactly why cells appeared to sink half off-screen.
-    // clientWidth/clientHeight already subtract the padding, giving the true
+    // clientWidth/clientHeight include padding (they're the padding-box,
+    // not the content-box) — that was the mistake in the previous fix, and
+    // why the canvas kept overflowing past the safe area at the bottom.
+    // Read the actual computed padding and subtract it to get the true
     // usable content-box size.
-    W = stage.clientWidth;
-    H = stage.clientHeight;
+    const cs = getComputedStyle(stage);
+    const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    W = stage.clientWidth - padX;
+    H = stage.clientHeight - padY;
     canvas.width = Math.floor(W * dpr);
     canvas.height = Math.floor(H * dpr);
     canvas.style.width = W + 'px';
