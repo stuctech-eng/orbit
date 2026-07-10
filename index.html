@@ -56,16 +56,19 @@
   let W = 0, H = 0;
 
   function resize() {
-    // clientWidth/clientHeight include padding (they're the padding-box,
-    // not the content-box) — that was the mistake in the previous fix, and
-    // why the canvas kept overflowing past the safe area at the bottom.
-    // Read the actual computed padding and subtract it to get the true
-    // usable content-box size.
+    // visualViewport reflects the ACTUAL visible area on iOS (accounting for
+    // dynamic browser chrome, keyboard, etc.) — clientWidth/clientHeight
+    // reflect the layout viewport, which can be larger than what's actually
+    // visible. That mismatch is the more likely reason cells kept appearing
+    // to sink below the visible screen even after the padding fix.
+    const vv = window.visualViewport;
     const cs = getComputedStyle(stage);
     const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
-    W = stage.clientWidth - padX;
-    H = stage.clientHeight - padY;
+    const vw = vv ? vv.width : stage.clientWidth;
+    const vh = vv ? vv.height : stage.clientHeight;
+    W = vw - padX;
+    H = vh - padY;
     canvas.width = Math.floor(W * dpr);
     canvas.height = Math.floor(H * dpr);
     canvas.style.width = W + 'px';
@@ -74,6 +77,10 @@
   }
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', resize);
+    window.visualViewport.addEventListener('scroll', resize);
+  }
   resize();
 
   // ---------- Audio ----------
@@ -143,7 +150,7 @@
     // Shrinks as the cell count grows so more cells fit comfortably —
     // area occupied scales down roughly with sqrt(3/n).
     const factor = Math.sqrt(3 / n);
-    baseRadius = Math.max(18, Math.min(46, scale * 0.075 * factor));
+    baseRadius = Math.max(24, Math.min(58, scale * 0.095 * factor));
   }
 
   function makeCell(x, y) {
