@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>ORBIT</title>
+
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="background-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Orbit">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: #000000;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+</div>
+
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  let dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+  let W = 0, H = 0;
+
+  function resize() {
+    const rect = stage.getBoundingClientRect();
+    W = rect.width;
+    H = rect.height;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 200));
+  resize();
+
+  // ---------- Audio ----------
+  let actx = null;
+  function ensureAudio() {
+    if (!actx) {
+      try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (e) { actx = null; }
+    } else if (actx.state === 'suspended') {
+      actx.resume();
+    }
+  }
+  function tone(freq, dur, vol, type) {
+    if (!actx) return;
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.05);
+  }
+  function playCorrect() { tone(880, 0.35, 0.05, 'sine'); tone(1320, 0.3, 0.03, 'sine'); }
+  function playWrong() { tone(160, 0.4, 0.06, 'sine'); }
+  function playTick() { tone(600, 0.08, 0.02, 'sine'); }
+
+  function haptic(pattern) {
+    if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
+  }
+
+  // ---------- Utility ----------
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+  function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
+  function now() { return performance.now(); }
+
+  // ---------- Cells ----------
+  const NUM_CELLS = 3;
+  let cells = [];
+  let baseRadius = 34;
+
+  function computeRadius() {
+    const scale = Math.min(W, H);
+    baseRadius = Math.max(26, Math.min(46, scale * 0.075));
+  }
+
+  function makeCell(x, y) {
+    const speed = rand(24, 36);
+    const angle = rand(0, Math.PI * 2);
+    return {
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      r: baseRadius,
+      glow: 0,          // ambient pulse
+      reveal: 0,         // 0..1 opacity of digit reveal
+      revealUntil: 0,
+      revealed: false,   // whether this cell has already shown its content this round
+      burst: 0,          // 0..1 brief scanner-intensity flash at the detection moment
+      feedback: 0,        // 0..1 feedback pulse amount
+      feedbackColor: null,
+      digit: null
+    };
+  }
+
+  function resetCellPositions() {
+    computeRadius();
+    cells = [];
+
+    // Calm, intentional opening composition: one cell above, two below,
+    // forming a triangle. A touch of jitter keeps it from feeling too rigid.
+    const jitter = () => rand(-14, 14);
+    const cx = W * 0.5;
+    const topY = H * 0.34;
+    const bottomY = H * 0.62;
+    const spread = Math.min(W * 0.19, H * 0.16, baseRadius * 2.6);
+
+    const positions = [
+      { x: cx + jitter(),            y: topY + jitter() },
+      { x: cx - spread + jitter(),   y: bottomY + jitter() },
+      { x: cx + spread + jitter(),   y: bottomY + jitter() }
+    ];
+
+    for (const p of positions) {
+      const x = Math.min(Math.max(p.x, baseRadius * 1.5), W - baseRadius * 1.5);
+      const y = Math.min(Math.max(p.y, baseRadius * 1.5), H - baseRadius * 1.5);
+      cells.push(makeCell(x, y));
+    }
+  }
+
+  // ---------- Physics ----------
+  function stepPhysics(dt) {
+    for (const c of cells) {
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+
+      const pad = c.r;
+      if (c.x < pad) { c.x = pad; c.vx = Math.abs(c.vx); }
+      if (c.x > W - pad) { c.x = W - pad; c.vx = -Math.abs(c.vx); }
+      if (c.y < pad) { c.y = pad; c.vy = Math.abs(c.vy); }
+      if (c.y > H - pad) { c.y = H - pad; c.vy = -Math.abs(c.vy); }
+    }
+
+    // pairwise soft collisions
+    for (let i = 0; i < cells.length; i++) {
+      for (let j = i + 1; j < cells.length; j++) {
+        const a = cells[i], b = cells[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        let dist = Math.hypot(dx, dy);
+        const minDist = a.r + b.r + 14;
+        if (dist < minDist && dist > 0.0001) {
+          const nx = dx / dist, ny = dy / dist;
+          // separate
+          const overlap = (minDist - dist) / 2;
+          a.x -= nx * overlap; a.y -= ny * overlap;
+          b.x += nx * overlap; b.y += ny * overlap;
+          // elastic exchange along normal (equal mass)
+          const avn = a.vx * nx + a.vy * ny;
+          const bvn = b.vx * nx + b.vy * ny;
+          const diff = bvn - avn;
+          a.vx += diff * nx; a.vy += diff * ny;
+          b.vx -= diff * nx; b.vy -= diff * ny;
+        }
+      }
+    }
+  }
+
+  // ---------- Game state ----------
+  const PHASE = { INTRO: 'intro', SCAN: 'scan', MEMORY: 'memory', FEEDBACK: 'feedback' };
+  let phase = PHASE.INTRO;
+  let phaseStart = 0;
+
+  let scanY = 0;
+  let scanDuration = 0;
+  let targetIndex = -1;
+
+  const INTRO_DELAY = 350;
+  const FEEDBACK_DURATION = 500;
+  const REVEAL_DURATION = 600; // ms digit stays visible
+  const REVEAL_TOLERANCE = 10; // px band around scan line to trigger reveal
+
+  // Locked to one exact, constant speed — no randomness left in it at all.
+  const SCAN_CROSS_DURATION = 4500; // ms to cross the visible screen (H)
+
+  function startRound() {
+    phase = PHASE.INTRO;
+    phaseStart = now();
+    targetIndex = Math.floor(rand(0, NUM_CELLS));
+    for (const c of cells) {
+      c.digit = null;
+      c.reveal = 0;
+      c.revealed = false;
+      c.feedback = 0;
+      c.feedbackColor = null;
+    }
+    cells[targetIndex].digit = Math.floor(rand(0, 10));
+  }
+
+  function beginScan() {
+    phase = PHASE.SCAN;
+    phaseStart = now();
+    scanY = H + SCAN_START_OFFSET;
+    // The extra off-screen padding needed for the trail travels at that same
+    // fixed speed, added proportionally, so trail length never changes it.
+    const travel = H + SCAN_START_OFFSET * 2;
+    scanDuration = SCAN_CROSS_DURATION * (travel / H);
+  }
+
+  function beginMemory() {
+    phase = PHASE.MEMORY;
+    phaseStart = now();
+  }
+
+  function beginFeedback(correct, cellIndex) {
+    phase = PHASE.FEEDBACK;
+    phaseStart = now();
+    const c = cells[cellIndex];
+    c.feedback = 1;
+    c.feedbackColor = correct ? 'white' : 'red';
+    if (correct) { playCorrect(); haptic(12); }
+    else { playWrong(); haptic([10, 40, 10]); }
+  }
+
+  // ---------- Interaction ----------
+  function handleTap(clientX, clientY) {
+    ensureAudio();
+    if (phase !== PHASE.MEMORY) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    let hitIndex = -1;
+    let bestDist = Infinity;
+    for (let i = 0; i < cells.length; i++) {
+      const c = cells[i];
+      const d = Math.hypot(x - c.x, y - c.y);
+      if (d <= c.r * 1.6 && d < bestDist) { bestDist = d; hitIndex = i; }
+    }
+    if (hitIndex === -1) return;
+    const correct = hitIndex === targetIndex;
+    beginFeedback(correct, hitIndex);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    ensureAudio();
+    handleTap(e.clientX, e.clientY);
+  }, { passive: true });
+
+  // ---------- Rendering ----------
+  function drawBackground() {
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawCell(c) {
+    const t = now();
+
+    // ambient breathing glow
+    c.glow = 0.5 + 0.5 * Math.sin(t / 1400 + (c.x + c.y) * 0.001);
+
+    // feedback decay
+    if (c.feedback > 0) {
+      c.feedback -= 0.028;
+      if (c.feedback < 0) c.feedback = 0;
+    }
+
+    // burst decay — the brief flare when the scanner detects this cell
+    if (c.burst > 0) {
+      c.burst -= 0.045;
+      if (c.burst < 0) c.burst = 0;
+    }
+
+    ctx.save();
+    ctx.translate(c.x, c.y);
+
+    // feedback ring
+    if (c.feedback > 0) {
+      const ringR = c.r + (1 - c.feedback) * 46;
+      const alpha = c.feedback * 0.55;
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = c.feedbackColor === 'white'
+        ? `rgba(255,255,255,${alpha})`
+        : `rgba(255,70,70,${alpha})`;
+      ctx.shadowColor = c.feedbackColor === 'white' ? 'rgba(255,255,255,0.8)' : 'rgba(255,70,70,0.8)';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+    }
+
+    // outer glow — intensifies sharply during the burst, gently during reveal
+    ctx.shadowColor = 'rgba(255,255,255,0.4)';
+    ctx.shadowBlur = 20 + c.glow * 9 + c.reveal * 22 + c.burst * 40;
+
+    const revealScale = 1 + c.reveal * 0.08 + c.burst * 0.06;
+    const R = c.r * revealScale;
+
+    // soft pearl material: minimal, smooth, barely-there sheen — brightens
+    // toward pure white during a reveal for the "glowing from within" moment
+    ctx.beginPath();
+    ctx.arc(0, 0, R, 0, Math.PI * 2);
+    const lift = c.reveal * 0.5 + c.burst * 0.5;
+    const material = ctx.createRadialGradient(
+      -R * 0.15, -R * 0.2, R * 0.2,
+      0, 0, R * 1.05
+    );
+    material.addColorStop(0, `rgba(255,255,255,${0.97 + lift * 0.03})`);
+    material.addColorStop(0.7, `rgba(${240 + lift * 15},${240 + lift * 15},${244 + lift * 11},0.95)`);
+    material.addColorStop(1, `rgba(${222 + lift * 33},${224 + lift * 31},${230 + lift * 25},${0.92 + lift * 0.06})`);
+    ctx.fillStyle = material;
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    // barely-there sheen — soft, broad, no hard glint
+    ctx.beginPath();
+    ctx.ellipse(-R * 0.2, -R * 0.24, R * 0.34, R * 0.22, -0.4, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${0.2 + lift * 0.15})`;
+    ctx.fill();
+
+    // digit reveal — slight scale-in gives a sense of depth, of looking into the cell
+    if (c.reveal > 0 && c.digit !== null) {
+      ctx.globalAlpha = c.reveal;
+      const digitScale = 0.88 + c.reveal * 0.12;
+      ctx.save();
+      ctx.scale(digitScale, digitScale);
+      ctx.fillStyle = '#000000';
+      ctx.font = `600 ${Math.floor(c.r * 1.05)}px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(c.digit), 0, c.r * 0.06);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+  }
+
+  const SCAN_CORE_WIDTH = 2;    // aura width around the hairline — kept tight, not thick
+  const SCAN_LEAD = 10;          // tight fade just ahead of the core (direction of travel)
+  const SCAN_TRAIL = 140;        // long billowing trail behind it
+  const SCAN_START_OFFSET = SCAN_TRAIL + 30; // keep fully off-screen at both ends
+
+  function drawScan() {
+    if (phase !== PHASE.SCAN) return;
+    const t = now();
+    ctx.save();
+
+    // Subtle, irregular flicker — feels like energy running through the
+    // beam, without ever becoming distracting or strobe-like
+    const flicker = 0.88
+      + 0.09 * Math.sin(t * 0.0075)
+      + 0.05 * Math.sin(t * 0.0331 + 1.7);
+
+    // Asymmetric streak: almost no glow ahead of the core (it's heading
+    // into darkness), but a long trail behind it that flares brightest
+    // just behind the core — as if the energy billows out — then wanes
+    // gradually to nothing.
+    const top = scanY - SCAN_LEAD;
+    const bottom = scanY + SCAN_TRAIL;
+    const span = bottom - top;
+    const corePos = SCAN_LEAD / span;
+
+    const grad = ctx.createLinearGradient(0, top, 0, bottom);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(Math.max(0, corePos - 0.03), `rgba(255,255,255,${0.05 * flicker})`);
+    grad.addColorStop(corePos, `rgba(255,255,255,${0.34 * flicker})`);
+    const trailStops = [
+      [0.08, 0.30], [0.22, 0.22], [0.42, 0.13], [0.64, 0.07], [0.85, 0.025], [1.0, 0]
+    ];
+    for (const [frac, alpha] of trailStops) {
+      const pos = Math.min(1, corePos + frac * (1 - corePos));
+      grad.addColorStop(pos, `rgba(255,255,255,${alpha * flicker})`);
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, top, W, span);
+
+    // Soft aura behind the core — gives it bloom without softening the edge itself
+    ctx.shadowColor = 'rgba(255,255,255,0.9)';
+    ctx.shadowBlur = 16 * flicker;
+    ctx.fillStyle = `rgba(255,255,255,${0.45 * flicker})`;
+    ctx.fillRect(0, scanY - SCAN_CORE_WIDTH / 2, W, SCAN_CORE_WIDTH);
+    ctx.shadowBlur = 0;
+
+    // Razor-sharp hairline on top — pixel-snapped, no blur, flinterdun and near-white-hot
+    const coreY = Math.round(scanY);
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, 1.0 * flicker)})`;
+    ctx.fillRect(0, coreY, W, 1);
+
+    drawScanBursts();
+    ctx.restore();
+  }
+
+  function drawScanBursts() {
+    // The cell itself lights up from within right as the beam finds it —
+    // the digit appears exactly in the core of the scan
+    for (const c of cells) {
+      if (c.burst > 0) {
+        const bx = c.x, by = c.y;
+        const r = c.r * (2.4 + c.burst * 1.4);
+        const hot = ctx.createRadialGradient(bx, by, 0, bx, by, r);
+        const a = c.burst * 0.5;
+        hot.addColorStop(0, `rgba(255,255,255,${a})`);
+        hot.addColorStop(0.5, `rgba(255,255,255,${a * 0.35})`);
+        hot.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = hot;
+        ctx.beginPath();
+        ctx.arc(bx, by, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ---------- Main loop ----------
+  let lastT = now();
+
+  function updateScan(t) {
+    const elapsed = t - phaseStart;
+    const prog = Math.min(1, elapsed / scanDuration);
+    const travel = H + SCAN_START_OFFSET * 2;
+    // Linear, not eased — a real scanner sweeps at one constant speed,
+    // it doesn't slow down at the start/end of its pass.
+    scanY = H + SCAN_START_OFFSET - prog * travel;
+
+    for (let i = 0; i < cells.length; i++) {
+      const c = cells[i];
+      if (!c.revealed && c.digit !== null) {
+        if (Math.abs(c.y - scanY) < REVEAL_TOLERANCE + c.r * 0.5) {
+          c.revealed = true;
+          c.revealUntil = t + REVEAL_DURATION;
+          c.burst = 1;
+          playTick();
+        }
+      }
+      if (c.revealed && c.revealUntil > 0) {
+        const remain = c.revealUntil - t;
+        if (remain > 0) {
+          const elapsedFrac = 1 - (remain / REVEAL_DURATION); // 0 -> 1
+          if (elapsedFrac < 0.15) c.reveal = elapsedFrac / 0.15;
+          else if (elapsedFrac > 0.85) c.reveal = (1 - elapsedFrac) / 0.15;
+          else c.reveal = 1;
+        } else {
+          c.reveal = 0;
+        }
+      }
+    }
+
+    if (prog >= 1) {
+      for (const c of cells) c.reveal = 0;
+      beginMemory();
+    }
+  }
+
+  function frame() {
+    const t = now();
+    const dt = Math.min(0.032, (t - lastT) / 1000);
+    lastT = t;
+
+    stepPhysics(dt);
+    drawBackground();
+
+    if (phase === PHASE.INTRO) {
+      if (t - phaseStart > INTRO_DELAY) beginScan();
+    } else if (phase === PHASE.SCAN) {
+      updateScan(t);
+    } else if (phase === PHASE.FEEDBACK) {
+      if (t - phaseStart > FEEDBACK_DURATION) startRound();
+    }
+
+    drawScan();
+    for (const c of cells) drawCell(c);
+
+    requestAnimationFrame(frame);
+  }
+
+  resetCellPositions();
+  startRound();
+  requestAnimationFrame(frame);
+
+  // Kick audio context on first interaction (iOS requirement)
+  window.addEventListener('pointerdown', ensureAudio, { once: true });
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
