@@ -113,7 +113,10 @@
     osc.stop(t0 + dur + 0.05);
   }
   function playCorrect() { tone(880, 0.35, 0.05, 'sine'); tone(1320, 0.3, 0.03, 'sine'); }
-  function playWrong() { tone(160, 0.4, 0.06, 'sine'); }
+  function playWrong() {
+    tone(340, 0.16, 0.05, 'triangle');
+    setTimeout(() => tone(230, 0.3, 0.055, 'triangle'), 90);
+  }
   function playTick() { tone(600, 0.08, 0.02, 'sine'); }
 
   function haptic(pattern) {
@@ -475,16 +478,31 @@
 
     // feedback ring
     if (c.feedback > 0) {
-      const ringR = c.r + (1 - c.feedback) * 46;
-      const alpha = c.feedback * 0.55;
+      const isWrong = c.feedbackColor === 'red';
+      const ringR = c.r + (1 - c.feedback) * (isWrong ? 58 : 46);
+      const alpha = c.feedback * (isWrong ? 0.75 : 0.55);
+
+      // secondary soft red bloom behind the ring — makes a wrong tap read
+      // clearly without becoming harsh or flashy
+      if (isWrong) {
+        const bloomR = c.r * (1.4 + (1 - c.feedback) * 0.5);
+        const bloom = ctx.createRadialGradient(0, 0, c.r * 0.6, 0, 0, bloomR);
+        bloom.addColorStop(0, `rgba(255,60,60,${c.feedback * 0.28})`);
+        bloom.addColorStop(1, 'rgba(255,60,60,0)');
+        ctx.fillStyle = bloom;
+        ctx.beginPath();
+        ctx.arc(0, 0, bloomR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.beginPath();
       ctx.arc(0, 0, ringR, 0, Math.PI * 2);
-      ctx.lineWidth = 3;
+      ctx.lineWidth = isWrong ? 4 : 3;
       ctx.strokeStyle = c.feedbackColor === 'white'
         ? `rgba(255,255,255,${alpha})`
-        : `rgba(255,70,70,${alpha})`;
-      ctx.shadowColor = c.feedbackColor === 'white' ? 'rgba(255,255,255,0.8)' : 'rgba(255,70,70,0.8)';
-      ctx.shadowBlur = 18;
+        : `rgba(255,64,64,${alpha})`;
+      ctx.shadowColor = c.feedbackColor === 'white' ? 'rgba(255,255,255,0.8)' : 'rgba(255,64,64,0.95)';
+      ctx.shadowBlur = isWrong ? 26 : 18;
       ctx.stroke();
     }
 
