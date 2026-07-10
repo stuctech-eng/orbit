@@ -113,14 +113,37 @@
   function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
   function now() { return performance.now(); }
 
+  // ---------- Adaptive Memory Ladder ----------
+  // Straight from the MASTER GAME FLOW doc: alternates between Tracking
+  // (more cells, 1 digit) and Memory (fewer cells, more digits) phases.
+  // Deterministic step-through for now — the Cognitive Engine (performance-
+  // based speed-up/slow-down) is a separate future layer on top of this.
+  const LADDER = [
+    // Phase A — Tracking
+    { cells: 3, digits: 1 }, { cells: 4, digits: 1 }, { cells: 5, digits: 1 },
+    { cells: 6, digits: 1 }, { cells: 7, digits: 1 }, { cells: 8, digits: 1 },
+    // Phase B — Memory
+    { cells: 5, digits: 2 }, { cells: 6, digits: 2 }, { cells: 7, digits: 2 },
+    // Phase C — Tracking
+    { cells: 8, digits: 2 }, { cells: 9, digits: 2 }, { cells: 10, digits: 2 },
+    // Phase D — Memory
+    { cells: 6, digits: 3 }, { cells: 7, digits: 3 }, { cells: 8, digits: 3 },
+    // Phase E — Tracking
+    { cells: 9, digits: 3 }, { cells: 10, digits: 3 }, { cells: 11, digits: 3 }
+  ];
+  let ladderIndex = 0;
+
   // ---------- Cells ----------
-  const NUM_CELLS = 3;
   let cells = [];
   let baseRadius = 34;
+  let numCells = 3;
 
-  function computeRadius() {
+  function computeRadius(n) {
     const scale = Math.min(W, H);
-    baseRadius = Math.max(26, Math.min(46, scale * 0.075));
+    // Shrinks as the cell count grows so more cells fit comfortably —
+    // area occupied scales down roughly with sqrt(3/n).
+    const factor = Math.sqrt(3 / n);
+    baseRadius = Math.max(18, Math.min(46, scale * 0.075 * factor));
   }
 
   function makeCell(x, y) {
@@ -135,6 +158,7 @@
       reveal: 0,         // 0..1 opacity of digit reveal
       revealUntil: 0,
       revealed: false,   // whether this cell has already shown its content this round
+      found: false,      // whether the player has already correctly tapped this cell this round
       burst: 0,          // 0..1 brief scanner-intensity flash at the detection moment
       feedback: 0,        // 0..1 feedback pulse amount
       feedbackColor: null,
@@ -142,28 +166,49 @@
     };
   }
 
-  function resetCellPositions() {
-    computeRadius();
+  function spawnCells(n) {
+    computeRadius(n);
     cells = [];
 
-    // Calm, intentional opening composition: one cell above, two below,
-    // forming a triangle. A touch of jitter keeps it from feeling too rigid.
-    const jitter = () => rand(-14, 14);
-    const cx = W * 0.5;
-    const topY = H * 0.34;
-    const bottomY = H * 0.62;
-    const spread = Math.min(W * 0.19, H * 0.16, baseRadius * 2.6);
+    if (n === 3) {
+      // Calm, intentional composition for the 3-cell case: one cell above,
+      // two below, forming a triangle. A touch of jitter keeps it organic.
+      const jitter = () => rand(-14, 14);
+      const cx = W * 0.5;
+      const topY = H * 0.34;
+      const bottomY = H * 0.62;
+      const spread = Math.min(W * 0.19, H * 0.16, baseRadius * 2.6);
+      const positions = [
+        { x: cx + jitter(),          y: topY + jitter() },
+        { x: cx - spread + jitter(), y: bottomY + jitter() },
+        { x: cx + spread + jitter(), y: bottomY + jitter() }
+      ];
+      for (const p of positions) {
+        const x = Math.min(Math.max(p.x, baseRadius * 1.5), W - baseRadius * 1.5);
+        const y = Math.min(Math.max(p.y, baseRadius * 1.5), H - baseRadius * 1.5);
+        cells.push(makeCell(x, y));
+      }
+      return;
+    }
 
-    const positions = [
-      { x: cx + jitter(),            y: topY + jitter() },
-      { x: cx - spread + jitter(),   y: bottomY + jitter() },
-      { x: cx + spread + jitter(),   y: bottomY + jitter() }
-    ];
-
-    for (const p of positions) {
-      const x = Math.min(Math.max(p.x, baseRadius * 1.5), W - baseRadius * 1.5);
-      const y = Math.min(Math.max(p.y, baseRadius * 1.5), H - baseRadius * 1.5);
-      cells.push(makeCell(x, y));
+    // General case (4-11 cells): randomized placement, retrying until cells
+    // don't overlap; falls back to a looser placement if it can't find room
+    // (physics collision resolution will settle them apart over the next
+    // few frames regardless).
+    const margin = baseRadius * 1.4;
+    let attempts = 0;
+    while (cells.length < n && attempts < 1000) {
+      attempts++;
+      const x = rand(margin, W - margin);
+      const y = rand(margin, H - margin);
+      let ok = true;
+      for (const c of cells) {
+        if (Math.hypot(x - c.x, y - c.y) < baseRadius * 2.3) { ok = false; break; }
+      }
+      if (ok) cells.push(makeCell(x, y));
+    }
+    while (cells.length < n) {
+      cells.push(makeCell(rand(margin, W - margin), rand(margin, H - margin)));
     }
   }
 
@@ -211,7 +256,8 @@
 
   let scanY = 0;
   let scanDuration = 0;
-  let targetIndex = -1;
+  let roundTargets = new Set();  // indices of cells holding a digit this round
+  let roundFound = 0;            // how many of those have been correctly tapped so far
 
   const INTRO_DELAY = 350;
   const FEEDBACK_DURATION = 500;
@@ -224,15 +270,31 @@
   function startRound() {
     phase = PHASE.INTRO;
     phaseStart = now();
-    targetIndex = Math.floor(rand(0, NUM_CELLS));
-    for (const c of cells) {
-      c.digit = null;
+
+    const step = LADDER[ladderIndex % LADDER.length];
+    ladderIndex++;
+    numCells = step.cells;
+
+    spawnCells(numCells);
+
+    // pick `step.digits` unique cells to hold a number this round
+    const indices = Array.from({ length: numCells }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(rand(0, i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    roundTargets = new Set(indices.slice(0, step.digits));
+    roundFound = 0;
+
+    for (let i = 0; i < cells.length; i++) {
+      const c = cells[i];
+      c.digit = roundTargets.has(i) ? Math.floor(rand(0, 10)) : null;
       c.reveal = 0;
       c.revealed = false;
+      c.found = false;
       c.feedback = 0;
       c.feedbackColor = null;
     }
-    cells[targetIndex].digit = Math.floor(rand(0, 10));
   }
 
   function beginScan() {
@@ -260,6 +322,16 @@
     else { playWrong(); haptic([10, 40, 10]); }
   }
 
+  // A correct tap that isn't the round's last remaining target — the round
+  // continues, but the cell still gets its own pulse of confirmation.
+  function pulseFound(cellIndex) {
+    const c = cells[cellIndex];
+    c.feedback = 1;
+    c.feedbackColor = 'white';
+    playCorrect();
+    haptic(10);
+  }
+
   // ---------- Interaction ----------
   function handleTap(clientX, clientY) {
     ensureAudio();
@@ -276,8 +348,24 @@
       if (d <= c.r * 1.6 && d < bestDist) { bestDist = d; hitIndex = i; }
     }
     if (hitIndex === -1) return;
-    const correct = hitIndex === targetIndex;
-    beginFeedback(correct, hitIndex);
+
+    const c = cells[hitIndex];
+    const isTarget = roundTargets.has(hitIndex) && !c.found;
+
+    if (isTarget) {
+      c.found = true;
+      roundFound++;
+      if (roundFound >= roundTargets.size) {
+        // last target found — round complete, success
+        beginFeedback(true, hitIndex);
+      } else {
+        // more targets still to find — stay in memory phase
+        pulseFound(hitIndex);
+      }
+    } else {
+      // wrong cell (or an already-found one tapped again) — round over
+      beginFeedback(false, hitIndex);
+    }
   }
 
   canvas.addEventListener('pointerdown', (e) => {
@@ -512,7 +600,6 @@
     requestAnimationFrame(frame);
   }
 
-  resetCellPositions();
   startRound();
   requestAnimationFrame(frame);
 
