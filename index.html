@@ -162,54 +162,92 @@
       burst: 0,          // 0..1 brief scanner-intensity flash at the detection moment
       feedback: 0,        // 0..1 feedback pulse amount
       feedbackColor: null,
-      digit: null
+      digit: null,
+      dying: false,      // true while fading out after being dropped by the ladder
+      fadeStart: 0
     };
   }
 
-  function spawnCells(n) {
-    computeRadius(n);
-    cells = [];
+  const FADE_DURATION = 550; // ms for a departing cell to fade out
 
-    if (n === 3) {
-      // Calm, intentional composition for the 3-cell case: one cell above,
-      // two below, forming a triangle. A touch of jitter keeps it organic.
-      const jitter = () => rand(-14, 14);
-      const cx = W * 0.5;
-      const topY = H * 0.34;
-      const bottomY = H * 0.62;
-      const spread = Math.min(W * 0.19, H * 0.16, baseRadius * 2.6);
-      const positions = [
-        { x: cx + jitter(),          y: topY + jitter() },
-        { x: cx - spread + jitter(), y: bottomY + jitter() },
-        { x: cx + spread + jitter(), y: bottomY + jitter() }
-      ];
-      for (const p of positions) {
-        const x = Math.min(Math.max(p.x, baseRadius * 1.5), W - baseRadius * 1.5);
-        const y = Math.min(Math.max(p.y, baseRadius * 1.5), H - baseRadius * 1.5);
-        cells.push(makeCell(x, y));
-      }
+  let gameStarted = false;
+
+  function spawnTriangle() {
+    // Calm, intentional composition for the very first round only: one cell
+    // above, two below, forming a triangle. A touch of jitter keeps it organic.
+    const jitter = () => rand(-14, 14);
+    const cx = W * 0.5;
+    const topY = H * 0.34;
+    const bottomY = H * 0.62;
+    const spread = Math.min(W * 0.19, H * 0.16, baseRadius * 2.6);
+    const positions = [
+      { x: cx + jitter(),          y: topY + jitter() },
+      { x: cx - spread + jitter(), y: bottomY + jitter() },
+      { x: cx + spread + jitter(), y: bottomY + jitter() }
+    ];
+    for (const p of positions) {
+      const x = Math.min(Math.max(p.x, baseRadius * 1.5), W - baseRadius * 1.5);
+      const y = Math.min(Math.max(p.y, baseRadius * 1.5), H - baseRadius * 1.5);
+      cells.push(makeCell(x, y));
+    }
+  }
+
+  // Adjusts the live cell count for the new round WITHOUT resetting
+  // everything: existing cells keep their position and velocity (the board
+  // never jarringly "refreshes"), only the difference between rounds is
+  // added or removed.
+  function adjustCellCount(n) {
+    computeRadius(n);
+    for (const c of cells) if (!c.dying) c.r = baseRadius; // radius adapts to new density, but not for cells already fading out
+
+    if (!gameStarted) {
+      cells = [];
+      spawnTriangle();
+      gameStarted = true;
       return;
     }
 
-    // General case (4-11 cells): randomized placement, retrying until cells
-    // don't overlap; falls back to a looser placement if it can't find room
-    // (physics collision resolution will settle them apart over the next
-    // few frames regardless).
-    const margin = baseRadius * 1.4;
-    let attempts = 0;
-    while (cells.length < n && attempts < 1000) {
-      attempts++;
-      const x = rand(margin, W - margin);
-      const y = rand(margin, H - margin);
-      let ok = true;
-      for (const c of cells) {
-        if (Math.hypot(x - c.x, y - c.y) < baseRadius * 2.3) { ok = false; break; }
+    const activeIndices = [];
+    for (let i = 0; i < cells.length; i++) if (!cells[i].dying) activeIndices.push(i);
+    const activeCount = activeIndices.length;
+
+    if (activeCount < n) {
+      const margin = baseRadius * 1.4;
+      const toAdd = n - activeCount;
+      for (let k = 0; k < toAdd; k++) {
+        let placed = false;
+        for (let attempt = 0; attempt < 200 && !placed; attempt++) {
+          const x = rand(margin, W - margin);
+          const y = rand(margin, H - margin);
+          let ok = true;
+          for (const c of cells) {
+            if (Math.hypot(x - c.x, y - c.y) < baseRadius * 2.3) { ok = false; break; }
+          }
+          if (ok) { cells.push(makeCell(x, y)); placed = true; }
+        }
+        if (!placed) cells.push(makeCell(rand(margin, W - margin), rand(margin, H - margin)));
       }
-      if (ok) cells.push(makeCell(x, y));
+    } else if (activeCount > n) {
+      // Don't remove instantly — mark the excess as dying so they fade out
+      // over FADE_DURATION while still drifting naturally. They're purged
+      // from the array once fully faded (see frame()).
+      let toRemove = activeCount - n;
+      while (toRemove > 0 && activeIndices.length > 0) {
+        const pick = Math.floor(rand(0, activeIndices.length));
+        const idx = activeIndices.splice(pick, 1)[0];
+        cells[idx].dying = true;
+        cells[idx].fadeStart = now();
+        toRemove--;
+      }
     }
-    while (cells.length < n) {
-      cells.push(makeCell(rand(margin, W - margin), rand(margin, H - margin)));
-    }
+  }
+
+  // Returns the indices of cells currently participating in the round
+  // (i.e. not fading out) — used for target/digit selection and tap hits.
+  function activeCellIndices() {
+    const out = [];
+    for (let i = 0; i < cells.length; i++) if (!cells[i].dying) out.push(i);
+    return out;
   }
 
   // ---------- Physics ----------
@@ -247,6 +285,18 @@
         }
       }
     }
+
+    // Collision separation above can push a cell past a wall boundary after
+    // the earlier wall-clamp already ran this frame (it only checks pairwise
+    // distance, not screen bounds). Re-clamp everyone here so no cell ever
+    // renders outside the visible play area, even mid-collision near an edge.
+    for (const c of cells) {
+      const pad = c.r;
+      if (c.x < pad) { c.x = pad; if (c.vx < 0) c.vx = Math.abs(c.vx); }
+      if (c.x > W - pad) { c.x = W - pad; if (c.vx > 0) c.vx = -Math.abs(c.vx); }
+      if (c.y < pad) { c.y = pad; if (c.vy < 0) c.vy = Math.abs(c.vy); }
+      if (c.y > H - pad) { c.y = H - pad; if (c.vy > 0) c.vy = -Math.abs(c.vy); }
+    }
   }
 
   // ---------- Game state ----------
@@ -275,10 +325,11 @@
     ladderIndex++;
     numCells = step.cells;
 
-    spawnCells(numCells);
+    adjustCellCount(numCells);
 
-    // pick `step.digits` unique cells to hold a number this round
-    const indices = Array.from({ length: numCells }, (_, i) => i);
+    // pick `step.digits` unique ACTIVE cells to hold a number this round —
+    // never a cell that's currently fading out
+    const indices = activeCellIndices();
     for (let i = indices.length - 1; i > 0; i--) {
       const j = Math.floor(rand(0, i + 1));
       [indices[i], indices[j]] = [indices[j], indices[i]];
@@ -288,6 +339,7 @@
 
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
+      if (c.dying) continue; // leave fading cells alone — they're not part of this round
       c.digit = roundTargets.has(i) ? Math.floor(rand(0, 10)) : null;
       c.reveal = 0;
       c.revealed = false;
@@ -335,7 +387,7 @@
   // ---------- Interaction ----------
   function handleTap(clientX, clientY) {
     ensureAudio();
-    if (phase !== PHASE.MEMORY) return;
+    if (phase !== PHASE.MEMORY && phase !== PHASE.SCAN) return;
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -344,6 +396,7 @@
     let bestDist = Infinity;
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
+      if (c.dying) continue;
       const d = Math.hypot(x - c.x, y - c.y);
       if (d <= c.r * 1.6 && d < bestDist) { bestDist = d; hitIndex = i; }
     }
@@ -399,6 +452,14 @@
 
     ctx.save();
     ctx.translate(c.x, c.y);
+
+    if (c.dying) {
+      const fadeProgress = Math.min(1, (t - c.fadeStart) / FADE_DURATION);
+      var fadeAlpha = Math.max(0, 1 - fadeProgress);
+      ctx.globalAlpha = fadeAlpha;
+    } else {
+      var fadeAlpha = 1;
+    }
 
     // feedback ring
     if (c.feedback > 0) {
@@ -457,7 +518,7 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(String(c.digit), 0, c.r * 0.06);
       ctx.restore();
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = fadeAlpha;
     }
 
     ctx.restore();
@@ -596,6 +657,12 @@
 
     drawScan();
     for (const c of cells) drawCell(c);
+
+    // Purge cells that finished fading out (they've already had their
+    // last, fully-transparent frame rendered above).
+    if (cells.some((c) => c.dying && (t - c.fadeStart) >= FADE_DURATION)) {
+      cells = cells.filter((c) => !(c.dying && (t - c.fadeStart) >= FADE_DURATION));
+    }
 
     requestAnimationFrame(frame);
   }
