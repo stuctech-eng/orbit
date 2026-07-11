@@ -184,6 +184,19 @@
   }
   function playTick() { tone(600, 0.1, 0.05, 'sine'); }
 
+  // Barely-there activation cue — plays every single round, so it has to
+  // stay almost subliminal rather than announce itself.
+  function playScanStart() { tone(240, 0.12, 0.018, 'sine'); }
+
+  // A rarer, more rewarding moment than a plain correct tap — a soft
+  // ascending three-note chime, distinct from playCorrect's simultaneous
+  // two-tone chord.
+  function playLevelUp() {
+    tone(660, 0.12, 0.045, 'sine');
+    setTimeout(() => tone(880, 0.16, 0.05, 'sine'), 70);
+    setTimeout(() => tone(1100, 0.24, 0.04, 'sine'), 140);
+  }
+
   function haptic(pattern) {
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
@@ -546,6 +559,7 @@
   function beginScan() {
     phase = PHASE.SCAN;
     phaseStart = now();
+    playScanStart();
     scanY = H + SCAN_START_OFFSET;
     // The extra off-screen padding needed for the trail travels at that same
     // fixed speed, added proportionally, so trail length never changes it.
@@ -564,13 +578,13 @@
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = correct ? 'white' : 'red';
-    if (correct) { playCorrect(); haptic(12); }
-    else { playWrong(); haptic([10, 40, 10]); }
 
-    // Log the outcome into the rolling history, ask the Cognitive Engine
-    // where to go next based on that window, persist. Gameplay and the
-    // ladder dataset are untouched by this — the engine only ever returns
-    // -1/0/1, and only ever sees roundHistory, never game internals.
+    // Log the outcome into the rolling history and ask the Cognitive Engine
+    // where to go next — done BEFORE picking a sound, so a round that
+    // advances the ladder can get its own distinct chime instead of the
+    // plain correct tone. Gameplay and the ladder dataset are untouched by
+    // this — the engine only ever returns -1/0/1, and only ever sees
+    // roundHistory, never game internals.
     save.totalRounds++;
     if (correct) {
       save.totalCorrect++;
@@ -580,6 +594,14 @@
     roundHistory.push({ correct, reactionMs });
     if (roundHistory.length > 50) roundHistory.shift(); // cap memory, engine only ever looks at a small recent window anyway
     pendingAdjustment = CognitiveEngine.decide(roundHistory);
+
+    if (correct) {
+      if (pendingAdjustment === 1) playLevelUp(); else playCorrect();
+      haptic(12);
+    } else {
+      playWrong();
+      haptic([10, 40, 10]);
+    }
 
     save.highestScore = Math.max(save.highestScore, save.score);
     save.ladderIndex = ladderIndex;

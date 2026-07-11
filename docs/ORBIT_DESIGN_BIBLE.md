@@ -117,16 +117,19 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 
 ## 6. Geluid & Haptics
 
-Huidige geluidsidentiteit (Web Audio, geen samples):
+Geluidsidentiteit (Web Audio, geen samples), tonaal familie rond een gedeelde schaal zodat het als één geheel klinkt:
+
 | Moment | Geluid | Karakter |
 |---|---|---|
+| Scan start | 240Hz sine, zeer stil (vol 0.018) | Vrijwel subliminaal — klinkt élke ronde, mag nooit opvallen |
 | Cijfer onthuld | 600Hz sine, kort | Zachte tik |
-| Correct | 880Hz + 1320Hz sine | Helder, oplopend |
-| Fout | 340Hz → 230Hz triangle, dalend | Zacht, duidelijk "fout", nooit schril |
+| Correct | 880Hz + 1320Hz sine, gelijktijdig | Helder akkoord |
+| Level omhoog | 660 → 880 → 1100Hz sine, oplopend | Zeldzamer en feestelijker dan "correct" — alleen als de Cognitive Engine besluit vooruit te gaan |
+| Fout | 340 → 230Hz triangle, dalend | Zacht, duidelijk "fout", nooit schril |
 
-Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik). Reveal heeft geen haptic (zou te veel worden bij meerdere cijfers per ronde).
+Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik). Reveal en scan-start hebben geen haptic (zou te veel worden — reveal kan meerdere keren per ronde voorkomen, scan-start gebeurt elke ronde).
 
-**Ontwerpregel voor geluid:** rustig, helder, premium. Nooit een game-arcade-gevoel. Dit wordt de basis voor Sprint 2 (Audio Design) — uitbreiden (bijv. level-omhoog-geluid), niet vervangen.
+**Ontwerpregel voor geluid:** rustig, helder, premium. Nooit een game-arcade-gevoel. Elk geluid dat vaak klinkt (scan-start, reveal) is bewust het stilst; geluiden die zeldzaam zijn (level omhoog) mogen iets meer ruimte innemen.
 
 ---
 
