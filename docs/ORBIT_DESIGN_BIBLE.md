@@ -22,6 +22,7 @@ Het uiteindelijke doel: een speler die na een paar rondes automatisch denkt *"no
 - **Minder is meer.** Elk visueel element moet zijn bestaansrecht bewijzen. Effecten worden pas toegevoegd als ze een concreet gevoel versterken (zie scanner-geschiedenis: van drie stijlen + texturen terug naar één krachtige streep).
 - **Physics boven moeilijkheid.** Vloeiende, voorspelbare beweging weegt zwaarder dan een uitdagender spel. De speler moet een cel kunnen blijven volgen.
 - **Eén ding tegelijk perfectioneren.** Nieuwe mechanics worden niet toegevoegd totdat de bestaande laag uitzonderlijk goed aanvoelt (feature freeze-principe).
+- **Audio ondersteunt, nooit bepalend.** Geluid mag de pacing van de gameplay nooit vertragen of erop wachten. Klinkt een geluid nog door terwijl de volgende stap al begint (zoals de scan-opstart die overloopt in de scan zelf), dan is dat een bewuste overlap — nooit een wachttijd.
 
 ---
 
@@ -121,7 +122,7 @@ Geluidsidentiteit (Web Audio, geen samples), tonaal familie rond een gedeelde sc
 
 | Moment | Geluid | Karakter |
 |---|---|---|
-| Scan-opstart | 70→112Hz sine, ~1s, zeer stil (vol 0.035) | Warme, lage "whooom" — een groot apparaat dat langzaam opstart. Start bij ronde-begin, ~1s vóór de beam zichtbaar wordt |
+| Scan-opstart | 70→110Hz sine, ~0.8s, zeer stil (vol 0.035) | Warme, lage "whooom" — een groot apparaat dat langzaam opstart. Start bij ronde-begin, piekt exact wanneer de beam verschijnt (~350ms), en loopt nog ~450ms door ín het begin van de scan zelf — nooit vóór de scan afgerond, altijd een overlap |
 | Scan-ambience | Doorlopend: gefilterde ruis (bandpass, 800→1200Hz) + zachte sinus-drone (200→270Hz), lichte stereo-beweging | Volgt de voortgang van de scan; geen harde toon, geen laser. Vervangt de oude losse "tik" volledig |
 | Scan-einde | Ambience faded rustig uit over 0.5s | Nooit abrupt — ook niet als de ronde vroegtijdig eindigt door een tik tijdens de scan |
 | Cijfer onthuld | 600Hz sine, kort | Zachte tik |
@@ -129,7 +130,7 @@ Geluidsidentiteit (Web Audio, geen samples), tonaal familie rond een gedeelde sc
 | Level omhoog | 660 → 880 → 1100Hz sine, oplopend | Zeldzamer en feestelijker dan "correct" — alleen als de Cognitive Engine besluit vooruit te gaan |
 | Fout | 340 → 230Hz triangle, dalend | Zacht, duidelijk "fout", nooit schril |
 
-**Timing-gevolg:** de pauze vóór een nieuwe scan (`INTRO_DELAY`) is bewust verlengd naar ~1000ms (was 350ms) om de opstart-whoom ruimte te geven. Dit is een bewuste afweging tussen "geen dode momenten" en de scanner-audio-spec — de pauze is nu gevuld met geluid in plaats van leeg te zijn.
+**Ontwerpprincipe:** de audio ondersteunt de gameplay, de gameplay wacht nooit op de audio. `INTRO_DELAY` bleef daarom op de oorspronkelijke ~350ms staan. De opstart-whoom piekt precies op dat moment en loopt nog kort (~450ms) door ín het begin van de scan zelf, terwijl de ambience-laag er vloeiend overheen neemt — geen zichtbare of hoorbare wachttijd, altijd beweging op het scherm.
 
 Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik). Reveal en scan-opstart/ambience hebben geen haptic.
 

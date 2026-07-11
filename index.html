@@ -198,8 +198,10 @@
   // ambience while it sweeps, and a graceful fade-out. Deliberately not a
   // beep — this is meant to become as recognizable as the visual beam.
 
-  // Warm, low spin-up — "a large machine slowly waking up". Starts as soon
-  // as a round begins, roughly a second before the beam is actually visible.
+  // Warm, low spin-up — "a large machine slowly waking up". Starts the
+  // instant a round begins, peaks right as the beam appears, and tapers
+  // out shortly into the scan itself — it never delays the beam, the two
+  // simply overlap for a moment as the ambience takes over.
   function playScanWarmup() {
     if (!actx) return;
     const t0 = actx.currentTime;
@@ -207,13 +209,13 @@
     const gain = actx.createGain();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(70, t0);
-    osc.frequency.exponentialRampToValueAtTime(112, t0 + 0.9);
+    osc.frequency.exponentialRampToValueAtTime(110, t0 + 0.7);
     gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(0.035, t0 + 0.6);
-    gain.gain.linearRampToValueAtTime(0, t0 + 1.0);
+    gain.gain.linearRampToValueAtTime(0.035, t0 + 0.3);  // peaks right as INTRO_DELAY ends
+    gain.gain.linearRampToValueAtTime(0, t0 + 0.8);       // fully faded ~450ms into the scan
     osc.connect(gain).connect(actx.destination);
     osc.start(t0);
-    osc.stop(t0 + 1.1);
+    osc.stop(t0 + 0.9);
   }
 
   // Reusable noise buffer for the "soft air" texture — built once, not
@@ -615,7 +617,7 @@
   let roundTargets = new Set();  // indices of cells holding a digit this round
   let roundFound = 0;            // how many of those have been correctly tapped so far
 
-  const INTRO_DELAY = 1000; // gives playScanWarmup() room to build before the beam appears, per the scanner audio spec
+  const INTRO_DELAY = 350; // gameplay pacing, unchanged from before audio — audio adapts to this, never the other way around
   const FEEDBACK_DURATION = 500;
   const REVEAL_DURATION = 600; // ms digit stays visible
   const REVEAL_TOLERANCE = 10; // px band around scan line to trigger reveal
