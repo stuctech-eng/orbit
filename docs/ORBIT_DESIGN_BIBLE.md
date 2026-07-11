@@ -125,7 +125,7 @@ Geluidsidentiteit (Web Audio, geen samples), tonaal familie rond een gedeelde sc
 
 | Moment | Geluid | Karakter |
 |---|---|---|
-| Scan | 44Hz triangle, statisch, vol 0.06, 0.08s aanzwellen, 0.15s uitsterven — één doorlopende toon | Precies gesynchroniseerd met de aanwezigheid van de kern ín het zichtbare speelveld (y tussen 0 en H) — niet met de SCAN-fase zelf, die eerder begint en later eindigt vanwege de onzichtbare buffer voor de sleep. Binnen het speelveld: geluid. Erbuiten: geen geluid. Geen instellingen meer, vaste waarden |
+| Scan | 44Hz triangle, statisch, vol 0.06, 0.3s aanzwellen, 1s uitsterven (gelijk met scanner-vertrek) — één doorlopende toon | Handmatig live afgesteld via een aparte tuning-tool. Zwelt aan met de scan, houdt vlak, sterft rustig uit precies wanneer de scanner het scherm verlaat — geen aparte opstart, geen ruislaag, geen stereobeweging |
 | Scan-einde | Ambience faded rustig uit over 0.5s | Nooit abrupt — ook niet als de ronde vroegtijdig eindigt door een tik tijdens de scan |
 | Cijfer onthuld | 600Hz sine, kort | Zachte tik |
 | Correct | 880Hz + 1320Hz sine, gelijktijdig | Helder akkoord |
@@ -148,7 +148,18 @@ Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik).
 
 ---
 
-## 8. Wat hier NIET in thuishoort
+## 8. Instellingen
+
+Persistente `localStorage`-key `orbit_settings_v1`, los van het Save System (dit zijn app-voorkeuren, geen voortgang):
+- **Geluid** aan/uit — master-schakelaar voor alle geluid
+- **Trilling** aan/uit — schakelt haptics uit
+- **Per geluid instelbaar**, direct in de app: Scanner, Cijfer onthuld, Correct, Fout, Level omhoog. Elk met een **toonhoogte-** en **volume-multiplier** (0,5×–2×) t.o.v. de getunede basiswaarden, plus een ▶ Test-knop om meteen te horen wat je instelt. "Alle geluiden terugzetten" herstelt de standaardwaarden. Alles wordt per wijziging direct opgeslagen — geen aparte "opslaan"-knop nodig.
+
+Toegankelijk via een tandwiel-icoon rechtsboven op het "Welkom terug"-scherm. **Bekende beperking v1:** omdat dat scherm alleen verschijnt voor terugkerende spelers (`save.totalRounds > 0`), heeft een gloednieuwe speler nog geen ingang naar Instellingen totdat hij minstens één ronde heeft gespeeld en de app opnieuw opent. Dit hoort bij Fase 4 (UI) verder uitgebreid te worden met een permanente, altijd bereikbare ingang.
+
+---
+
+## 9. Wat hier NIET in thuishoort
 
 Dingen die bewust zijn afgewezen of uitgesteld, zodat ze niet per ongeluk terugkomen://
 - Kleur (ook niet subtiel cyaan/teal — expliciet overwogen en afgewezen)

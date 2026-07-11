@@ -99,6 +99,136 @@
     min-height: 44px;
   }
   #welcome button:active { background: rgba(255,255,255,0.15); }
+  #settingsGear {
+    position: absolute;
+    top: max(20px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.4);
+    font-size: 20px;
+    background: none;
+    border: none;
+  }
+  #settings {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    color: #ffffff;
+  }
+  #settings.hidden { display: none; }
+  #settings .title {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  #settings .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 15px;
+  }
+  #settings .toggle {
+    width: 50px; height: 30px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    position: relative;
+    flex-shrink: 0;
+  }
+  #settings .toggle .knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s ease;
+  }
+  #settings .toggle.on { background: rgba(255,255,255,0.85); }
+  #settings .toggle.on .knob { transform: translateX(20px); background: #000; }
+  #settings .section-label {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin: 28px 4px 10px;
+  }
+  #settings .sound-block {
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    margin-bottom: 12px;
+  }
+  #settings .sound-block .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  #settings .sound-block .head span { font-size: 14px; }
+  #settings .testBtn {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    min-height: 32px;
+  }
+  #settings .testBtn:active { background: rgba(255,255,255,0.18); }
+  #settings .slider-row { margin-bottom: 8px; }
+  #settings .slider-row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 4px;
+  }
+  #settings .slider-row label .val { color: rgba(255,255,255,0.75); font-variant-numeric: tabular-nums; }
+  #settings input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.18);
+    outline: none;
+    margin: 0;
+  }
+  #settings input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+  }
+  #settings button.close, #settings button.reset {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 14px;
+    padding: 14px 0;
+    border-radius: 999px;
+    min-height: 44px;
+  }
+  #settings button.close { margin-top: 20px; }
+  #settings button.reset { margin-top: 10px; border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.55); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -106,6 +236,7 @@
   <canvas id="c"></canvas>
 </div>
 <div id="welcome" class="hidden">
+  <button id="settingsGear" aria-label="Instellingen">⚙</button>
   <div class="title">ORBIT</div>
   <div class="stats">
     <div class="stat"><div class="value" id="statLevel">–</div><div class="label">Level</div></div>
@@ -114,6 +245,24 @@
     <div class="stat"><div class="value" id="statRating">–</div><div class="label">Cognitive Rating</div></div>
   </div>
   <button id="resumeBtn">▶ Verder spelen</button>
+</div>
+
+<div id="settings" class="hidden">
+  <div class="title">Instellingen</div>
+  <div class="row">
+    <span>Geluid</span>
+    <button class="toggle" id="toggleSound" aria-label="Geluid aan/uit"><span class="knob"></span></button>
+  </div>
+  <div class="row">
+    <span>Trilling</span>
+    <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
+  </div>
+
+  <div class="section-label">Per geluid</div>
+  <div id="soundBlocks"></div>
+
+  <button class="reset" id="resetSounds">Alle geluiden terugzetten naar standaard</button>
+  <button class="close" id="closeSettings">Sluiten</button>
 </div>
 
 <script>
@@ -153,6 +302,33 @@
   }
   resize();
 
+  // ---------- Settings ----------
+  const SETTINGS_KEY = 'orbit_settings_v1';
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  const DEFAULT_SOUND_MIX = {
+    scan:    { pitch: 1, vol: 1 },
+    tick:    { pitch: 1, vol: 1 },
+    correct: { pitch: 1, vol: 1 },
+    wrong:   { pitch: 1, vol: 1 },
+    levelUp: { pitch: 1, vol: 1 }
+  };
+  let settings = Object.assign(
+    { sound: true, haptics: true, sounds: JSON.parse(JSON.stringify(DEFAULT_SOUND_MIX)) },
+    loadSettings() || {}
+  );
+  // guard against settings saved before a given sound existed
+  for (const key in DEFAULT_SOUND_MIX) {
+    if (!settings.sounds[key]) settings.sounds[key] = { ...DEFAULT_SOUND_MIX[key] };
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+  }
+
   // ---------- Audio ----------
   let actx = null;
   function ensureAudio() {
@@ -164,7 +340,7 @@
     }
   }
   function tone(freq, dur, vol, type) {
-    if (!actx) return;
+    if (!actx || !settings.sound) return;
     const t0 = actx.currentTime;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
@@ -177,52 +353,64 @@
     osc.start(t0);
     osc.stop(t0 + dur + 0.05);
   }
-  function playCorrect() { tone(880, 0.35, 0.05, 'sine'); tone(1320, 0.3, 0.03, 'sine'); }
-  function playWrong() {
-    tone(340, 0.16, 0.05, 'triangle');
-    setTimeout(() => tone(230, 0.3, 0.055, 'triangle'), 90);
+  function playCorrect() {
+    const m = settings.sounds.correct;
+    tone(880 * m.pitch, 0.35, 0.05 * m.vol, 'sine');
+    tone(1320 * m.pitch, 0.3, 0.03 * m.vol, 'sine');
   }
-  function playTick() { tone(600, 0.1, 0.05, 'sine'); }
+  function playWrong() {
+    const m = settings.sounds.wrong;
+    tone(340 * m.pitch, 0.16, 0.05 * m.vol, 'triangle');
+    setTimeout(() => tone(230 * m.pitch, 0.3, 0.055 * m.vol, 'triangle'), 90);
+  }
+  function playTick() {
+    const m = settings.sounds.tick;
+    tone(600 * m.pitch, 0.1, 0.05 * m.vol, 'sine');
+  }
 
   // A rarer, more rewarding moment than a plain correct tap — a soft
   // ascending three-note chime, distinct from playCorrect's simultaneous
   // two-tone chord.
   function playLevelUp() {
-    tone(660, 0.12, 0.045, 'sine');
-    setTimeout(() => tone(880, 0.16, 0.05, 'sine'), 70);
-    setTimeout(() => tone(1100, 0.24, 0.04, 'sine'), 140);
+    const m = settings.sounds.levelUp;
+    tone(660 * m.pitch, 0.12, 0.045 * m.vol, 'sine');
+    setTimeout(() => tone(880 * m.pitch, 0.16, 0.05 * m.vol, 'sine'), 70);
+    setTimeout(() => tone(1100 * m.pitch, 0.24, 0.04 * m.vol, 'sine'), 140);
   }
 
   // ---------- Scanner Audio Identity ----------
-  // One sound, nothing more: a single low, static tone. Its presence is
-  // synced exactly to the beam's presence in the visible play field — see
-  // the progEnter/progExit crossing logic in updateScan(), not to the
-  // phase transition (which starts earlier, while the beam is still
-  // off-screen building up its trail).
+  // One sound, nothing more: a single low, static tone that swells in with
+  // the scan and fades out with it. No warm-up layer, no noise layer, no
+  // panning — deliberately reduced to its simplest possible form.
+  // Base values tuned live by hand (via the scan-tone tuner); pitch/volume
+  // can be further adjusted per-player in Settings.
   const SCAN_TONE_TYPE = 'triangle';
   const SCAN_TONE_FREQ = 44;     // Hz — low, completely static, no pitch movement ever
   const SCAN_TONE_VOL = 0.06;
-  const SCAN_TONE_ATTACK = 0.08;  // seconds to swell in — just enough to avoid a click, not an audible delay
-  const SCAN_TONE_RELEASE = 0.15; // seconds to fade out — beam gone means sound gone, practically instant
+  const SCAN_TONE_ATTACK = 0.3;  // seconds to swell in
+  const SCAN_TONE_RELEASE = 1.0; // seconds to fade out — starts exactly when the scanner leaves the screen
 
-  let scanTone = null; // live { osc, gain } while the beam is within the visible play field
+  let scanTone = null; // live { osc, gain } while the scan is sweeping
 
   function startScanTone() {
-    if (!actx) return;
+    if (!actx || !settings.sound) return;
     stopScanTone();
+    const m = settings.sounds.scan;
     const t0 = actx.currentTime;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
     osc.type = SCAN_TONE_TYPE;
-    osc.frequency.setValueAtTime(SCAN_TONE_FREQ, t0);
+    osc.frequency.setValueAtTime(SCAN_TONE_FREQ * m.pitch, t0);
     gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL, t0 + SCAN_TONE_ATTACK);
+    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL * m.vol, t0 + SCAN_TONE_ATTACK);
     osc.connect(gain).connect(actx.destination);
     osc.start(t0);
     scanTone = { osc, gain };
   }
 
-  // Fast, near-instant fade-out — beam gone means sound gone.
+  // Rustige fade-out, gelijk gezet met het moment dat de scanner het scherm
+  // verlaat — never a sudden end, so the player intuitively feels the
+  // memory phase beginning rather than being cut off.
   function stopScanTone() {
     if (!scanTone || !actx) return;
     const t = actx.currentTime;
@@ -235,6 +423,7 @@
   }
 
   function haptic(pattern) {
+    if (!settings.haptics) return;
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
 
@@ -597,7 +786,7 @@
   function beginScan() {
     phase = PHASE.SCAN;
     phaseStart = now();
-    toneActiveInField = false; // reset — updateScan() decides when the tone actually starts, based on beam position
+    startScanTone();
     scanY = H + SCAN_START_OFFSET;
     // The extra off-screen padding needed for the trail travels at that same
     // fixed speed, added proportionally, so trail length never changes it.
@@ -610,28 +799,20 @@
     phaseStart = now();
   }
 
-  // Immediate, player-facing acknowledgment of a tap — the pulse ring and
-  // its sound/haptic. This is cell behavior, not scanner behavior, so it
-  // always happens right at tap time, even mid-scan.
-  function pulseTapFeedback(correct, cellIndex) {
+  function beginFeedback(correct, cellIndex) {
+    phase = PHASE.FEEDBACK;
+    phaseStart = now();
+    stopScanTone(); // safety: round may have been decided by a tap mid-scan, before the natural end
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = correct ? 'white' : 'red';
-    if (correct) { playCorrect(); haptic(12); }
-    else { playWrong(); haptic([10, 40, 10]); }
-  }
 
-  // The actual round conclusion: bookkeeping, the Cognitive Engine
-  // decision, save, and the phase change that starts the next round timer.
-  // This is scanner-paced — it never runs until the scanner has genuinely
-  // finished its pass, per "de scanner reageert nooit op de speler".
-  // The engine's decision isn't known until this runs, so a level-up gets
-  // its own extra chime layered on top here, rather than replacing the
-  // plain correct sound pulseTapFeedback already played.
-  function resolveRound(correct) {
-    phase = PHASE.FEEDBACK;
-    phaseStart = now();
-
+    // Log the outcome into the rolling history and ask the Cognitive Engine
+    // where to go next — done BEFORE picking a sound, so a round that
+    // advances the ladder can get its own distinct chime instead of the
+    // plain correct tone. Gameplay and the ladder dataset are untouched by
+    // this — the engine only ever returns -1/0/1, and only ever sees
+    // roundHistory, never game internals.
     save.totalRounds++;
     if (correct) {
       save.totalCorrect++;
@@ -639,10 +820,16 @@
     }
     const reactionMs = now() - roundStartTime;
     roundHistory.push({ correct, reactionMs });
-    if (roundHistory.length > 50) roundHistory.shift();
+    if (roundHistory.length > 50) roundHistory.shift(); // cap memory, engine only ever looks at a small recent window anyway
     pendingAdjustment = CognitiveEngine.decide(roundHistory);
 
-    if (correct && pendingAdjustment === 1) playLevelUp();
+    if (correct) {
+      if (pendingAdjustment === 1) playLevelUp(); else playCorrect();
+      haptic(12);
+    } else {
+      playWrong();
+      haptic([10, 40, 10]);
+    }
 
     save.highestScore = Math.max(save.highestScore, save.score);
     save.ladderIndex = ladderIndex;
@@ -661,11 +848,11 @@
 
   // The scanner is a device, not an animation the player controls: it
   // always completes its full pass, at its own fixed pace, no matter what
-  // the player does. A round-concluding tap DURING the scan gets its
-  // acknowledgment pulse/sound immediately (see pulseTapFeedback) — that's
-  // the player's own cell reacting, not the scanner. Only the round
-  // actually ending and the next one starting are held until the scanner
-  // has fully left the screen. The scanner never reacts to the player.
+  // the player does. A round-concluding tap DURING the scan is still
+  // registered instantly (the player's choice is locked in right then),
+  // but its consequences — the feedback sound/pulse, the round actually
+  // ending, the next round starting — are held until the scanner has fully
+  // left the screen. The scanner never reacts to the player.
   let pendingRoundOutcome = null; // { correct, cellIndex } — set by a tap during SCAN, resolved once the scan finishes
 
   // ---------- Interaction ----------
@@ -694,22 +881,20 @@
       c.found = true;
       roundFound++;
       if (roundFound >= roundTargets.size) {
-        // last target found — round decided. Pulse/sound happen right now
-        // regardless of phase; only the actual round-end waits on the
-        // scanner if it's still sweeping.
-        pulseTapFeedback(true, hitIndex);
+        // last target found — round decided. If the scanner is still
+        // sweeping, hold the actual feedback until it's done; otherwise
+        // (already in MEMORY) resolve immediately as before.
         if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: true, cellIndex: hitIndex };
-        else resolveRound(true);
+        else beginFeedback(true, hitIndex);
       } else {
         // more targets still to find — stay in memory phase
         pulseFound(hitIndex);
       }
     } else {
       // wrong cell (or an already-found one tapped again) — round decided,
-      // same immediate-pulse / deferred-resolution split applies.
-      pulseTapFeedback(false, hitIndex);
+      // same hold-until-scanner-finishes rule applies.
       if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: false, cellIndex: hitIndex };
-      else resolveRound(false);
+      else beginFeedback(false, hitIndex);
     }
   }
 
@@ -918,7 +1103,6 @@
 
   let scanIntensity = 1; // 0..1 — ramps up as the scanner enters the screen, then holds at 1
   const SCAN_INTENSITY_RAMP = 0.08; // fraction of the full pass over which brightness builds — roughly the "first few centimeters"
-  let toneActiveInField = false; // true while the beam's core is actually within the visible play field
 
   function updateScan(t) {
     const elapsed = t - phaseStart;
@@ -928,21 +1112,6 @@
     // it doesn't slow down at the start/end of its pass.
     scanY = H + SCAN_START_OFFSET - prog * travel;
     scanIntensity = Math.min(1, prog / SCAN_INTENSITY_RAMP);
-
-    // Sound is synced to the beam's actual presence in the play field
-    // (y between 0 and H), not to the SCAN phase's full duration — that
-    // phase starts earlier and ends later than what's actually visible,
-    // to give the off-screen trail room to build/clear. In the field:
-    // sound. Out of the field: no sound.
-    const progEnter = SCAN_START_OFFSET / travel;
-    const progExit = (H + SCAN_START_OFFSET) / travel;
-    if (!toneActiveInField && prog >= progEnter && prog < progExit) {
-      startScanTone();
-      toneActiveInField = true;
-    } else if (toneActiveInField && prog >= progExit) {
-      stopScanTone();
-      toneActiveInField = false;
-    }
 
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
@@ -969,13 +1138,11 @@
 
     if (prog >= 1) {
       for (const c of cells) c.reveal = 0;
-      stopScanTone(); // safety, should already be stopped via the progExit crossing above
+      stopScanTone();
       if (pendingRoundOutcome) {
         const outcome = pendingRoundOutcome;
         pendingRoundOutcome = null;
-        // Pulse/sound already played at tap time (see handleTap) — only the
-        // actual round resolution was waiting on the scanner.
-        resolveRound(outcome.correct);
+        beginFeedback(outcome.correct, outcome.cellIndex);
       } else {
         beginMemory();
       }
@@ -1014,6 +1181,107 @@
     startRound();
     requestAnimationFrame(frame);
   }
+
+  // ---------- Settings panel ----------
+  const settingsEl = document.getElementById('settings');
+  const soundToggle = document.getElementById('toggleSound');
+  const hapticsToggle = document.getElementById('toggleHaptics');
+
+  function refreshSettingsUI() {
+    soundToggle.classList.toggle('on', settings.sound);
+    hapticsToggle.classList.toggle('on', settings.haptics);
+  }
+  refreshSettingsUI();
+
+  soundToggle.addEventListener('click', () => {
+    settings.sound = !settings.sound;
+    saveSettings();
+    refreshSettingsUI();
+  });
+  hapticsToggle.addEventListener('click', () => {
+    settings.haptics = !settings.haptics;
+    saveSettings();
+    refreshSettingsUI();
+  });
+  document.getElementById('closeSettings').addEventListener('click', () => {
+    settingsEl.classList.add('hidden');
+  });
+  document.getElementById('settingsGear').addEventListener('click', () => {
+    ensureAudio();
+    settingsEl.classList.remove('hidden');
+  });
+
+  // Each sound gets its own pitch/volume sliders (as multipliers on the
+  // tuned base values, so chords/intervals within a sound stay intact)
+  // plus a test button. Changes save immediately.
+  const SOUND_LABELS = {
+    scan: 'Scanner',
+    tick: 'Cijfer onthuld',
+    correct: 'Correct',
+    wrong: 'Fout',
+    levelUp: 'Level omhoog'
+  };
+  const SOUND_TEST_FN = {
+    scan: () => { startScanTone(); setTimeout(stopScanTone, 900); },
+    tick: playTick,
+    correct: playCorrect,
+    wrong: playWrong,
+    levelUp: playLevelUp
+  };
+
+  const soundBlocksEl = document.getElementById('soundBlocks');
+  function buildSoundBlocks() {
+    soundBlocksEl.innerHTML = '';
+    for (const key of Object.keys(SOUND_LABELS)) {
+      const mix = settings.sounds[key];
+      const block = document.createElement('div');
+      block.className = 'sound-block';
+      block.innerHTML = `
+        <div class="head">
+          <span>${SOUND_LABELS[key]}</span>
+          <button class="testBtn" data-test="${key}">▶ Test</button>
+        </div>
+        <div class="slider-row">
+          <label>Toonhoogte <span class="val" data-valpitch="${key}">${mix.pitch.toFixed(2)}×</span></label>
+          <input type="range" min="0.5" max="2" step="0.01" value="${mix.pitch}" data-pitch="${key}">
+        </div>
+        <div class="slider-row">
+          <label>Volume <span class="val" data-valvol="${key}">${mix.vol.toFixed(2)}×</span></label>
+          <input type="range" min="0" max="2" step="0.01" value="${mix.vol}" data-vol="${key}">
+        </div>`;
+      soundBlocksEl.appendChild(block);
+    }
+
+    soundBlocksEl.querySelectorAll('[data-pitch]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.pitch;
+        settings.sounds[key].pitch = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valpitch="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-vol]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.vol;
+        settings.sounds[key].vol = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valvol="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-test]').forEach((el) => {
+      el.addEventListener('click', () => {
+        ensureAudio();
+        SOUND_TEST_FN[el.dataset.test]();
+      });
+    });
+  }
+  buildSoundBlocks();
+
+  document.getElementById('resetSounds').addEventListener('click', () => {
+    settings.sounds = JSON.parse(JSON.stringify(DEFAULT_SOUND_MIX));
+    saveSettings();
+    buildSoundBlocks();
+  });
 
   const welcomeEl = document.getElementById('welcome');
   if (save.totalRounds > 0) {
