@@ -117,7 +117,7 @@
     tone(340, 0.16, 0.05, 'triangle');
     setTimeout(() => tone(230, 0.3, 0.055, 'triangle'), 90);
   }
-  function playTick() { tone(600, 0.08, 0.02, 'sine'); }
+  function playTick() { tone(600, 0.1, 0.05, 'sine'); }
 
   function haptic(pattern) {
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
