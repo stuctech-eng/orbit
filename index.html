@@ -39,6 +39,9 @@
     overscroll-behavior: none;
     touch-action: none;
   }
+  #settings {
+    touch-action: pan-y;
+  }
   canvas {
     display: block;
     width: 100%;
@@ -118,8 +121,10 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    justify-content: center;
-    padding: env(safe-area-inset-top) max(24px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(24px, env(safe-area-inset-left));
+    justify-content: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     color: #ffffff;
@@ -130,7 +135,7 @@
     letter-spacing: 0.2em;
     color: rgba(255,255,255,0.4);
     text-transform: uppercase;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     text-align: center;
   }
   #settings .row {
@@ -159,8 +164,63 @@
   }
   #settings .toggle.on { background: rgba(255,255,255,0.85); }
   #settings .toggle.on .knob { transform: translateX(20px); background: #000; }
-  #settings button.close {
-    margin-top: 36px;
+  #settings .section-label {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin: 28px 4px 10px;
+  }
+  #settings .sound-block {
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    padding: 14px 16px 16px;
+    margin-bottom: 12px;
+  }
+  #settings .sound-block .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  #settings .sound-block .head span { font-size: 14px; }
+  #settings .testBtn {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    min-height: 32px;
+  }
+  #settings .testBtn:active { background: rgba(255,255,255,0.18); }
+  #settings .slider-row { margin-bottom: 8px; }
+  #settings .slider-row label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 4px;
+  }
+  #settings .slider-row label .val { color: rgba(255,255,255,0.75); font-variant-numeric: tabular-nums; }
+  #settings input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.18);
+    outline: none;
+    margin: 0;
+  }
+  #settings input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    cursor: pointer;
+  }
+  #settings button.close, #settings button.reset {
     appearance: none;
     border: 1px solid rgba(255,255,255,0.25);
     background: rgba(255,255,255,0.05);
@@ -170,6 +230,8 @@
     border-radius: 999px;
     min-height: 44px;
   }
+  #settings button.close { margin-top: 20px; }
+  #settings button.reset { margin-top: 10px; border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.55); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -198,6 +260,11 @@
     <span>Trilling</span>
     <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
   </div>
+
+  <div class="section-label">Per geluid</div>
+  <div id="soundBlocks"></div>
+
+  <button class="reset" id="resetSounds">Alle geluiden terugzetten naar standaard</button>
   <button class="close" id="closeSettings">Sluiten</button>
 </div>
 
@@ -246,7 +313,23 @@
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
-  let settings = Object.assign({ sound: true, haptics: true }, loadSettings() || {});
+  const SOUND_TYPES = ['sine', 'triangle', 'sawtooth'];
+  const DEFAULT_SOUND_MIX = {
+    scan:    { pitch: 1, vol: 1, attack: 1, release: 1, type: 1 }, // type 1 = triangle, matches the tuned base
+    tick:    { pitch: 1, vol: 1, decay: 1, type: 0 },
+    correct: { pitch: 1, vol: 1, decay: 1, type: 0 },
+    wrong:   { pitch: 1, vol: 1, decay: 1, type: 1 },
+    levelUp: { pitch: 1, vol: 1, decay: 1, type: 0 }
+  };
+  let settings = Object.assign(
+    { sound: true, haptics: true, sounds: JSON.parse(JSON.stringify(DEFAULT_SOUND_MIX)) },
+    loadSettings() || {}
+  );
+  // guard against settings saved before a given sound (or a given field on
+  // an existing sound) existed
+  for (const key in DEFAULT_SOUND_MIX) {
+    settings.sounds[key] = Object.assign({}, DEFAULT_SOUND_MIX[key], settings.sounds[key] || {});
+  }
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
   }
@@ -275,28 +358,40 @@
     osc.start(t0);
     osc.stop(t0 + dur + 0.05);
   }
-  function playCorrect() { tone(880, 0.35, 0.05, 'sine'); tone(1320, 0.3, 0.03, 'sine'); }
-  function playWrong() {
-    tone(340, 0.16, 0.05, 'triangle');
-    setTimeout(() => tone(230, 0.3, 0.055, 'triangle'), 90);
+  function playCorrect() {
+    const m = settings.sounds.correct;
+    const type = SOUND_TYPES[m.type];
+    tone(880 * m.pitch, 0.35 * m.decay, 0.05 * m.vol, type);
+    tone(1320 * m.pitch, 0.3 * m.decay, 0.03 * m.vol, type);
   }
-  function playTick() { tone(600, 0.1, 0.05, 'sine'); }
+  function playWrong() {
+    const m = settings.sounds.wrong;
+    const type = SOUND_TYPES[m.type];
+    tone(340 * m.pitch, 0.16 * m.decay, 0.05 * m.vol, type);
+    setTimeout(() => tone(230 * m.pitch, 0.3 * m.decay, 0.055 * m.vol, type), 90);
+  }
+  function playTick() {
+    const m = settings.sounds.tick;
+    tone(600 * m.pitch, 0.1 * m.decay, 0.05 * m.vol, SOUND_TYPES[m.type]);
+  }
 
   // A rarer, more rewarding moment than a plain correct tap — a soft
   // ascending three-note chime, distinct from playCorrect's simultaneous
   // two-tone chord.
   function playLevelUp() {
-    tone(660, 0.12, 0.045, 'sine');
-    setTimeout(() => tone(880, 0.16, 0.05, 'sine'), 70);
-    setTimeout(() => tone(1100, 0.24, 0.04, 'sine'), 140);
+    const m = settings.sounds.levelUp;
+    const type = SOUND_TYPES[m.type];
+    tone(660 * m.pitch, 0.12 * m.decay, 0.045 * m.vol, type);
+    setTimeout(() => tone(880 * m.pitch, 0.16 * m.decay, 0.05 * m.vol, type), 70);
+    setTimeout(() => tone(1100 * m.pitch, 0.24 * m.decay, 0.04 * m.vol, type), 140);
   }
 
   // ---------- Scanner Audio Identity ----------
   // One sound, nothing more: a single low, static tone that swells in with
-  // the scan and fades out with it. No warm-up layer, no noise layer, no
-  // panning — deliberately reduced to its simplest possible form.
-  // Values tuned live by hand (via the scan-tone tuner) and locked in here.
-  const SCAN_TONE_TYPE = 'triangle';
+  // the scan and fades out with it. No noise layer, no panning —
+  // deliberately reduced to its simplest possible form.
+  // Base values tuned live by hand (via the scan-tone tuner); pitch,
+  // volume, fade times and waveform can be further adjusted in Settings.
   const SCAN_TONE_FREQ = 44;     // Hz — low, completely static, no pitch movement ever
   const SCAN_TONE_VOL = 0.06;
   const SCAN_TONE_ATTACK = 0.3;  // seconds to swell in
@@ -307,13 +402,14 @@
   function startScanTone() {
     if (!actx || !settings.sound) return;
     stopScanTone();
+    const m = settings.sounds.scan;
     const t0 = actx.currentTime;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
-    osc.type = SCAN_TONE_TYPE;
-    osc.frequency.setValueAtTime(SCAN_TONE_FREQ, t0);
+    osc.type = SOUND_TYPES[m.type];
+    osc.frequency.setValueAtTime(SCAN_TONE_FREQ * m.pitch, t0);
     gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL, t0 + SCAN_TONE_ATTACK);
+    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL * m.vol, t0 + SCAN_TONE_ATTACK * m.attack);
     osc.connect(gain).connect(actx.destination);
     osc.start(t0);
     scanTone = { osc, gain };
@@ -326,10 +422,11 @@
     if (!scanTone || !actx) return;
     const t = actx.currentTime;
     const { osc, gain } = scanTone;
+    const release = SCAN_TONE_RELEASE * settings.sounds.scan.release;
     gain.gain.cancelScheduledValues(t);
     gain.gain.setValueAtTime(gain.gain.value, t);
-    gain.gain.linearRampToValueAtTime(0, t + SCAN_TONE_RELEASE);
-    try { osc.stop(t + SCAN_TONE_RELEASE + 0.1); } catch (e) {}
+    gain.gain.linearRampToValueAtTime(0, t + release);
+    try { osc.stop(t + release + 0.1); } catch (e) {}
     scanTone = null;
   }
 
@@ -1114,12 +1211,150 @@
     saveSettings();
     refreshSettingsUI();
   });
+  function setScrollLock(locked) {
+    const val = locked ? 'none' : 'pan-y';
+    document.documentElement.style.touchAction = val;
+    document.body.style.touchAction = val;
+  }
   document.getElementById('closeSettings').addEventListener('click', () => {
     settingsEl.classList.add('hidden');
+    setScrollLock(true);
   });
   document.getElementById('settingsGear').addEventListener('click', () => {
     ensureAudio();
     settingsEl.classList.remove('hidden');
+    setScrollLock(false); // let the settings panel actually scroll and let sliders be dragged
+  });
+
+  // Each sound gets its own pitch/volume sliders (as multipliers on the
+  // tuned base values, so chords/intervals within a sound stay intact)
+  // plus a test button. Changes save immediately.
+  const SOUND_LABELS = {
+    scan: 'Scanner',
+    tick: 'Cijfer onthuld',
+    correct: 'Correct',
+    wrong: 'Fout',
+    levelUp: 'Level omhoog'
+  };
+  const SOUND_TEST_FN = {
+    scan: () => { startScanTone(); setTimeout(stopScanTone, 900); },
+    tick: playTick,
+    correct: playCorrect,
+    wrong: playWrong,
+    levelUp: playLevelUp
+  };
+
+  const soundBlocksEl = document.getElementById('soundBlocks');
+  const WAVEFORM_LABELS = ['Sine (zacht)', 'Triangle (warm)', 'Sawtooth (scherp)'];
+
+  function fadeRowsHtml(key, mix) {
+    if (key === 'scan') {
+      return `
+        <div class="slider-row">
+          <label>Aanzwellen <span class="val" data-valattack="${key}">${mix.attack.toFixed(2)}×</span></label>
+          <input type="range" min="0.2" max="3" step="0.05" value="${mix.attack}" data-attack="${key}">
+        </div>
+        <div class="slider-row">
+          <label>Uitsterven <span class="val" data-valrelease="${key}">${mix.release.toFixed(2)}×</span></label>
+          <input type="range" min="0.2" max="3" step="0.05" value="${mix.release}" data-release="${key}">
+        </div>`;
+    }
+    return `
+      <div class="slider-row">
+        <label>Fade-out <span class="val" data-valdecay="${key}">${mix.decay.toFixed(2)}×</span></label>
+        <input type="range" min="0.2" max="3" step="0.05" value="${mix.decay}" data-decay="${key}">
+      </div>`;
+  }
+
+  function buildSoundBlocks() {
+    soundBlocksEl.innerHTML = '';
+    for (const key of Object.keys(SOUND_LABELS)) {
+      const mix = settings.sounds[key];
+      const block = document.createElement('div');
+      block.className = 'sound-block';
+      block.innerHTML = `
+        <div class="head">
+          <span>${SOUND_LABELS[key]}</span>
+          <button class="testBtn" data-test="${key}">▶ Test</button>
+        </div>
+        <div class="slider-row">
+          <label>Toonhoogte <span class="val" data-valpitch="${key}">${mix.pitch.toFixed(2)}×</span></label>
+          <input type="range" min="0.5" max="2" step="0.01" value="${mix.pitch}" data-pitch="${key}">
+        </div>
+        <div class="slider-row">
+          <label>Volume <span class="val" data-valvol="${key}">${mix.vol.toFixed(2)}×</span></label>
+          <input type="range" min="0" max="2" step="0.01" value="${mix.vol}" data-vol="${key}">
+        </div>
+        ${fadeRowsHtml(key, mix)}
+        <div class="slider-row">
+          <label>Golfvorm <span class="val" data-valtype="${key}">${WAVEFORM_LABELS[mix.type]}</span></label>
+          <input type="range" min="0" max="2" step="1" value="${mix.type}" data-type="${key}">
+        </div>`;
+      soundBlocksEl.appendChild(block);
+    }
+
+    soundBlocksEl.querySelectorAll('[data-pitch]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.pitch;
+        settings.sounds[key].pitch = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valpitch="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-vol]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.vol;
+        settings.sounds[key].vol = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valvol="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-attack]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.attack;
+        settings.sounds[key].attack = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valattack="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-release]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.release;
+        settings.sounds[key].release = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valrelease="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-decay]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.decay;
+        settings.sounds[key].decay = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valdecay="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-type]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.type;
+        const idx = parseInt(el.value, 10);
+        settings.sounds[key].type = idx;
+        soundBlocksEl.querySelector(`[data-valtype="${key}"]`).textContent = WAVEFORM_LABELS[idx];
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-test]').forEach((el) => {
+      el.addEventListener('click', () => {
+        ensureAudio();
+        SOUND_TEST_FN[el.dataset.test]();
+      });
+    });
+  }
+  buildSoundBlocks();
+
+  document.getElementById('resetSounds').addEventListener('click', () => {
+    settings.sounds = JSON.parse(JSON.stringify(DEFAULT_SOUND_MIX));
+    saveSettings();
+    buildSoundBlocks();
   });
 
   const welcomeEl = document.getElementById('welcome');
@@ -1145,7 +1380,12 @@
   // which can shift the whole page during a drag even with touch-action:
   // none in some standalone-PWA edge cases — this is very likely what
   // looked like cells "sinking below the screen" during interaction.
-  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  // Explicitly skipped inside #settings, which needs real scrolling and
+  // slider-dragging to work.
+  document.addEventListener('touchmove', (e) => {
+    if (e.target.closest && e.target.closest('#settings')) return;
+    e.preventDefault();
+  }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 })();
 
