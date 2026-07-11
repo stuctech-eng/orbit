@@ -184,10 +184,6 @@
   }
   function playTick() { tone(600, 0.1, 0.05, 'sine'); }
 
-  // Barely-there activation cue — plays every single round, so it has to
-  // stay almost subliminal rather than announce itself.
-  function playScanStart() { tone(240, 0.12, 0.018, 'sine'); }
-
   // A rarer, more rewarding moment than a plain correct tap — a soft
   // ascending three-note chime, distinct from playCorrect's simultaneous
   // two-tone chord.
@@ -195,6 +191,118 @@
     tone(660, 0.12, 0.045, 'sine');
     setTimeout(() => tone(880, 0.16, 0.05, 'sine'), 70);
     setTimeout(() => tone(1100, 0.24, 0.04, 'sine'), 140);
+  }
+
+  // ---------- Scanner Audio Identity ----------
+  // The scanner's own sound world: a CT/MRI-style spin-up, a continuous
+  // ambience while it sweeps, and a graceful fade-out. Deliberately not a
+  // beep — this is meant to become as recognizable as the visual beam.
+
+  // Warm, low spin-up — "a large machine slowly waking up". Starts as soon
+  // as a round begins, roughly a second before the beam is actually visible.
+  function playScanWarmup() {
+    if (!actx) return;
+    const t0 = actx.currentTime;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(70, t0);
+    osc.frequency.exponentialRampToValueAtTime(112, t0 + 0.9);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.035, t0 + 0.6);
+    gain.gain.linearRampToValueAtTime(0, t0 + 1.0);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 1.1);
+  }
+
+  // Reusable noise buffer for the "soft air" texture — built once, not
+  // regenerated every round.
+  let noiseBuffer = null;
+  function getNoiseBuffer() {
+    if (noiseBuffer || !actx) return noiseBuffer;
+    const len = actx.sampleRate * 2;
+    noiseBuffer = actx.createBuffer(1, len, actx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    return noiseBuffer;
+  }
+
+  let scanAmbience = null; // live node graph while the scan is sweeping
+
+  // Continuous ambience for the sweep itself: filtered "air" noise plus a
+  // soft tonal layer, gently panned. No hard tone, no laser zap — just a
+  // sense that the field is actively passing over the screen.
+  function startScanAmbience() {
+    if (!actx) return;
+    stopScanAmbience();
+    const buf = getNoiseBuffer();
+    if (!buf) return;
+    const t0 = actx.currentTime;
+
+    const noise = actx.createBufferSource();
+    noise.buffer = buf;
+    noise.loop = true;
+    const noiseFilter = actx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(800, t0);
+    noiseFilter.Q.value = 0.6;
+    const noiseGain = actx.createGain();
+    noiseGain.gain.setValueAtTime(0, t0);
+
+    const drone = actx.createOscillator();
+    drone.type = 'sine';
+    drone.frequency.setValueAtTime(200, t0);
+    const droneGain = actx.createGain();
+    droneGain.gain.setValueAtTime(0, t0);
+
+    const panner = actx.createStereoPanner ? actx.createStereoPanner() : null;
+    const masterGain = actx.createGain();
+    masterGain.gain.setValueAtTime(0, t0);
+
+    noise.connect(noiseFilter).connect(noiseGain).connect(masterGain);
+    drone.connect(droneGain).connect(masterGain);
+    if (panner) { masterGain.connect(panner); panner.connect(actx.destination); }
+    else { masterGain.connect(actx.destination); }
+
+    // gentle fade in — never a sudden start
+    masterGain.gain.linearRampToValueAtTime(1, t0 + 0.5);
+    noiseGain.gain.linearRampToValueAtTime(0.011, t0 + 0.5);
+    droneGain.gain.linearRampToValueAtTime(0.018, t0 + 0.5);
+
+    noise.start(t0);
+    drone.start(t0);
+
+    scanAmbience = { noise, drone, noiseFilter, droneGain, noiseGain, masterGain, panner };
+  }
+
+  // Called every frame while the scan is active — lets pitch and stereo
+  // position drift subtly with scan progress (0..1), so it feels like it's
+  // actually tracking the beam rather than looping statically.
+  function updateScanAmbience(prog) {
+    if (!scanAmbience || !actx) return;
+    const t = actx.currentTime;
+    scanAmbience.drone.frequency.setTargetAtTime(200 + prog * 70, t, 0.15);
+    scanAmbience.noiseFilter.frequency.setTargetAtTime(800 + prog * 400, t, 0.15);
+    if (scanAmbience.panner) {
+      // Very subtle sweep — near-unnoticeable on a phone's mono/stereo-blended
+      // built-in speakers, only faintly present on headphones.
+      scanAmbience.panner.pan.setTargetAtTime(Math.sin(prog * Math.PI) * 0.15, t, 0.2);
+    }
+  }
+
+  // Rustige fade-out — never a sudden end, so the player intuitively feels
+  // the memory phase beginning rather than being cut off.
+  function stopScanAmbience() {
+    if (!scanAmbience || !actx) return;
+    const t = actx.currentTime;
+    const { noise, drone, masterGain } = scanAmbience;
+    masterGain.gain.cancelScheduledValues(t);
+    masterGain.gain.setValueAtTime(masterGain.gain.value, t);
+    masterGain.gain.linearRampToValueAtTime(0, t + 0.5);
+    try { noise.stop(t + 0.6); } catch (e) {}
+    try { drone.stop(t + 0.6); } catch (e) {}
+    scanAmbience = null;
   }
 
   function haptic(pattern) {
@@ -507,7 +615,7 @@
   let roundTargets = new Set();  // indices of cells holding a digit this round
   let roundFound = 0;            // how many of those have been correctly tapped so far
 
-  const INTRO_DELAY = 350;
+  const INTRO_DELAY = 1000; // gives playScanWarmup() room to build before the beam appears, per the scanner audio spec
   const FEEDBACK_DURATION = 500;
   const REVEAL_DURATION = 600; // ms digit stays visible
   const REVEAL_TOLERANCE = 10; // px band around scan line to trigger reveal
@@ -519,6 +627,7 @@
     phase = PHASE.INTRO;
     phaseStart = now();
     roundStartTime = now();
+    playScanWarmup();
 
     // Ladder navigation: the fixed dataset (LADDER) never changes — only
     // WHERE we are in it moves, per the Cognitive Engine's last decision.
@@ -559,7 +668,7 @@
   function beginScan() {
     phase = PHASE.SCAN;
     phaseStart = now();
-    playScanStart();
+    startScanAmbience();
     scanY = H + SCAN_START_OFFSET;
     // The extra off-screen padding needed for the trail travels at that same
     // fixed speed, added proportionally, so trail length never changes it.
@@ -575,6 +684,7 @@
   function beginFeedback(correct, cellIndex) {
     phase = PHASE.FEEDBACK;
     phaseStart = now();
+    stopScanAmbience(); // safety: round may have been decided by a tap mid-scan, before the natural end
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = correct ? 'white' : 'red';
@@ -862,6 +972,7 @@
     // Linear, not eased — a real scanner sweeps at one constant speed,
     // it doesn't slow down at the start/end of its pass.
     scanY = H + SCAN_START_OFFSET - prog * travel;
+    updateScanAmbience(prog);
 
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
@@ -888,6 +999,7 @@
 
     if (prog >= 1) {
       for (const c of cells) c.reveal = 0;
+      stopScanAmbience();
       beginMemory();
     }
   }

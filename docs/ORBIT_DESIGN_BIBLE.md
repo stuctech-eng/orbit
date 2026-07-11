@@ -121,15 +121,19 @@ Geluidsidentiteit (Web Audio, geen samples), tonaal familie rond een gedeelde sc
 
 | Moment | Geluid | Karakter |
 |---|---|---|
-| Scan start | 240Hz sine, zeer stil (vol 0.018) | Vrijwel subliminaal — klinkt élke ronde, mag nooit opvallen |
+| Scan-opstart | 70→112Hz sine, ~1s, zeer stil (vol 0.035) | Warme, lage "whooom" — een groot apparaat dat langzaam opstart. Start bij ronde-begin, ~1s vóór de beam zichtbaar wordt |
+| Scan-ambience | Doorlopend: gefilterde ruis (bandpass, 800→1200Hz) + zachte sinus-drone (200→270Hz), lichte stereo-beweging | Volgt de voortgang van de scan; geen harde toon, geen laser. Vervangt de oude losse "tik" volledig |
+| Scan-einde | Ambience faded rustig uit over 0.5s | Nooit abrupt — ook niet als de ronde vroegtijdig eindigt door een tik tijdens de scan |
 | Cijfer onthuld | 600Hz sine, kort | Zachte tik |
 | Correct | 880Hz + 1320Hz sine, gelijktijdig | Helder akkoord |
 | Level omhoog | 660 → 880 → 1100Hz sine, oplopend | Zeldzamer en feestelijker dan "correct" — alleen als de Cognitive Engine besluit vooruit te gaan |
 | Fout | 340 → 230Hz triangle, dalend | Zacht, duidelijk "fout", nooit schril |
 
-Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik). Reveal en scan-start hebben geen haptic (zou te veel worden — reveal kan meerdere keren per ronde voorkomen, scan-start gebeurt elke ronde).
+**Timing-gevolg:** de pauze vóór een nieuwe scan (`INTRO_DELAY`) is bewust verlengd naar ~1000ms (was 350ms) om de opstart-whoom ruimte te geven. Dit is een bewuste afweging tussen "geen dode momenten" en de scanner-audio-spec — de pauze is nu gevuld met geluid in plaats van leeg te zijn.
 
-**Ontwerpregel voor geluid:** rustig, helder, premium. Nooit een game-arcade-gevoel. Elk geluid dat vaak klinkt (scan-start, reveal) is bewust het stilst; geluiden die zeldzaam zijn (level omhoog) mogen iets meer ruimte innemen.
+Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik). Reveal en scan-opstart/ambience hebben geen haptic.
+
+**Ontwerpregel voor geluid:** rustig, helder, premium, realistisch — als een CT/MRI-scanner, nooit een sciencefiction-laser of gamepieptoon. Elk geluid dat vaak klinkt is bewust het stilst; geluiden die zeldzaam zijn (level omhoog) mogen iets meer ruimte innemen. De scanner moet op termijn zo herkenbaar worden dat de speler hem hoort aankomen vóór hij hem ziet.
 
 ---
 
