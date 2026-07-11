@@ -198,20 +198,18 @@
   // ambience while it sweeps, and a graceful fade-out. Deliberately not a
   // beep — this is meant to become as recognizable as the visual beam.
 
-  // Warm, low spin-up — "a large machine slowly waking up". Starts the
-  // instant a round begins, peaks right as the beam appears, and tapers
-  // out shortly into the scan itself — it never delays the beam, the two
-  // simply overlap for a moment as the ambience takes over.
+  // Warm, low spin-up — "a large machine slowly waking up". A flat, static
+  // low hum (no pitch sweep at all — that reads as a jet engine spooling
+  // up, which is exactly what we don't want). Only volume swells and fades.
   function playScanWarmup() {
     if (!actx) return;
     const t0 = actx.currentTime;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(70, t0);
-    osc.frequency.exponentialRampToValueAtTime(110, t0 + 0.7);
+    osc.frequency.setValueAtTime(85, t0); // static — no ramp
     gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(0.035, t0 + 0.3);  // peaks right as INTRO_DELAY ends
+    gain.gain.linearRampToValueAtTime(0.032, t0 + 0.3);  // peaks right as INTRO_DELAY ends
     gain.gain.linearRampToValueAtTime(0, t0 + 0.8);       // fully faded ~450ms into the scan
     osc.connect(gain).connect(actx.destination);
     osc.start(t0);
@@ -247,14 +245,14 @@
     noise.loop = true;
     const noiseFilter = actx.createBiquadFilter();
     noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.setValueAtTime(800, t0);
-    noiseFilter.Q.value = 0.6;
+    noiseFilter.frequency.setValueAtTime(700, t0); // static — no sweep
+    noiseFilter.Q.value = 0.5;
     const noiseGain = actx.createGain();
     noiseGain.gain.setValueAtTime(0, t0);
 
     const drone = actx.createOscillator();
     drone.type = 'sine';
-    drone.frequency.setValueAtTime(200, t0);
+    drone.frequency.setValueAtTime(150, t0); // static low hum — no pitch movement at all
     const droneGain = actx.createGain();
     droneGain.gain.setValueAtTime(0, t0);
 
@@ -269,8 +267,8 @@
 
     // gentle fade in — never a sudden start
     masterGain.gain.linearRampToValueAtTime(1, t0 + 0.5);
-    noiseGain.gain.linearRampToValueAtTime(0.011, t0 + 0.5);
-    droneGain.gain.linearRampToValueAtTime(0.018, t0 + 0.5);
+    noiseGain.gain.linearRampToValueAtTime(0.010, t0 + 0.5);
+    droneGain.gain.linearRampToValueAtTime(0.014, t0 + 0.5);
 
     noise.start(t0);
     drone.start(t0);
@@ -278,14 +276,13 @@
     scanAmbience = { noise, drone, noiseFilter, droneGain, noiseGain, masterGain, panner };
   }
 
-  // Called every frame while the scan is active — lets pitch and stereo
-  // position drift subtly with scan progress (0..1), so it feels like it's
-  // actually tracking the beam rather than looping statically.
+  // Called every frame while the scan is active. Pitch stays completely
+  // static throughout (a rising tone reads as a jet engine spooling up,
+  // which is the opposite of the calm CT/MRI feel) — only the very subtle
+  // stereo position drifts, which is spatial, not tonal.
   function updateScanAmbience(prog) {
     if (!scanAmbience || !actx) return;
     const t = actx.currentTime;
-    scanAmbience.drone.frequency.setTargetAtTime(200 + prog * 70, t, 0.15);
-    scanAmbience.noiseFilter.frequency.setTargetAtTime(800 + prog * 400, t, 0.15);
     if (scanAmbience.panner) {
       // Very subtle sweep — near-unnoticeable on a phone's mono/stereo-blended
       // built-in speakers, only faintly present on headphones.

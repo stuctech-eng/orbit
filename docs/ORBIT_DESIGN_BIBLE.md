@@ -125,8 +125,8 @@ Geluidsidentiteit (Web Audio, geen samples), tonaal familie rond een gedeelde sc
 
 | Moment | Geluid | Karakter |
 |---|---|---|
-| Scan-opstart | 70→110Hz sine, ~0.8s, zeer stil (vol 0.035) | Warme, lage "whooom" — een groot apparaat dat langzaam opstart. Start bij ronde-begin, piekt exact wanneer de beam verschijnt (~350ms), en loopt nog ~450ms door ín het begin van de scan zelf — nooit vóór de scan afgerond, altijd een overlap |
-| Scan-ambience | Doorlopend: gefilterde ruis (bandpass, 800→1200Hz) + zachte sinus-drone (200→270Hz), lichte stereo-beweging | Volgt de voortgang van de scan; geen harde toon, geen laser. Vervangt de oude losse "tik" volledig |
+| Scan-opstart | 85Hz sine, statisch, ~0.8s, zeer stil (vol 0.032) | Vlakke lage hum, geen enkele toonhoogte-verandering — een oplopende toon klinkt als een opstijgend vliegtuig, dat is expliciet vermeden |
+| Scan-ambience | Doorlopend: gefilterde ruis (bandpass, vast op 700Hz) + statische sinus-hum (vast op 150Hz), lichte stereo-beweging | Volume zwelt aan/uit, toonhoogte verandert nooit — alleen de stereopositie drift heel licht mee met de voortgang |
 | Scan-einde | Ambience faded rustig uit over 0.5s | Nooit abrupt — ook niet als de ronde vroegtijdig eindigt door een tik tijdens de scan |
 | Cijfer onthuld | 600Hz sine, kort | Zachte tik |
 | Correct | 880Hz + 1320Hz sine, gelijktijdig | Helder akkoord |
