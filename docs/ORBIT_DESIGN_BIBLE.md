@@ -125,7 +125,7 @@ Geluidsidentiteit (Web Audio, geen samples), tonaal familie rond een gedeelde sc
 
 | Moment | Geluid | Karakter |
 |---|---|---|
-| Scan | 90Hz sine, statisch, zeer stil (vol 0.04) — één doorlopende toon | Eén enkele, lage aangehouden toon. Zwelt aan met de scan, houdt vlak, sterft rustig uit (0.5s fade) wanneer de scan eindigt — geen aparte opstart, geen ruislaag, geen stereobeweging. Bewust tot de eenvoudigst mogelijke vorm teruggebracht |
+| Scan | 44Hz triangle, statisch, vol 0.06, 0.3s aanzwellen, 1s uitsterven (gelijk met scanner-vertrek) — één doorlopende toon | Handmatig live afgesteld via een aparte tuning-tool. Zwelt aan met de scan, houdt vlak, sterft rustig uit precies wanneer de scanner het scherm verlaat — geen aparte opstart, geen ruislaag, geen stereobeweging |
 | Scan-einde | Ambience faded rustig uit over 0.5s | Nooit abrupt — ook niet als de ronde vroegtijdig eindigt door een tik tijdens de scan |
 | Cijfer onthuld | 600Hz sine, kort | Zachte tik |
 | Correct | 880Hz + 1320Hz sine, gelijktijdig | Helder akkoord |
@@ -148,7 +148,17 @@ Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik).
 
 ---
 
-## 8. Wat hier NIET in thuishoort
+## 8. Instellingen
+
+Persistente `localStorage`-key `orbit_settings_v1`, los van het Save System (dit zijn app-voorkeuren, geen voortgang):
+- **Geluid** aan/uit — schakelt alle `tone()`-gebaseerde geluiden én de scan-toon uit
+- **Trilling** aan/uit — schakelt haptics uit
+
+Toegankelijk via een tandwiel-icoon rechtsboven op het "Welkom terug"-scherm. **Bekende beperking v1:** omdat dat scherm alleen verschijnt voor terugkerende spelers (`save.totalRounds > 0`), heeft een gloednieuwe speler nog geen ingang naar Instellingen totdat hij minstens één ronde heeft gespeeld en de app opnieuw opent. Dit hoort bij Fase 4 (UI) verder uitgebreid te worden met een permanente, altijd bereikbare ingang.
+
+---
+
+## 9. Wat hier NIET in thuishoort
 
 Dingen die bewust zijn afgewezen of uitgesteld, zodat ze niet per ongeluk terugkomen://
 - Kleur (ook niet subtiel cyaan/teal — expliciet overwogen en afgewezen)

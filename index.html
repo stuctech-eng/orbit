@@ -99,6 +99,77 @@
     min-height: 44px;
   }
   #welcome button:active { background: rgba(255,255,255,0.15); }
+  #settingsGear {
+    position: absolute;
+    top: max(20px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.4);
+    font-size: 20px;
+    background: none;
+    border: none;
+  }
+  #settings {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding: env(safe-area-inset-top) max(24px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(24px, env(safe-area-inset-left));
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    color: #ffffff;
+  }
+  #settings.hidden { display: none; }
+  #settings .title {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+  #settings .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 15px;
+  }
+  #settings .toggle {
+    width: 50px; height: 30px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    position: relative;
+    flex-shrink: 0;
+  }
+  #settings .toggle .knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s ease;
+  }
+  #settings .toggle.on { background: rgba(255,255,255,0.85); }
+  #settings .toggle.on .knob { transform: translateX(20px); background: #000; }
+  #settings button.close {
+    margin-top: 36px;
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 14px;
+    padding: 14px 0;
+    border-radius: 999px;
+    min-height: 44px;
+  }
 </style>
 </head>
 <body>
@@ -106,6 +177,7 @@
   <canvas id="c"></canvas>
 </div>
 <div id="welcome" class="hidden">
+  <button id="settingsGear" aria-label="Instellingen">⚙</button>
   <div class="title">ORBIT</div>
   <div class="stats">
     <div class="stat"><div class="value" id="statLevel">–</div><div class="label">Level</div></div>
@@ -114,6 +186,19 @@
     <div class="stat"><div class="value" id="statRating">–</div><div class="label">Cognitive Rating</div></div>
   </div>
   <button id="resumeBtn">▶ Verder spelen</button>
+</div>
+
+<div id="settings" class="hidden">
+  <div class="title">Instellingen</div>
+  <div class="row">
+    <span>Geluid</span>
+    <button class="toggle" id="toggleSound" aria-label="Geluid aan/uit"><span class="knob"></span></button>
+  </div>
+  <div class="row">
+    <span>Trilling</span>
+    <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
+  </div>
+  <button class="close" id="closeSettings">Sluiten</button>
 </div>
 
 <script>
@@ -153,6 +238,19 @@
   }
   resize();
 
+  // ---------- Settings ----------
+  const SETTINGS_KEY = 'orbit_settings_v1';
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  let settings = Object.assign({ sound: true, haptics: true }, loadSettings() || {});
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+  }
+
   // ---------- Audio ----------
   let actx = null;
   function ensureAudio() {
@@ -164,7 +262,7 @@
     }
   }
   function tone(freq, dur, vol, type) {
-    if (!actx) return;
+    if (!actx || !settings.sound) return;
     const t0 = actx.currentTime;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
@@ -197,37 +295,46 @@
   // One sound, nothing more: a single low, static tone that swells in with
   // the scan and fades out with it. No warm-up layer, no noise layer, no
   // panning — deliberately reduced to its simplest possible form.
+  // Values tuned live by hand (via the scan-tone tuner) and locked in here.
+  const SCAN_TONE_TYPE = 'triangle';
+  const SCAN_TONE_FREQ = 44;     // Hz — low, completely static, no pitch movement ever
+  const SCAN_TONE_VOL = 0.06;
+  const SCAN_TONE_ATTACK = 0.3;  // seconds to swell in
+  const SCAN_TONE_RELEASE = 1.0; // seconds to fade out — starts exactly when the scanner leaves the screen
+
   let scanTone = null; // live { osc, gain } while the scan is sweeping
 
   function startScanTone() {
-    if (!actx) return;
+    if (!actx || !settings.sound) return;
     stopScanTone();
     const t0 = actx.currentTime;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(90, t0); // low, completely static — no pitch movement, ever
+    osc.type = SCAN_TONE_TYPE;
+    osc.frequency.setValueAtTime(SCAN_TONE_FREQ, t0);
     gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(0.04, t0 + 0.4); // gentle swell in
+    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL, t0 + SCAN_TONE_ATTACK);
     osc.connect(gain).connect(actx.destination);
     osc.start(t0);
     scanTone = { osc, gain };
   }
 
-  // Rustige fade-out — never a sudden end, so the player intuitively feels
-  // the memory phase beginning rather than being cut off.
+  // Rustige fade-out, gelijk gezet met het moment dat de scanner het scherm
+  // verlaat — never a sudden end, so the player intuitively feels the
+  // memory phase beginning rather than being cut off.
   function stopScanTone() {
     if (!scanTone || !actx) return;
     const t = actx.currentTime;
     const { osc, gain } = scanTone;
     gain.gain.cancelScheduledValues(t);
     gain.gain.setValueAtTime(gain.gain.value, t);
-    gain.gain.linearRampToValueAtTime(0, t + 0.5);
-    try { osc.stop(t + 0.6); } catch (e) {}
+    gain.gain.linearRampToValueAtTime(0, t + SCAN_TONE_RELEASE);
+    try { osc.stop(t + SCAN_TONE_RELEASE + 0.1); } catch (e) {}
     scanTone = null;
   }
 
   function haptic(pattern) {
+    if (!settings.haptics) return;
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
 
@@ -985,6 +1092,35 @@
     startRound();
     requestAnimationFrame(frame);
   }
+
+  // ---------- Settings panel ----------
+  const settingsEl = document.getElementById('settings');
+  const soundToggle = document.getElementById('toggleSound');
+  const hapticsToggle = document.getElementById('toggleHaptics');
+
+  function refreshSettingsUI() {
+    soundToggle.classList.toggle('on', settings.sound);
+    hapticsToggle.classList.toggle('on', settings.haptics);
+  }
+  refreshSettingsUI();
+
+  soundToggle.addEventListener('click', () => {
+    settings.sound = !settings.sound;
+    saveSettings();
+    refreshSettingsUI();
+  });
+  hapticsToggle.addEventListener('click', () => {
+    settings.haptics = !settings.haptics;
+    saveSettings();
+    refreshSettingsUI();
+  });
+  document.getElementById('closeSettings').addEventListener('click', () => {
+    settingsEl.classList.add('hidden');
+  });
+  document.getElementById('settingsGear').addEventListener('click', () => {
+    ensureAudio();
+    settingsEl.classList.remove('hidden');
+  });
 
   const welcomeEl = document.getElementById('welcome');
   if (save.totalRounds > 0) {
