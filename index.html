@@ -629,6 +629,7 @@
     phase = PHASE.INTRO;
     phaseStart = now();
     roundStartTime = now();
+    pendingRoundOutcome = null;
     playScanWarmup();
 
     // Ladder navigation: the fixed dataset (LADDER) never changes — only
@@ -730,10 +731,20 @@
     haptic(10);
   }
 
+  // The scanner is a device, not an animation the player controls: it
+  // always completes its full pass, at its own fixed pace, no matter what
+  // the player does. A round-concluding tap DURING the scan is still
+  // registered instantly (the player's choice is locked in right then),
+  // but its consequences — the feedback sound/pulse, the round actually
+  // ending, the next round starting — are held until the scanner has fully
+  // left the screen. The scanner never reacts to the player.
+  let pendingRoundOutcome = null; // { correct, cellIndex } — set by a tap during SCAN, resolved once the scan finishes
+
   // ---------- Interaction ----------
   function handleTap(clientX, clientY) {
     ensureAudio();
     if (phase !== PHASE.MEMORY && phase !== PHASE.SCAN) return;
+    if (pendingRoundOutcome) return; // this round's outcome is already locked in — waiting for the scanner to finish
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -755,15 +766,20 @@
       c.found = true;
       roundFound++;
       if (roundFound >= roundTargets.size) {
-        // last target found — round complete, success
-        beginFeedback(true, hitIndex);
+        // last target found — round decided. If the scanner is still
+        // sweeping, hold the actual feedback until it's done; otherwise
+        // (already in MEMORY) resolve immediately as before.
+        if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: true, cellIndex: hitIndex };
+        else beginFeedback(true, hitIndex);
       } else {
         // more targets still to find — stay in memory phase
         pulseFound(hitIndex);
       }
     } else {
-      // wrong cell (or an already-found one tapped again) — round over
-      beginFeedback(false, hitIndex);
+      // wrong cell (or an already-found one tapped again) — round decided,
+      // same hold-until-scanner-finishes rule applies.
+      if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: false, cellIndex: hitIndex };
+      else beginFeedback(false, hitIndex);
     }
   }
 
@@ -900,10 +916,13 @@
     ctx.save();
 
     // Subtle, irregular flicker — feels like energy running through the
-    // beam, without ever becoming distracting or strobe-like
-    const flicker = 0.88
+    // beam, without ever becoming distracting or strobe-like. Scaled by
+    // scanIntensity so the whole beam swells in as it enters the screen
+    // and holds steady once fully visible, instead of snapping to full
+    // brightness immediately.
+    const flicker = (0.88
       + 0.09 * Math.sin(t * 0.0075)
-      + 0.05 * Math.sin(t * 0.0331 + 1.7);
+      + 0.05 * Math.sin(t * 0.0331 + 1.7)) * scanIntensity;
 
     // Asymmetric streak: almost no glow ahead of the core (it's heading
     // into darkness), but a long trail behind it that flares brightest
@@ -967,6 +986,9 @@
   // ---------- Main loop ----------
   let lastT = now();
 
+  let scanIntensity = 1; // 0..1 — ramps up as the scanner enters the screen, then holds at 1
+  const SCAN_INTENSITY_RAMP = 0.08; // fraction of the full pass over which brightness builds — roughly the "first few centimeters"
+
   function updateScan(t) {
     const elapsed = t - phaseStart;
     const prog = Math.min(1, elapsed / scanDuration);
@@ -974,6 +996,7 @@
     // Linear, not eased — a real scanner sweeps at one constant speed,
     // it doesn't slow down at the start/end of its pass.
     scanY = H + SCAN_START_OFFSET - prog * travel;
+    scanIntensity = Math.min(1, prog / SCAN_INTENSITY_RAMP);
     updateScanAmbience(prog);
 
     for (let i = 0; i < cells.length; i++) {
@@ -1002,7 +1025,13 @@
     if (prog >= 1) {
       for (const c of cells) c.reveal = 0;
       stopScanAmbience();
-      beginMemory();
+      if (pendingRoundOutcome) {
+        const outcome = pendingRoundOutcome;
+        pendingRoundOutcome = null;
+        beginFeedback(outcome.correct, outcome.cellIndex);
+      } else {
+        beginMemory();
+      }
     }
   }
 

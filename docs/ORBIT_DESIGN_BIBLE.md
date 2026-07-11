@@ -23,6 +23,7 @@ Het uiteindelijke doel: een speler die na een paar rondes automatisch denkt *"no
 - **Physics boven moeilijkheid.** Vloeiende, voorspelbare beweging weegt zwaarder dan een uitdagender spel. De speler moet een cel kunnen blijven volgen.
 - **Eén ding tegelijk perfectioneren.** Nieuwe mechanics worden niet toegevoegd totdat de bestaande laag uitzonderlijk goed aanvoelt (feature freeze-principe).
 - **Audio ondersteunt, nooit bepalend.** Geluid mag de pacing van de gameplay nooit vertragen of erop wachten. Klinkt een geluid nog door terwijl de volgende stap al begint (zoals de scan-opstart die overloopt in de scan zelf), dan is dat een bewuste overlap — nooit een wachttijd.
+- **De scanner bepaalt het ritme, niet de speler.** De scanner is een apparaat, geen animatie die de speler bestuurt. Hij maakt altijd zijn volledige beweging af, ongeacht wat de speler doet — stopt niet, versnelt niet, verandert niet. Een ronde-beslissende tik tijdens de scan wordt direct vastgelegd, maar de afhandeling ervan (geluid, feedback, volgende ronde) wacht tot de scanner het scherm volledig heeft verlaten.
 
 ---
 
@@ -82,7 +83,7 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 1. Nieuwe ronde start
 2. Scanner beweegt automatisch, vaste snelheid, van onder naar boven
 3. Cijfers worden ~600ms onthuld op het moment dat de scan een doelcel raakt
-4. Scanner verdwijnt (of ronde eindigt eerder door een tik — tikken mag al tijdens de scan, niet pas erna)
+4. Scanner verdwijnt (of de ronde-beslissing wordt vastgelegd door een eerdere tik — tikken mag al tijdens de scan, maar de scanner zelf wordt daar nooit door onderbroken, versneld of veranderd; de afhandeling wacht tot de scanner het scherm volledig heeft verlaten)
 5. Cellen blijven bewegen
 6. Speler tikt de juiste cel(len) — bij meerdere cijfers: elke juiste tik geeft eigen feedback, pas de laatste sluit de ronde af
 7. Feedback (correct of fout)
@@ -103,7 +104,9 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 - Zachte aura eromheen (blur, apart laagje) voor bloom zonder de rand te vervagen
 - Asymmetrische sleep: vrijwel geen gloed vóór de kern (richting beweging), een lange uitwaaierende staart erachter die geleidelijk vervaagt
 - Lichte, onregelmatige flikkering (twee overlappende sinusgolven) — energiek zonder storend te zijn
+- **Helderheids-opbouw:** bij het verschijnen bouwt de volledige lichtintensiteit (kern, gloed, staart — via één gedeelde `flicker`-factor) op over de eerste ~8% van de doorkruising, bereikt dan maximum en blijft daarna stabiel
 - Vaste snelheid: 4500ms om het zichtbare scherm te doorkruisen, lineair (geen easing)
+- **Onderbreekbaar door niets:** de scanner maakt altijd zijn volledige pass af, ook als de speler eerder al heeft getikt (zie Gameflow-regel hieronder)
 
 ### Cellen ("Soft Pearl")
 - Radiale gradient, minimaal contrast, brede zachte sheen — geen scherp glinstertje, geen rim light, geen diepe schaduw
