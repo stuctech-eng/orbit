@@ -289,10 +289,13 @@
   const COLLISION_BUFFER = 14;   // extra gap kept between cells on top of their radii
   const TAP_HIT_TOLERANCE = 1.6; // multiplier on radius for how forgiving a tap is
 
+  let nextCellId = 1; // stable identity for cells — the cells ARRAY can be mutated mid-round (fade-out purges), array indices cannot be trusted to still point at the same cell later
+
   function makeCell(x, y) {
     const speed = rand(CELL_SPEED_MIN, CELL_SPEED_MAX);
     const angle = rand(0, Math.PI * 2);
     return {
+      id: nextCellId++,
       x, y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
@@ -389,9 +392,9 @@
 
   // Returns the indices of cells currently participating in the round
   // (i.e. not fading out) — used for target/digit selection and tap hits.
-  function activeCellIndices() {
+  function activeCellIds() {
     const out = [];
-    for (let i = 0; i < cells.length; i++) if (!cells[i].dying) out.push(i);
+    for (const c of cells) if (!c.dying) out.push(c.id);
     return out;
   }
 
@@ -489,19 +492,22 @@
     adjustCellCount(numCells);
 
     // pick `step.digits` unique ACTIVE cells to hold a number this round —
-    // never a cell that's currently fading out
-    const indices = activeCellIndices();
-    for (let i = indices.length - 1; i > 0; i--) {
+    // never a cell that's currently fading out. Tracked by stable id, NOT
+    // array index — the cells array can be mutated mid-round (fade-out
+    // purges in frame()), which would silently point roundTargets at the
+    // wrong cell if it were index-based. This was the root cause of taps
+    // randomly registering as wrong/missed.
+    const ids = activeCellIds();
+    for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(rand(0, i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
+      [ids[i], ids[j]] = [ids[j], ids[i]];
     }
-    roundTargets = new Set(indices.slice(0, step.digits));
+    roundTargets = new Set(ids.slice(0, step.digits));
     roundFound = 0;
 
-    for (let i = 0; i < cells.length; i++) {
-      const c = cells[i];
+    for (const c of cells) {
       if (c.dying) continue; // leave fading cells alone — they're not part of this round
-      c.digit = roundTargets.has(i) ? Math.floor(rand(0, 10)) : null;
+      c.digit = roundTargets.has(c.id) ? Math.floor(rand(0, 10)) : null;
       c.reveal = 0;
       c.revealed = false;
       c.found = false;
@@ -578,7 +584,7 @@
   // the player's own cell reacting, not the scanner. Only the round
   // actually ending and the next one starting are held until the scanner
   // has fully left the screen. The scanner never reacts to the player.
-  let pendingRoundOutcome = null; // { correct, cellIndex } — set by a tap during SCAN, resolved once the scan finishes
+  let pendingRoundOutcome = null; // { correct } — set by a tap during SCAN, resolved once the scan finishes
 
   // ---------- Interaction ----------
   function handleTap(clientX, clientY) {
@@ -599,7 +605,11 @@
     if (hitIndex === -1) return;
 
     const c = cells[hitIndex];
-    const isTarget = roundTargets.has(hitIndex) && !c.found;
+    // Checked by stable id, not array index — the cells array can be
+    // mutated between round-start and this tap (fade-out purges), so the
+    // index roundTargets was built from may no longer point at the same
+    // cell. This was the actual bug behind taps registering inconsistently.
+    const isTarget = roundTargets.has(c.id) && !c.found;
 
     if (isTarget) {
       c.found = true;
@@ -609,7 +619,7 @@
         // regardless of phase; only the actual round-end waits on the
         // scanner if it's still sweeping.
         pulseTapFeedback(true, hitIndex);
-        if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: true, cellIndex: hitIndex };
+        if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: true };
         else resolveRound(true);
       } else {
         // more targets still to find — stay in memory phase
@@ -619,7 +629,7 @@
       // wrong cell (or an already-found one tapped again) — round decided,
       // same immediate-pulse / deferred-resolution split applies.
       pulseTapFeedback(false, hitIndex);
-      if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: false, cellIndex: hitIndex };
+      if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: false };
       else resolveRound(false);
     }
   }
