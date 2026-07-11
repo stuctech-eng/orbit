@@ -99,77 +99,6 @@
     min-height: 44px;
   }
   #welcome button:active { background: rgba(255,255,255,0.15); }
-  #settingsGear {
-    position: absolute;
-    top: max(20px, env(safe-area-inset-top));
-    right: max(20px, env(safe-area-inset-right));
-    width: 44px; height: 44px;
-    display: flex; align-items: center; justify-content: center;
-    color: rgba(255,255,255,0.4);
-    font-size: 20px;
-    background: none;
-    border: none;
-  }
-  #settings {
-    position: fixed;
-    inset: 0;
-    z-index: 30;
-    background: #000000;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: center;
-    padding: env(safe-area-inset-top) max(24px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(24px, env(safe-area-inset-left));
-    box-sizing: border-box;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-    color: #ffffff;
-  }
-  #settings.hidden { display: none; }
-  #settings .title {
-    font-size: 13px;
-    letter-spacing: 0.2em;
-    color: rgba(255,255,255,0.4);
-    text-transform: uppercase;
-    margin-bottom: 32px;
-    text-align: center;
-  }
-  #settings .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 4px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    font-size: 15px;
-  }
-  #settings .toggle {
-    width: 50px; height: 30px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.15);
-    border: none;
-    position: relative;
-    flex-shrink: 0;
-  }
-  #settings .toggle .knob {
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    background: #fff;
-    transition: transform 0.15s ease;
-  }
-  #settings .toggle.on { background: rgba(255,255,255,0.85); }
-  #settings .toggle.on .knob { transform: translateX(20px); background: #000; }
-  #settings button.close {
-    margin-top: 36px;
-    appearance: none;
-    border: 1px solid rgba(255,255,255,0.25);
-    background: rgba(255,255,255,0.05);
-    color: #fff;
-    font-size: 14px;
-    padding: 14px 0;
-    border-radius: 999px;
-    min-height: 44px;
-  }
 </style>
 </head>
 <body>
@@ -177,7 +106,6 @@
   <canvas id="c"></canvas>
 </div>
 <div id="welcome" class="hidden">
-  <button id="settingsGear" aria-label="Instellingen">⚙</button>
   <div class="title">ORBIT</div>
   <div class="stats">
     <div class="stat"><div class="value" id="statLevel">–</div><div class="label">Level</div></div>
@@ -186,19 +114,6 @@
     <div class="stat"><div class="value" id="statRating">–</div><div class="label">Cognitive Rating</div></div>
   </div>
   <button id="resumeBtn">▶ Verder spelen</button>
-</div>
-
-<div id="settings" class="hidden">
-  <div class="title">Instellingen</div>
-  <div class="row">
-    <span>Geluid</span>
-    <button class="toggle" id="toggleSound" aria-label="Geluid aan/uit"><span class="knob"></span></button>
-  </div>
-  <div class="row">
-    <span>Trilling</span>
-    <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
-  </div>
-  <button class="close" id="closeSettings">Sluiten</button>
 </div>
 
 <script>
@@ -238,103 +153,7 @@
   }
   resize();
 
-  // ---------- Settings ----------
-  const SETTINGS_KEY = 'orbit_settings_v1';
-  function loadSettings() {
-    try {
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
-  }
-  let settings = Object.assign({ sound: true, haptics: true }, loadSettings() || {});
-  function saveSettings() {
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
-  }
-
-  // ---------- Audio ----------
-  let actx = null;
-  function ensureAudio() {
-    if (!actx) {
-      try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
-      catch (e) { actx = null; }
-    } else if (actx.state === 'suspended') {
-      actx.resume();
-    }
-  }
-  function tone(freq, dur, vol, type) {
-    if (!actx || !settings.sound) return;
-    const t0 = actx.currentTime;
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = type || 'sine';
-    osc.frequency.setValueAtTime(freq, t0);
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(vol, t0 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(gain).connect(actx.destination);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.05);
-  }
-  function playCorrect() { tone(880, 0.35, 0.05, 'sine'); tone(1320, 0.3, 0.03, 'sine'); }
-  function playWrong() {
-    tone(340, 0.16, 0.05, 'triangle');
-    setTimeout(() => tone(230, 0.3, 0.055, 'triangle'), 90);
-  }
-  function playTick() { tone(600, 0.1, 0.05, 'sine'); }
-
-  // A rarer, more rewarding moment than a plain correct tap — a soft
-  // ascending three-note chime, distinct from playCorrect's simultaneous
-  // two-tone chord.
-  function playLevelUp() {
-    tone(660, 0.12, 0.045, 'sine');
-    setTimeout(() => tone(880, 0.16, 0.05, 'sine'), 70);
-    setTimeout(() => tone(1100, 0.24, 0.04, 'sine'), 140);
-  }
-
-  // ---------- Scanner Audio Identity ----------
-  // One sound, nothing more: a single low, static tone that swells in with
-  // the scan and fades out with it. No warm-up layer, no noise layer, no
-  // panning — deliberately reduced to its simplest possible form.
-  // Values tuned live by hand (via the scan-tone tuner) and locked in here.
-  const SCAN_TONE_TYPE = 'triangle';
-  const SCAN_TONE_FREQ = 44;     // Hz — low, completely static, no pitch movement ever
-  const SCAN_TONE_VOL = 0.06;
-  const SCAN_TONE_ATTACK = 0.3;  // seconds to swell in
-  const SCAN_TONE_RELEASE = 1.0; // seconds to fade out — starts exactly when the scanner leaves the screen
-
-  let scanTone = null; // live { osc, gain } while the scan is sweeping
-
-  function startScanTone() {
-    if (!actx || !settings.sound) return;
-    stopScanTone();
-    const t0 = actx.currentTime;
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type = SCAN_TONE_TYPE;
-    osc.frequency.setValueAtTime(SCAN_TONE_FREQ, t0);
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL, t0 + SCAN_TONE_ATTACK);
-    osc.connect(gain).connect(actx.destination);
-    osc.start(t0);
-    scanTone = { osc, gain };
-  }
-
-  // Rustige fade-out, gelijk gezet met het moment dat de scanner het scherm
-  // verlaat — never a sudden end, so the player intuitively feels the
-  // memory phase beginning rather than being cut off.
-  function stopScanTone() {
-    if (!scanTone || !actx) return;
-    const t = actx.currentTime;
-    const { osc, gain } = scanTone;
-    gain.gain.cancelScheduledValues(t);
-    gain.gain.setValueAtTime(gain.gain.value, t);
-    gain.gain.linearRampToValueAtTime(0, t + SCAN_TONE_RELEASE);
-    try { osc.stop(t + SCAN_TONE_RELEASE + 0.1); } catch (e) {}
-    scanTone = null;
-  }
-
   function haptic(pattern) {
-    if (!settings.haptics) return;
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
 
@@ -697,7 +516,6 @@
   function beginScan() {
     phase = PHASE.SCAN;
     phaseStart = now();
-    startScanTone();
     scanY = H + SCAN_START_OFFSET;
     // The extra off-screen padding needed for the trail travels at that same
     // fixed speed, added proportionally, so trail length never changes it.
@@ -710,20 +528,25 @@
     phaseStart = now();
   }
 
-  function beginFeedback(correct, cellIndex) {
-    phase = PHASE.FEEDBACK;
-    phaseStart = now();
-    stopScanTone(); // safety: round may have been decided by a tap mid-scan, before the natural end
+  // Immediate, player-facing acknowledgment of a tap — the pulse ring and
+  // its haptic. This is cell behavior, not scanner behavior, so it always
+  // happens right at tap time, even mid-scan.
+  function pulseTapFeedback(correct, cellIndex) {
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = correct ? 'white' : 'red';
+    if (correct) { haptic(12); }
+    else { haptic([10, 40, 10]); }
+  }
 
-    // Log the outcome into the rolling history and ask the Cognitive Engine
-    // where to go next — done BEFORE picking a sound, so a round that
-    // advances the ladder can get its own distinct chime instead of the
-    // plain correct tone. Gameplay and the ladder dataset are untouched by
-    // this — the engine only ever returns -1/0/1, and only ever sees
-    // roundHistory, never game internals.
+  // The actual round conclusion: bookkeeping, the Cognitive Engine
+  // decision, save, and the phase change that starts the next round timer.
+  // This is scanner-paced — it never runs until the scanner has genuinely
+  // finished its pass, per "de scanner reageert nooit op de speler".
+  function resolveRound(correct) {
+    phase = PHASE.FEEDBACK;
+    phaseStart = now();
+
     save.totalRounds++;
     if (correct) {
       save.totalCorrect++;
@@ -731,16 +554,8 @@
     }
     const reactionMs = now() - roundStartTime;
     roundHistory.push({ correct, reactionMs });
-    if (roundHistory.length > 50) roundHistory.shift(); // cap memory, engine only ever looks at a small recent window anyway
+    if (roundHistory.length > 50) roundHistory.shift();
     pendingAdjustment = CognitiveEngine.decide(roundHistory);
-
-    if (correct) {
-      if (pendingAdjustment === 1) playLevelUp(); else playCorrect();
-      haptic(12);
-    } else {
-      playWrong();
-      haptic([10, 40, 10]);
-    }
 
     save.highestScore = Math.max(save.highestScore, save.score);
     save.ladderIndex = ladderIndex;
@@ -753,22 +568,20 @@
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = 'white';
-    playCorrect();
     haptic(10);
   }
 
   // The scanner is a device, not an animation the player controls: it
   // always completes its full pass, at its own fixed pace, no matter what
-  // the player does. A round-concluding tap DURING the scan is still
-  // registered instantly (the player's choice is locked in right then),
-  // but its consequences — the feedback sound/pulse, the round actually
-  // ending, the next round starting — are held until the scanner has fully
-  // left the screen. The scanner never reacts to the player.
+  // the player does. A round-concluding tap DURING the scan gets its
+  // acknowledgment pulse/sound immediately (see pulseTapFeedback) — that's
+  // the player's own cell reacting, not the scanner. Only the round
+  // actually ending and the next one starting are held until the scanner
+  // has fully left the screen. The scanner never reacts to the player.
   let pendingRoundOutcome = null; // { correct, cellIndex } — set by a tap during SCAN, resolved once the scan finishes
 
   // ---------- Interaction ----------
   function handleTap(clientX, clientY) {
-    ensureAudio();
     if (phase !== PHASE.MEMORY && phase !== PHASE.SCAN) return;
     if (pendingRoundOutcome) return; // this round's outcome is already locked in — waiting for the scanner to finish
     const rect = canvas.getBoundingClientRect();
@@ -792,25 +605,26 @@
       c.found = true;
       roundFound++;
       if (roundFound >= roundTargets.size) {
-        // last target found — round decided. If the scanner is still
-        // sweeping, hold the actual feedback until it's done; otherwise
-        // (already in MEMORY) resolve immediately as before.
+        // last target found — round decided. Pulse/sound happen right now
+        // regardless of phase; only the actual round-end waits on the
+        // scanner if it's still sweeping.
+        pulseTapFeedback(true, hitIndex);
         if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: true, cellIndex: hitIndex };
-        else beginFeedback(true, hitIndex);
+        else resolveRound(true);
       } else {
         // more targets still to find — stay in memory phase
         pulseFound(hitIndex);
       }
     } else {
       // wrong cell (or an already-found one tapped again) — round decided,
-      // same hold-until-scanner-finishes rule applies.
+      // same immediate-pulse / deferred-resolution split applies.
+      pulseTapFeedback(false, hitIndex);
       if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: false, cellIndex: hitIndex };
-      else beginFeedback(false, hitIndex);
+      else resolveRound(false);
     }
   }
 
   canvas.addEventListener('pointerdown', (e) => {
-    ensureAudio();
     handleTap(e.clientX, e.clientY);
   }, { passive: true });
 
@@ -1031,7 +845,6 @@
           c.revealed = true;
           c.revealUntil = t + REVEAL_DURATION;
           c.burst = 1;
-          playTick();
         }
       }
       if (c.revealed && c.revealUntil > 0) {
@@ -1049,11 +862,12 @@
 
     if (prog >= 1) {
       for (const c of cells) c.reveal = 0;
-      stopScanTone();
       if (pendingRoundOutcome) {
         const outcome = pendingRoundOutcome;
         pendingRoundOutcome = null;
-        beginFeedback(outcome.correct, outcome.cellIndex);
+        // Pulse feedback already played at tap time (see handleTap) — only
+        // the actual round resolution was waiting on the scanner.
+        resolveRound(outcome.correct);
       } else {
         beginMemory();
       }
@@ -1093,35 +907,6 @@
     requestAnimationFrame(frame);
   }
 
-  // ---------- Settings panel ----------
-  const settingsEl = document.getElementById('settings');
-  const soundToggle = document.getElementById('toggleSound');
-  const hapticsToggle = document.getElementById('toggleHaptics');
-
-  function refreshSettingsUI() {
-    soundToggle.classList.toggle('on', settings.sound);
-    hapticsToggle.classList.toggle('on', settings.haptics);
-  }
-  refreshSettingsUI();
-
-  soundToggle.addEventListener('click', () => {
-    settings.sound = !settings.sound;
-    saveSettings();
-    refreshSettingsUI();
-  });
-  hapticsToggle.addEventListener('click', () => {
-    settings.haptics = !settings.haptics;
-    saveSettings();
-    refreshSettingsUI();
-  });
-  document.getElementById('closeSettings').addEventListener('click', () => {
-    settingsEl.classList.add('hidden');
-  });
-  document.getElementById('settingsGear').addEventListener('click', () => {
-    ensureAudio();
-    settingsEl.classList.remove('hidden');
-  });
-
   const welcomeEl = document.getElementById('welcome');
   if (save.totalRounds > 0) {
     document.getElementById('statLevel').textContent = String(save.ladderIndex + 1);
@@ -1130,16 +915,12 @@
     document.getElementById('statRating').textContent = String(cognitiveRating(save));
     welcomeEl.classList.remove('hidden');
     document.getElementById('resumeBtn').addEventListener('click', () => {
-      ensureAudio();
       welcomeEl.classList.add('hidden');
       launchGame();
     }, { once: true });
   } else {
     launchGame();
   }
-
-  // Kick audio context on first interaction (iOS requirement)
-  window.addEventListener('pointerdown', ensureAudio, { once: true });
 
   // Belt-and-suspenders against iOS Safari's bounce/rubber-band scroll,
   // which can shift the whole page during a drag even with touch-action:
