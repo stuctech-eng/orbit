@@ -394,8 +394,8 @@
   // volume, fade times and waveform can be further adjusted in Settings.
   const SCAN_TONE_FREQ = 44;     // Hz — low, completely static, no pitch movement ever
   const SCAN_TONE_VOL = 0.06;
-  const SCAN_TONE_ATTACK = 0.3;  // seconds to swell in
-  const SCAN_TONE_RELEASE = 1.0; // seconds to fade out — starts exactly when the scanner leaves the screen
+  const SCAN_TONE_ATTACK = 0.08;  // seconds to swell in — just enough to avoid a click, not an audible delay
+  const SCAN_TONE_RELEASE = 0.15; // seconds to fade out — beam gone means sound gone, practically instant
 
   let scanTone = null; // live { osc, gain } while the scan is sweeping
 
@@ -807,20 +807,28 @@
     phaseStart = now();
   }
 
-  function beginFeedback(correct, cellIndex) {
-    phase = PHASE.FEEDBACK;
-    phaseStart = now();
-    stopScanTone(); // safety: round may have been decided by a tap mid-scan, before the natural end
+  // Immediate, player-facing acknowledgment of a tap — the pulse ring and
+  // its sound/haptic. This is cell behavior, not scanner behavior, so it
+  // always happens right at tap time, even mid-scan.
+  function pulseTapFeedback(correct, cellIndex) {
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = correct ? 'white' : 'red';
+    if (correct) { playCorrect(); haptic(12); }
+    else { playWrong(); haptic([10, 40, 10]); }
+  }
 
-    // Log the outcome into the rolling history and ask the Cognitive Engine
-    // where to go next — done BEFORE picking a sound, so a round that
-    // advances the ladder can get its own distinct chime instead of the
-    // plain correct tone. Gameplay and the ladder dataset are untouched by
-    // this — the engine only ever returns -1/0/1, and only ever sees
-    // roundHistory, never game internals.
+  // The actual round conclusion: bookkeeping, the Cognitive Engine
+  // decision, save, and the phase change that starts the next round timer.
+  // This is scanner-paced — it never runs until the scanner has genuinely
+  // finished its pass, per "de scanner reageert nooit op de speler".
+  // The engine's decision isn't known until this runs, so a level-up gets
+  // its own extra chime layered on top here, rather than replacing the
+  // plain correct sound pulseTapFeedback already played.
+  function resolveRound(correct) {
+    phase = PHASE.FEEDBACK;
+    phaseStart = now();
+
     save.totalRounds++;
     if (correct) {
       save.totalCorrect++;
@@ -828,16 +836,10 @@
     }
     const reactionMs = now() - roundStartTime;
     roundHistory.push({ correct, reactionMs });
-    if (roundHistory.length > 50) roundHistory.shift(); // cap memory, engine only ever looks at a small recent window anyway
+    if (roundHistory.length > 50) roundHistory.shift();
     pendingAdjustment = CognitiveEngine.decide(roundHistory);
 
-    if (correct) {
-      if (pendingAdjustment === 1) playLevelUp(); else playCorrect();
-      haptic(12);
-    } else {
-      playWrong();
-      haptic([10, 40, 10]);
-    }
+    if (correct && pendingAdjustment === 1) playLevelUp();
 
     save.highestScore = Math.max(save.highestScore, save.score);
     save.ladderIndex = ladderIndex;
@@ -856,11 +858,11 @@
 
   // The scanner is a device, not an animation the player controls: it
   // always completes its full pass, at its own fixed pace, no matter what
-  // the player does. A round-concluding tap DURING the scan is still
-  // registered instantly (the player's choice is locked in right then),
-  // but its consequences — the feedback sound/pulse, the round actually
-  // ending, the next round starting — are held until the scanner has fully
-  // left the screen. The scanner never reacts to the player.
+  // the player does. A round-concluding tap DURING the scan gets its
+  // acknowledgment pulse/sound immediately (see pulseTapFeedback) — that's
+  // the player's own cell reacting, not the scanner. Only the round
+  // actually ending and the next one starting are held until the scanner
+  // has fully left the screen. The scanner never reacts to the player.
   let pendingRoundOutcome = null; // { correct, cellIndex } — set by a tap during SCAN, resolved once the scan finishes
 
   // ---------- Interaction ----------
@@ -889,20 +891,22 @@
       c.found = true;
       roundFound++;
       if (roundFound >= roundTargets.size) {
-        // last target found — round decided. If the scanner is still
-        // sweeping, hold the actual feedback until it's done; otherwise
-        // (already in MEMORY) resolve immediately as before.
+        // last target found — round decided. Pulse/sound happen right now
+        // regardless of phase; only the actual round-end waits on the
+        // scanner if it's still sweeping.
+        pulseTapFeedback(true, hitIndex);
         if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: true, cellIndex: hitIndex };
-        else beginFeedback(true, hitIndex);
+        else resolveRound(true);
       } else {
         // more targets still to find — stay in memory phase
         pulseFound(hitIndex);
       }
     } else {
       // wrong cell (or an already-found one tapped again) — round decided,
-      // same hold-until-scanner-finishes rule applies.
+      // same immediate-pulse / deferred-resolution split applies.
+      pulseTapFeedback(false, hitIndex);
       if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: false, cellIndex: hitIndex };
-      else beginFeedback(false, hitIndex);
+      else resolveRound(false);
     }
   }
 
@@ -1150,7 +1154,9 @@
       if (pendingRoundOutcome) {
         const outcome = pendingRoundOutcome;
         pendingRoundOutcome = null;
-        beginFeedback(outcome.correct, outcome.cellIndex);
+        // Pulse/sound already played at tap time (see handleTap) — only the
+        // actual round resolution was waiting on the scanner.
+        resolveRound(outcome.correct);
       } else {
         beginMemory();
       }
