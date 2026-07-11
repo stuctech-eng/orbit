@@ -39,6 +39,9 @@
     overscroll-behavior: none;
     touch-action: none;
   }
+  #settings {
+    touch-action: pan-y;
+  }
   canvas {
     display: block;
     width: 100%;
@@ -310,20 +313,22 @@
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
+  const SOUND_TYPES = ['sine', 'triangle', 'sawtooth'];
   const DEFAULT_SOUND_MIX = {
-    scan:    { pitch: 1, vol: 1 },
-    tick:    { pitch: 1, vol: 1 },
-    correct: { pitch: 1, vol: 1 },
-    wrong:   { pitch: 1, vol: 1 },
-    levelUp: { pitch: 1, vol: 1 }
+    scan:    { pitch: 1, vol: 1, attack: 1, release: 1, type: 1 }, // type 1 = triangle, matches the tuned base
+    tick:    { pitch: 1, vol: 1, decay: 1, type: 0 },
+    correct: { pitch: 1, vol: 1, decay: 1, type: 0 },
+    wrong:   { pitch: 1, vol: 1, decay: 1, type: 1 },
+    levelUp: { pitch: 1, vol: 1, decay: 1, type: 0 }
   };
   let settings = Object.assign(
     { sound: true, haptics: true, sounds: JSON.parse(JSON.stringify(DEFAULT_SOUND_MIX)) },
     loadSettings() || {}
   );
-  // guard against settings saved before a given sound existed
+  // guard against settings saved before a given sound (or a given field on
+  // an existing sound) existed
   for (const key in DEFAULT_SOUND_MIX) {
-    if (!settings.sounds[key]) settings.sounds[key] = { ...DEFAULT_SOUND_MIX[key] };
+    settings.sounds[key] = Object.assign({}, DEFAULT_SOUND_MIX[key], settings.sounds[key] || {});
   }
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
@@ -355,17 +360,19 @@
   }
   function playCorrect() {
     const m = settings.sounds.correct;
-    tone(880 * m.pitch, 0.35, 0.05 * m.vol, 'sine');
-    tone(1320 * m.pitch, 0.3, 0.03 * m.vol, 'sine');
+    const type = SOUND_TYPES[m.type];
+    tone(880 * m.pitch, 0.35 * m.decay, 0.05 * m.vol, type);
+    tone(1320 * m.pitch, 0.3 * m.decay, 0.03 * m.vol, type);
   }
   function playWrong() {
     const m = settings.sounds.wrong;
-    tone(340 * m.pitch, 0.16, 0.05 * m.vol, 'triangle');
-    setTimeout(() => tone(230 * m.pitch, 0.3, 0.055 * m.vol, 'triangle'), 90);
+    const type = SOUND_TYPES[m.type];
+    tone(340 * m.pitch, 0.16 * m.decay, 0.05 * m.vol, type);
+    setTimeout(() => tone(230 * m.pitch, 0.3 * m.decay, 0.055 * m.vol, type), 90);
   }
   function playTick() {
     const m = settings.sounds.tick;
-    tone(600 * m.pitch, 0.1, 0.05 * m.vol, 'sine');
+    tone(600 * m.pitch, 0.1 * m.decay, 0.05 * m.vol, SOUND_TYPES[m.type]);
   }
 
   // A rarer, more rewarding moment than a plain correct tap — a soft
@@ -373,18 +380,18 @@
   // two-tone chord.
   function playLevelUp() {
     const m = settings.sounds.levelUp;
-    tone(660 * m.pitch, 0.12, 0.045 * m.vol, 'sine');
-    setTimeout(() => tone(880 * m.pitch, 0.16, 0.05 * m.vol, 'sine'), 70);
-    setTimeout(() => tone(1100 * m.pitch, 0.24, 0.04 * m.vol, 'sine'), 140);
+    const type = SOUND_TYPES[m.type];
+    tone(660 * m.pitch, 0.12 * m.decay, 0.045 * m.vol, type);
+    setTimeout(() => tone(880 * m.pitch, 0.16 * m.decay, 0.05 * m.vol, type), 70);
+    setTimeout(() => tone(1100 * m.pitch, 0.24 * m.decay, 0.04 * m.vol, type), 140);
   }
 
   // ---------- Scanner Audio Identity ----------
   // One sound, nothing more: a single low, static tone that swells in with
-  // the scan and fades out with it. No warm-up layer, no noise layer, no
-  // panning — deliberately reduced to its simplest possible form.
-  // Base values tuned live by hand (via the scan-tone tuner); pitch/volume
-  // can be further adjusted per-player in Settings.
-  const SCAN_TONE_TYPE = 'triangle';
+  // the scan and fades out with it. No noise layer, no panning —
+  // deliberately reduced to its simplest possible form.
+  // Base values tuned live by hand (via the scan-tone tuner); pitch,
+  // volume, fade times and waveform can be further adjusted in Settings.
   const SCAN_TONE_FREQ = 44;     // Hz — low, completely static, no pitch movement ever
   const SCAN_TONE_VOL = 0.06;
   const SCAN_TONE_ATTACK = 0.3;  // seconds to swell in
@@ -399,10 +406,10 @@
     const t0 = actx.currentTime;
     const osc = actx.createOscillator();
     const gain = actx.createGain();
-    osc.type = SCAN_TONE_TYPE;
+    osc.type = SOUND_TYPES[m.type];
     osc.frequency.setValueAtTime(SCAN_TONE_FREQ * m.pitch, t0);
     gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL * m.vol, t0 + SCAN_TONE_ATTACK);
+    gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL * m.vol, t0 + SCAN_TONE_ATTACK * m.attack);
     osc.connect(gain).connect(actx.destination);
     osc.start(t0);
     scanTone = { osc, gain };
@@ -415,10 +422,11 @@
     if (!scanTone || !actx) return;
     const t = actx.currentTime;
     const { osc, gain } = scanTone;
+    const release = SCAN_TONE_RELEASE * settings.sounds.scan.release;
     gain.gain.cancelScheduledValues(t);
     gain.gain.setValueAtTime(gain.gain.value, t);
-    gain.gain.linearRampToValueAtTime(0, t + SCAN_TONE_RELEASE);
-    try { osc.stop(t + SCAN_TONE_RELEASE + 0.1); } catch (e) {}
+    gain.gain.linearRampToValueAtTime(0, t + release);
+    try { osc.stop(t + release + 0.1); } catch (e) {}
     scanTone = null;
   }
 
@@ -1203,12 +1211,19 @@
     saveSettings();
     refreshSettingsUI();
   });
+  function setScrollLock(locked) {
+    const val = locked ? 'none' : 'pan-y';
+    document.documentElement.style.touchAction = val;
+    document.body.style.touchAction = val;
+  }
   document.getElementById('closeSettings').addEventListener('click', () => {
     settingsEl.classList.add('hidden');
+    setScrollLock(true);
   });
   document.getElementById('settingsGear').addEventListener('click', () => {
     ensureAudio();
     settingsEl.classList.remove('hidden');
+    setScrollLock(false); // let the settings panel actually scroll and let sliders be dragged
   });
 
   // Each sound gets its own pitch/volume sliders (as multipliers on the
@@ -1230,6 +1245,27 @@
   };
 
   const soundBlocksEl = document.getElementById('soundBlocks');
+  const WAVEFORM_LABELS = ['Sine (zacht)', 'Triangle (warm)', 'Sawtooth (scherp)'];
+
+  function fadeRowsHtml(key, mix) {
+    if (key === 'scan') {
+      return `
+        <div class="slider-row">
+          <label>Aanzwellen <span class="val" data-valattack="${key}">${mix.attack.toFixed(2)}×</span></label>
+          <input type="range" min="0.2" max="3" step="0.05" value="${mix.attack}" data-attack="${key}">
+        </div>
+        <div class="slider-row">
+          <label>Uitsterven <span class="val" data-valrelease="${key}">${mix.release.toFixed(2)}×</span></label>
+          <input type="range" min="0.2" max="3" step="0.05" value="${mix.release}" data-release="${key}">
+        </div>`;
+    }
+    return `
+      <div class="slider-row">
+        <label>Fade-out <span class="val" data-valdecay="${key}">${mix.decay.toFixed(2)}×</span></label>
+        <input type="range" min="0.2" max="3" step="0.05" value="${mix.decay}" data-decay="${key}">
+      </div>`;
+  }
+
   function buildSoundBlocks() {
     soundBlocksEl.innerHTML = '';
     for (const key of Object.keys(SOUND_LABELS)) {
@@ -1248,6 +1284,11 @@
         <div class="slider-row">
           <label>Volume <span class="val" data-valvol="${key}">${mix.vol.toFixed(2)}×</span></label>
           <input type="range" min="0" max="2" step="0.01" value="${mix.vol}" data-vol="${key}">
+        </div>
+        ${fadeRowsHtml(key, mix)}
+        <div class="slider-row">
+          <label>Golfvorm <span class="val" data-valtype="${key}">${WAVEFORM_LABELS[mix.type]}</span></label>
+          <input type="range" min="0" max="2" step="1" value="${mix.type}" data-type="${key}">
         </div>`;
       soundBlocksEl.appendChild(block);
     }
@@ -1265,6 +1306,39 @@
         const key = el.dataset.vol;
         settings.sounds[key].vol = parseFloat(el.value);
         soundBlocksEl.querySelector(`[data-valvol="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-attack]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.attack;
+        settings.sounds[key].attack = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valattack="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-release]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.release;
+        settings.sounds[key].release = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valrelease="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-decay]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.decay;
+        settings.sounds[key].decay = parseFloat(el.value);
+        soundBlocksEl.querySelector(`[data-valdecay="${key}"]`).textContent = parseFloat(el.value).toFixed(2) + '×';
+        saveSettings();
+      });
+    });
+    soundBlocksEl.querySelectorAll('[data-type]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const key = el.dataset.type;
+        const idx = parseInt(el.value, 10);
+        settings.sounds[key].type = idx;
+        soundBlocksEl.querySelector(`[data-valtype="${key}"]`).textContent = WAVEFORM_LABELS[idx];
         saveSettings();
       });
     });
@@ -1306,7 +1380,12 @@
   // which can shift the whole page during a drag even with touch-action:
   // none in some standalone-PWA edge cases — this is very likely what
   // looked like cells "sinking below the screen" during interaction.
-  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  // Explicitly skipped inside #settings, which needs real scrolling and
+  // slider-dragging to work.
+  document.addEventListener('touchmove', (e) => {
+    if (e.target.closest && e.target.closest('#settings')) return;
+    e.preventDefault();
+  }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 })();
 
