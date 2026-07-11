@@ -201,8 +201,8 @@
       { x: cx + spread + jitter(), y: bottomY + jitter() }
     ];
     for (const p of positions) {
-      const x = Math.min(Math.max(p.x, baseRadius * 1.5), W - baseRadius * 1.5);
-      const y = Math.min(Math.max(p.y, baseRadius * 1.5), H - baseRadius * 1.5);
+      const x = Math.min(Math.max(p.x, baseRadius), W - baseRadius);
+      const y = Math.min(Math.max(p.y, baseRadius), H - baseRadius - EDGE_SAFETY_BOTTOM);
       cells.push(makeCell(x, y));
     }
   }
@@ -227,20 +227,22 @@
     const activeCount = activeIndices.length;
 
     if (activeCount < n) {
-      const margin = baseRadius * 1.4;
+      const marginX = baseRadius;
+      const marginYTop = baseRadius;
+      const marginYBottom = baseRadius + EDGE_SAFETY_BOTTOM;
       const toAdd = n - activeCount;
       for (let k = 0; k < toAdd; k++) {
         let placed = false;
         for (let attempt = 0; attempt < 200 && !placed; attempt++) {
-          const x = rand(margin, W - margin);
-          const y = rand(margin, H - margin);
+          const x = rand(marginX, W - marginX);
+          const y = rand(marginYTop, H - marginYBottom);
           let ok = true;
           for (const c of cells) {
             if (Math.hypot(x - c.x, y - c.y) < baseRadius * 2.3) { ok = false; break; }
           }
           if (ok) { cells.push(makeCell(x, y)); placed = true; }
         }
-        if (!placed) cells.push(makeCell(rand(margin, W - margin), rand(margin, H - margin)));
+        if (!placed) cells.push(makeCell(rand(marginX, W - marginX), rand(marginYTop, H - marginYBottom)));
       }
     } else if (activeCount > n) {
       // Don't remove instantly — mark the excess as dying so they fade out
@@ -266,16 +268,23 @@
   }
 
   // ---------- Physics ----------
+  // Only the bottom edge has shown clipping (confirmed: top/left/right are
+  // fine) — almost certainly the home-indicator safe area not being fully
+  // excluded. So only the bottom gets a dedicated, generous buffer instead
+  // of padding all four sides unnecessarily.
+  const EDGE_SAFETY_BOTTOM = 50;
+
   function stepPhysics(dt) {
     for (const c of cells) {
       c.x += c.vx * dt;
       c.y += c.vy * dt;
 
       const pad = c.r;
+      const padBottom = c.r + EDGE_SAFETY_BOTTOM;
       if (c.x < pad) { c.x = pad; c.vx = Math.abs(c.vx); }
       if (c.x > W - pad) { c.x = W - pad; c.vx = -Math.abs(c.vx); }
       if (c.y < pad) { c.y = pad; c.vy = Math.abs(c.vy); }
-      if (c.y > H - pad) { c.y = H - pad; c.vy = -Math.abs(c.vy); }
+      if (c.y > H - padBottom) { c.y = H - padBottom; c.vy = -Math.abs(c.vy); }
     }
 
     // pairwise soft collisions
@@ -307,10 +316,11 @@
     // renders outside the visible play area, even mid-collision near an edge.
     for (const c of cells) {
       const pad = c.r;
+      const padBottom = c.r + EDGE_SAFETY_BOTTOM;
       if (c.x < pad) { c.x = pad; if (c.vx < 0) c.vx = Math.abs(c.vx); }
       if (c.x > W - pad) { c.x = W - pad; if (c.vx > 0) c.vx = -Math.abs(c.vx); }
       if (c.y < pad) { c.y = pad; if (c.vy < 0) c.vy = Math.abs(c.vy); }
-      if (c.y > H - pad) { c.y = H - pad; if (c.vy > 0) c.vy = -Math.abs(c.vy); }
+      if (c.y > H - padBottom) { c.y = H - padBottom; if (c.vy > 0) c.vy = -Math.abs(c.vy); }
     }
   }
 
