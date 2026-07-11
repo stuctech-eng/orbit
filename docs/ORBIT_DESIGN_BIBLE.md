@@ -151,19 +151,10 @@ Haptics: licht, kort. Correct = enkele tik. Fout = kort patroon (tik-pauze-tik).
 ## 8. Instellingen
 
 Persistente `localStorage`-key `orbit_settings_v1`, los van het Save System (dit zijn app-voorkeuren, geen voortgang):
-- **Geluid** aan/uit — master-schakelaar voor alle geluid
+- **Geluid** aan/uit — schakelt alle `tone()`-gebaseerde geluiden én de scan-toon uit
 - **Trilling** aan/uit — schakelt haptics uit
-- **Per geluid instelbaar**, direct in de app: Scanner, Cijfer onthuld, Correct, Fout, Level omhoog. Elk met:
-  - **Toonhoogte** (0,5×–2×) en **Volume** (0×–2×) t.o.v. de getunede basiswaarden
-  - **Fade**: de scanner heeft aparte "Aanzwellen"- en "Uitsterven"-sliders (0,2×–3×, want die heeft een echte aanhoudende toon); de overige vier hebben één "Fade-out"-slider (0,2×–3×) die hun afklinktijd regelt
-  - **Golfvorm**: sine / triangle / sawtooth, per geluid apart te kiezen
-  - Een ▶ Test-knop om meteen te horen wat je instelt
-  - "Alle geluiden terugzetten" herstelt de standaardwaarden
-  - Alles wordt per wijziging direct opgeslagen — geen aparte "opslaan"-knop nodig
 
 Toegankelijk via een tandwiel-icoon rechtsboven op het "Welkom terug"-scherm. **Bekende beperking v1:** omdat dat scherm alleen verschijnt voor terugkerende spelers (`save.totalRounds > 0`), heeft een gloednieuwe speler nog geen ingang naar Instellingen totdat hij minstens één ronde heeft gespeeld en de app opnieuw opent. Dit hoort bij Fase 4 (UI) verder uitgebreid te worden met een permanente, altijd bereikbare ingang.
-
-**Technische voetnoot:** de globale touch-lockdown (tegen iOS-bounce-scroll tijdens gameplay) blokkeerde aanvankelijk ook scrollen en slepen ín het instellingenpaneel zelf, omdat `touch-action` via ouder-elementen wordt "opgeteld" (de striktste waarde wint altijd, ook als een kind zelf een soepelere waarde instelt). Opgelost door `html`/`body` hun touch-action tijdelijk te laten ontspannen zodra het paneel open is, en weer te vergrendelen zodra het sluit — de canvas zelf (`#stage`) blijft te allen tijde vergrendeld, dus gameplay is hier niet door beïnvloed.
 
 ---
 
