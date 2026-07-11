@@ -44,11 +44,76 @@
     width: 100%;
     height: 100%;
   }
+  #welcome {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    color: #ffffff;
+  }
+  #welcome.hidden { display: none; }
+  #welcome .title {
+    font-size: 15px;
+    letter-spacing: 0.28em;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 46px;
+  }
+  #welcome .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 56px;
+    margin-bottom: 56px;
+  }
+  #welcome .stat { text-align: center; }
+  #welcome .stat .value {
+    font-size: 28px;
+    font-weight: 300;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+  }
+  #welcome .stat .label {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: rgba(255,255,255,0.4);
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+  #welcome button {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.05);
+    color: #ffffff;
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    font-family: inherit;
+    padding: 16px 40px;
+    border-radius: 999px;
+    min-height: 44px;
+  }
+  #welcome button:active { background: rgba(255,255,255,0.15); }
 </style>
 </head>
 <body>
 <div id="stage">
   <canvas id="c"></canvas>
+</div>
+<div id="welcome" class="hidden">
+  <div class="title">ORBIT</div>
+  <div class="stats">
+    <div class="stat"><div class="value" id="statLevel">–</div><div class="label">Level</div></div>
+    <div class="stat"><div class="value" id="statHighLevel">–</div><div class="label">Hoogste level</div></div>
+    <div class="stat"><div class="value" id="statScore">–</div><div class="label">Hoogste score</div></div>
+    <div class="stat"><div class="value" id="statRating">–</div><div class="label">Cognitive Rating</div></div>
+  </div>
+  <button id="resumeBtn">▶ Verder spelen</button>
 </div>
 
 <script>
@@ -123,9 +188,56 @@
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
 
+  // ---------- Save / Resume ----------
+  const SAVE_KEY = 'orbit_save_v1';
+
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+
+  function defaultSave() {
+    return {
+      ladderIndex: 0,
+      highestLadderIndex: 0,
+      score: 0,
+      highestScore: 0,
+      totalCorrect: 0,
+      totalRounds: 0,
+      totalPlayTimeMs: 0,
+      lastPlayed: null
+    };
+  }
+
+  let save = loadSave() || defaultSave();
+  let sessionStart = now();
+
+  function persistSave() {
+    save.totalPlayTimeMs += now() - sessionStart;
+    sessionStart = now();
+    save.lastPlayed = new Date().toISOString();
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  }
+
+  window.addEventListener('pagehide', persistSave);
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') persistSave();
+  });
+
+  // Simple, transparent formula: mostly accuracy, with a smaller boost for
+  // how far up the ladder the player has reached. 0-100 scale.
+  function cognitiveRating(s) {
+    if (s.totalRounds === 0) return 0;
+    const accuracy = s.totalCorrect / s.totalRounds;
+    const levelFactor = Math.min(1, s.highestLadderIndex / LADDER.length);
+    return Math.round((accuracy * 0.7 + levelFactor * 0.3) * 100);
+  }
+
   // ---------- Utility ----------
   function rand(min, max) { return Math.random() * (max - min) + min; }
-  function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
   function now() { return performance.now(); }
 
   // ---------- Adaptive Memory Ladder ----------
@@ -146,7 +258,47 @@
     // Phase E — Tracking
     { cells: 9, digits: 3 }, { cells: 10, digits: 3 }, { cells: 11, digits: 3 }
   ];
-  let ladderIndex = 0;
+  let ladderIndex = save.ladderIndex || 0;
+  let pendingAdjustment = 1; // the Cognitive Engine's decision for the round now resolving: 1 forward, 0 stay, -1 back
+  let roundStartTime = 0;    // for reaction-time tracking
+  let roundHistory = [];     // { correct, reactionMs } per round, oldest first — the engine's only input
+
+  // ---------- Cognitive Engine ----------
+  // Deliberately isolated from both the ladder (the fixed training dataset
+  // above) and the gameplay loop. Its ONLY output is a navigation decision:
+  // move forward through the ladder, stay at the current step, or step
+  // back. It never changes what the ladder contains or how a round plays.
+  //
+  // Interface contract, kept stable across versions so nothing outside this
+  // object ever needs to change:
+  //   CognitiveEngine.decide(roundHistory) -> -1 | 0 | 1
+  // roundHistory is the player's full round-by-round record (oldest first);
+  // how much of it a given version actually looks at is an internal detail.
+  //   V1 (previous): looked only at the single most recent round.
+  //   V2 (current):  looks at a rolling window of recent rounds.
+  //   V3 (future):   could use the entire history — call site never changes.
+  const CognitiveEngine = {
+    WINDOW_SIZE: 5,
+    SLOW_REACTION_MS: 3500,
+    ADVANCE_ACCURACY: 0.8,   // >= this and fast enough -> move forward
+    HOLD_ACCURACY: 0.6,      // >= this (but below advance) -> stay put
+
+    // roundHistory: [{ correct: boolean, reactionMs: number }], oldest first
+    // returns: 1 (advance), 0 (stay), -1 (retreat)
+    decide(roundHistory) {
+      const window = roundHistory.slice(-this.WINDOW_SIZE);
+      if (window.length === 0) return 1;
+
+      const accuracy = window.filter((r) => r.correct).length / window.length;
+      const avgReaction = window.reduce((sum, r) => sum + (r.reactionMs || 0), 0) / window.length;
+
+      if (accuracy >= this.ADVANCE_ACCURACY) {
+        return avgReaction <= this.SLOW_REACTION_MS ? 1 : 0;
+      }
+      if (accuracy >= this.HOLD_ACCURACY) return 0;
+      return -1;
+    }
+  };
 
   // ---------- Cells ----------
   let cells = [];
@@ -161,8 +313,15 @@
     baseRadius = Math.max(32, Math.min(72, scale * 0.125 * factor));
   }
 
+  // Physics tuning — grouped here as named configuration rather than
+  // scattered inline literals, values unchanged from what's been tuned/approved.
+  const CELL_SPEED_MIN = 24;
+  const CELL_SPEED_MAX = 36;
+  const COLLISION_BUFFER = 14;   // extra gap kept between cells on top of their radii
+  const TAP_HIT_TOLERANCE = 1.6; // multiplier on radius for how forgiving a tap is
+
   function makeCell(x, y) {
-    const speed = rand(24, 36);
+    const speed = rand(CELL_SPEED_MIN, CELL_SPEED_MAX);
     const angle = rand(0, Math.PI * 2);
     return {
       x, y,
@@ -278,13 +437,7 @@
     for (const c of cells) {
       c.x += c.vx * dt;
       c.y += c.vy * dt;
-
-      const pad = c.r;
-      const padBottom = c.r + EDGE_SAFETY_BOTTOM;
-      if (c.x < pad) { c.x = pad; c.vx = Math.abs(c.vx); }
-      if (c.x > W - pad) { c.x = W - pad; c.vx = -Math.abs(c.vx); }
-      if (c.y < pad) { c.y = pad; c.vy = Math.abs(c.vy); }
-      if (c.y > H - padBottom) { c.y = H - padBottom; c.vy = -Math.abs(c.vy); }
+      clampToWalls(c, true);
     }
 
     // pairwise soft collisions
@@ -293,7 +446,7 @@
         const a = cells[i], b = cells[j];
         const dx = b.x - a.x, dy = b.y - a.y;
         let dist = Math.hypot(dx, dy);
-        const minDist = a.r + b.r + 14;
+        const minDist = a.r + b.r + COLLISION_BUFFER;
         if (dist < minDist && dist > 0.0001) {
           const nx = dx / dist, ny = dy / dist;
           // separate
@@ -314,14 +467,21 @@
     // the earlier wall-clamp already ran this frame (it only checks pairwise
     // distance, not screen bounds). Re-clamp everyone here so no cell ever
     // renders outside the visible play area, even mid-collision near an edge.
-    for (const c of cells) {
-      const pad = c.r;
-      const padBottom = c.r + EDGE_SAFETY_BOTTOM;
-      if (c.x < pad) { c.x = pad; if (c.vx < 0) c.vx = Math.abs(c.vx); }
-      if (c.x > W - pad) { c.x = W - pad; if (c.vx > 0) c.vx = -Math.abs(c.vx); }
-      if (c.y < pad) { c.y = pad; if (c.vy < 0) c.vy = Math.abs(c.vy); }
-      if (c.y > H - padBottom) { c.y = H - padBottom; if (c.vy > 0) c.vy = -Math.abs(c.vy); }
-    }
+    for (const c of cells) clampToWalls(c, false);
+  }
+
+  // Keeps a cell within the play area. `force`: true means "this cell just
+  // moved into the wall this frame, always bounce" (used right after
+  // movement); false means "only bounce if still heading further into the
+  // wall" (used after collision separation, so we don't re-flip a cell that
+  // a collision already sent the other way).
+  function clampToWalls(c, force) {
+    const pad = c.r;
+    const padBottom = c.r + EDGE_SAFETY_BOTTOM;
+    if (c.x < pad) { c.x = pad; if (force || c.vx < 0) c.vx = Math.abs(c.vx); }
+    if (c.x > W - pad) { c.x = W - pad; if (force || c.vx > 0) c.vx = -Math.abs(c.vx); }
+    if (c.y < pad) { c.y = pad; if (force || c.vy < 0) c.vy = Math.abs(c.vy); }
+    if (c.y > H - padBottom) { c.y = H - padBottom; if (force || c.vy > 0) c.vy = -Math.abs(c.vy); }
   }
 
   // ---------- Game state ----------
@@ -345,9 +505,15 @@
   function startRound() {
     phase = PHASE.INTRO;
     phaseStart = now();
+    roundStartTime = now();
+
+    // Ladder navigation: the fixed dataset (LADDER) never changes — only
+    // WHERE we are in it moves, per the Cognitive Engine's last decision.
+    // Clamped so it can never go before the start of the ladder.
+    ladderIndex = Math.max(0, ladderIndex + pendingAdjustment);
+    pendingAdjustment = 1; // default if the round isn't finished by the engine's usual path (shouldn't normally happen)
 
     const step = LADDER[ladderIndex % LADDER.length];
-    ladderIndex++;
     numCells = step.cells;
 
     adjustCellCount(numCells);
@@ -372,6 +538,9 @@
       c.feedback = 0;
       c.feedbackColor = null;
     }
+
+    save.highestLadderIndex = Math.max(save.highestLadderIndex, ladderIndex);
+    persistSave();
   }
 
   function beginScan() {
@@ -397,6 +566,24 @@
     c.feedbackColor = correct ? 'white' : 'red';
     if (correct) { playCorrect(); haptic(12); }
     else { playWrong(); haptic([10, 40, 10]); }
+
+    // Log the outcome into the rolling history, ask the Cognitive Engine
+    // where to go next based on that window, persist. Gameplay and the
+    // ladder dataset are untouched by this — the engine only ever returns
+    // -1/0/1, and only ever sees roundHistory, never game internals.
+    save.totalRounds++;
+    if (correct) {
+      save.totalCorrect++;
+      save.score += numCells + roundTargets.size * 2;
+    }
+    const reactionMs = now() - roundStartTime;
+    roundHistory.push({ correct, reactionMs });
+    if (roundHistory.length > 50) roundHistory.shift(); // cap memory, engine only ever looks at a small recent window anyway
+    pendingAdjustment = CognitiveEngine.decide(roundHistory);
+
+    save.highestScore = Math.max(save.highestScore, save.score);
+    save.ladderIndex = ladderIndex;
+    persistSave();
   }
 
   // A correct tap that isn't the round's last remaining target — the round
@@ -423,7 +610,7 @@
       const c = cells[i];
       if (c.dying) continue;
       const d = Math.hypot(x - c.x, y - c.y);
-      if (d <= c.r * 1.6 && d < bestDist) { bestDist = d; hitIndex = i; }
+      if (d <= c.r * TAP_HIT_TOLERANCE && d < bestDist) { bestDist = d; hitIndex = i; }
     }
     if (hitIndex === -1) return;
 
@@ -457,33 +644,37 @@
     ctx.fillRect(0, 0, W, H);
   }
 
-  function drawCell(c) {
-    const t = now();
+  const FEEDBACK_DECAY_RATE = 0.028; // per frame
+  const BURST_DECAY_RATE = 0.045;    // per frame
 
-    // ambient breathing glow
+  // Advances a cell's time-based visual state (ambient glow breathing,
+  // feedback pulse decay, detection-burst decay). Kept separate from
+  // drawCell so "update" and "draw" aren't tangled into one responsibility.
+  function updateCellDecay(c, t) {
     c.glow = 0.5 + 0.5 * Math.sin(t / 1400 + (c.x + c.y) * 0.001);
 
-    // feedback decay
     if (c.feedback > 0) {
-      c.feedback -= 0.028;
+      c.feedback -= FEEDBACK_DECAY_RATE;
       if (c.feedback < 0) c.feedback = 0;
     }
-
-    // burst decay — the brief flare when the scanner detects this cell
     if (c.burst > 0) {
-      c.burst -= 0.045;
+      c.burst -= BURST_DECAY_RATE;
       if (c.burst < 0) c.burst = 0;
     }
+  }
+
+  function drawCell(c) {
+    const t = now();
+    updateCellDecay(c, t);
 
     ctx.save();
     ctx.translate(c.x, c.y);
 
+    let fadeAlpha = 1;
     if (c.dying) {
       const fadeProgress = Math.min(1, (t - c.fadeStart) / FADE_DURATION);
-      var fadeAlpha = Math.max(0, 1 - fadeProgress);
+      fadeAlpha = Math.max(0, 1 - fadeProgress);
       ctx.globalAlpha = fadeAlpha;
-    } else {
-      var fadeAlpha = 1;
     }
 
     // feedback ring
@@ -707,8 +898,26 @@
     requestAnimationFrame(frame);
   }
 
-  startRound();
-  requestAnimationFrame(frame);
+  function launchGame() {
+    startRound();
+    requestAnimationFrame(frame);
+  }
+
+  const welcomeEl = document.getElementById('welcome');
+  if (save.totalRounds > 0) {
+    document.getElementById('statLevel').textContent = String(save.ladderIndex + 1);
+    document.getElementById('statHighLevel').textContent = String(save.highestLadderIndex + 1);
+    document.getElementById('statScore').textContent = String(save.highestScore);
+    document.getElementById('statRating').textContent = String(cognitiveRating(save));
+    welcomeEl.classList.remove('hidden');
+    document.getElementById('resumeBtn').addEventListener('click', () => {
+      ensureAudio();
+      welcomeEl.classList.add('hidden');
+      launchGame();
+    }, { once: true });
+  } else {
+    launchGame();
+  }
 
   // Kick audio context on first interaction (iOS requirement)
   window.addEventListener('pointerdown', ensureAudio, { once: true });
