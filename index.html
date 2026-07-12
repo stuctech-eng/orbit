@@ -385,11 +385,6 @@
   // (more cells, 1 digit) and Memory (fewer cells, more digits) phases.
   // Deterministic step-through for now — the Cognitive Engine (performance-
   // based speed-up/slow-down) is a separate future layer on top of this.
-  // Premium visual symbols, not digits — the player never needs to recall
-  // WHICH symbol it was, only WHICH cell showed one. Keeps ORBIT feeling
-  // like a scanning system revealing hidden content, not a math game.
-  const REVEAL_SYMBOLS = ['●', '◆', '▲', '■', '✚', '○'];
-
   const LADDER = [
     // Phase A — Tracking
     { cells: 3, digits: 1 }, { cells: 4, digits: 1 }, { cells: 5, digits: 1 },
@@ -685,7 +680,7 @@
 
     for (const c of cells) {
       if (c.dying) continue; // leave fading cells alone — they're not part of this round
-      c.digit = roundTargets.has(c.id) ? REVEAL_SYMBOLS[Math.floor(rand(0, REVEAL_SYMBOLS.length))] : null;
+      c.digit = roundTargets.has(c.id) ? true : null;
       c.reveal = 0;
       c.revealed = false;
       c.found = false;
@@ -941,17 +936,20 @@
     ctx.fillStyle = `rgba(255,255,255,${0.2 + lift * 0.15})`;
     ctx.fill();
 
-    // symbol reveal — slight scale-in gives a sense of depth, of looking into the cell
+    // reveal — a black circle "punched into" the cell, with a light thin
+    // rim around its edge. Same scale-in as before for a sense of depth.
     if (c.reveal > 0 && c.digit !== null) {
       ctx.globalAlpha = c.reveal;
-      const digitScale = 0.88 + c.reveal * 0.12;
+      const holeScale = 0.88 + c.reveal * 0.12;
+      const holeR = c.r * 0.36 * holeScale;
       ctx.save();
-      ctx.scale(digitScale, digitScale);
+      ctx.beginPath();
+      ctx.arc(0, c.r * 0.06, holeR, 0, Math.PI * 2);
       ctx.fillStyle = '#000000';
-      ctx.font = `600 ${Math.floor(c.r * 0.95)}px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(c.digit), 0, c.r * 0.06);
+      ctx.fill();
+      ctx.lineWidth = Math.max(1, c.r * 0.03);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.stroke();
       ctx.restore();
       ctx.globalAlpha = fadeAlpha;
     }
@@ -1249,7 +1247,19 @@
   }
 
   // The single subtle interaction point during gameplay
-  scannerIndicatorEl.addEventListener('click', openPause);
+  // Requires a brief hold (not a simple tap) — a normal tap on a cell that
+  // happens to be floating near the top must never accidentally open the
+  // menu. A deliberate ~350ms hold is unambiguous; a quick tap does nothing.
+  const INDICATOR_HOLD_MS = 350;
+  let indicatorHoldTimer = null;
+  scannerIndicatorEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    clearTimeout(indicatorHoldTimer);
+    indicatorHoldTimer = setTimeout(openPause, INDICATOR_HOLD_MS);
+  });
+  scannerIndicatorEl.addEventListener('pointerup', () => clearTimeout(indicatorHoldTimer));
+  scannerIndicatorEl.addEventListener('pointerleave', () => clearTimeout(indicatorHoldTimer));
+  scannerIndicatorEl.addEventListener('pointercancel', () => clearTimeout(indicatorHoldTimer));
 
   // Pause menu
   document.getElementById('pauseResumeBtn').addEventListener('click', goToGameplay);

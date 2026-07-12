@@ -82,7 +82,7 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 
 1. Nieuwe ronde start
 2. Scanner beweegt automatisch, vaste snelheid, van onder naar boven
-3. Een premium symbool (zie 5.1) wordt ~600ms onthuld op het moment dat de scan een doelcel raakt
+3. Een uitgedrukte zwarte cirkel (zie 5) wordt ~600ms onthuld op het moment dat de scan een doelcel raakt
 4. Scanner verlaat het scherm — licht en (wanneer audio terugkomt) geluid doven rustig uit
 5. Pas wanneer de scanner het scherm volledig heeft verlaten begint de geheugenfase — **tikken tijdens de scan doet niets**, dit is bewust: observeren/volgen/onthouden gebeurt uitsluitend tíjdens de scan, herinneren/kiezen uitsluitend érná. Die twee cognitieve taken worden nooit vermengd
 6. Cellen zijn tijdens de hele scan gewoon blijven bewegen — dit test puur geheugen, geen reactiesnelheid
@@ -121,8 +121,8 @@ Eerder is dit wél gebouwd en weer teruggedraaid. De reden: tikken tijdens de sc
 - Grootte schaalt mee met het aantal cellen (32–72px basisstraal, krimpt met `sqrt(3/n)`)
 - Meebewegende reflectie: highlight/sheen drijft langzaam rond, eigen fase per cel (`c.id`)
 
-### Verborgen inhoud — symbolen, geen cijfers
-De scanner onthult een premium symbool, geen getal: `● ◆ ▲ ■ ✚ ○` — willekeurig gekozen per doelcel. De speler hoeft het symbool zelf nooit te onthouden; het dient alleen als natuurlijke "inhoud" die de scanner zichtbaar maakt. De echte opdracht blijft altijd: onthoud wélke bewegende cel werd onthuld. Dit houdt ORBIT een scanningssysteem, geen rekenspel.
+### Verborgen inhoud — een uitgedrukte zwarte cirkel, geen cijfers of symbolen
+De scanner "drukt" een zwarte cirkel in de cel uit — vol zwart vanbinnen, met een dunne lichte rand eromheen voor definitie. Geen getal, geen icoon dat variatie nodig heeft; elke onthulling ziet er identiek uit. De speler hoeft nooit iets over de inhoud te onthouden; het dient alleen als natuurlijke "opening" die de scanner zichtbaar maakt. De echte opdracht blijft altijd: onthoud wélke bewegende cel werd onthuld. Dit houdt ORBIT een scanningssysteem, geen rekenspel.
 
 ### Feedback
 - Correct: witte pulse-ring + ±2% schaalpuls, direct terug
@@ -170,7 +170,7 @@ Nog bewust niet gedaan: het scannergeluid synchroon laten meezwellen — audio i
 
 Minimalistisch principe: tijdens gameplay is er precies **één** subtiel interactiepunt, geen klassieke Home/Back/Save-knoppen.
 
-- **Scanner-indicator**: dunne witte lijn (1px, lage opaciteit, zachte gloed) bovenaan het scherm, altijd zichtbaar tijdens gameplay, stijl van de scanner zelf — geen herkenbaar UI-icoon. 44px onzichtbaar tikgebied eromheen voor bereikbaarheid.
+- **Scanner-indicator**: dunne witte lijn (1px, lage opaciteit, zachte gloed) bovenaan het scherm, altijd zichtbaar tijdens gameplay, stijl van de scanner zelf — geen herkenbaar UI-icoon. 44px onzichtbaar tikgebied eromheen voor bereikbaarheid. **Activatie via kort ingedrukt houden (350ms), niet via een gewone tik** — een tik op een bal die toevallig hoog zweeft mag het menu nooit per ongeluk openen. Een snelle tik doet niets; alleen een bewuste, korte hold opent het pauzemenu.
 - **Tik erop** → pauzeert het spel (physics, scan, timers bevriezen exact; canvas blijft het laatste beeld tonen) en opent het pauzemenu met een zachte fade (0.35s), geen harde overgang.
 - **Pauzemenu** (precies 4 opties): ▶ Verder spelen · 🏠 Home · ↺ Nieuwe sessie · ⚙ Instellingen.
 - **Verder spelen**: fade-out, gameplay hervat exact waar die was — `phaseStart` en `roundStartTime` schuiven op met precies de gepauzeerde duur, dus de scan springt niet vooruit en geen enkele timer "ontploft" na een lange pauze. Geen laadscherm.
