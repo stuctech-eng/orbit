@@ -527,6 +527,8 @@
   function beginScan() {
     phase = PHASE.SCAN;
     phaseStart = now();
+    scanFullyEntered = false;
+    scanEnteredPulseAt = -1;
     scanY = H + SCAN_START_OFFSET;
     // The extra off-screen padding needed for the trail travels at that same
     // fixed speed, added proportionally, so trail length never changes it.
@@ -675,6 +677,22 @@
     ctx.save();
     ctx.translate(c.x, c.y);
 
+    // Light "trembling" reaction for a wrong tap — a few px of quick jitter
+    // that decays with the pulse itself. Not a shake, just a soft flinch.
+    if (c.feedback > 0 && c.feedbackColor === 'red') {
+      const shakeAmt = 2.2 * c.feedback;
+      ctx.translate(
+        Math.sin(t * 0.09 + c.id) * shakeAmt,
+        Math.cos(t * 0.11 + c.id) * shakeAmt * 0.6
+      );
+    }
+    // Subtle ±2% scale pulse for a correct tap — pops immediately, settles
+    // straight back as the pulse decays.
+    if (c.feedback > 0 && c.feedbackColor === 'white') {
+      const scaleMul = 1 + 0.02 * c.feedback;
+      ctx.scale(scaleMul, scaleMul);
+    }
+
     let fadeAlpha = 1;
     if (c.dying) {
       const fadeProgress = Math.min(1, (t - c.fadeStart) / FADE_DURATION);
@@ -727,12 +745,19 @@
     const R = c.r * revealScale;
 
     // soft pearl material: minimal, smooth, barely-there sheen — brightens
-    // toward pure white during a reveal for the "glowing from within" moment
+    // toward pure white during a reveal for the "glowing from within" moment.
+    // The highlight position drifts very slowly per-cell, like a soft
+    // reflection catching ambient light as the cell drifts — not tied to
+    // velocity (kept simple), just a slow living motion.
+    const driftAngle = t * 0.00035 + c.id * 2.399;
+    const driftX = Math.cos(driftAngle) * R * 0.035;
+    const driftY = Math.sin(driftAngle) * R * 0.035;
+
     ctx.beginPath();
     ctx.arc(0, 0, R, 0, Math.PI * 2);
     const lift = c.reveal * 0.5 + c.burst * 0.5;
     const material = ctx.createRadialGradient(
-      -R * 0.15, -R * 0.2, R * 0.2,
+      -R * 0.15 + driftX, -R * 0.2 + driftY, R * 0.2,
       0, 0, R * 1.05
     );
     material.addColorStop(0, `rgba(255,255,255,${0.97 + lift * 0.03})`);
@@ -743,9 +768,9 @@
 
     ctx.shadowBlur = 0;
 
-    // barely-there sheen — soft, broad, no hard glint
+    // barely-there sheen — soft, broad, no hard glint — drifts with the material highlight
     ctx.beginPath();
-    ctx.ellipse(-R * 0.2, -R * 0.24, R * 0.34, R * 0.22, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(-R * 0.2 + driftX, -R * 0.24 + driftY, R * 0.34, R * 0.22, -0.4, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255,255,255,${0.2 + lift * 0.15})`;
     ctx.fill();
 
@@ -821,6 +846,21 @@
     ctx.fillStyle = `rgba(255,255,255,${Math.min(1, 1.0 * flicker)})`;
     ctx.fillRect(0, coreY, W, 1);
 
+    // A single, brief light-pulse the instant the beam is fully swelled in
+    // — the scanner "arriving" at full strength. Pure light, no new motion.
+    if (scanEnteredPulseAt >= 0) {
+      const pulseAge = t - scanEnteredPulseAt;
+      const PULSE_DURATION = 220;
+      if (pulseAge < PULSE_DURATION) {
+        const pulseFrac = 1 - pulseAge / PULSE_DURATION; // 1 -> 0
+        ctx.shadowColor = 'rgba(255,255,255,0.95)';
+        ctx.shadowBlur = 34 * pulseFrac;
+        ctx.fillStyle = `rgba(255,255,255,${0.4 * pulseFrac})`;
+        ctx.fillRect(0, coreY - 1, W, 3);
+        ctx.shadowBlur = 0;
+      }
+    }
+
     drawScanBursts();
     ctx.restore();
   }
@@ -848,8 +888,10 @@
   // ---------- Main loop ----------
   let lastT = now();
 
-  let scanIntensity = 1; // 0..1 — ramps up as the scanner enters the screen, then holds at 1
-  const SCAN_INTENSITY_RAMP = 0.08; // fraction of the full pass over which brightness builds — roughly the "first few centimeters"
+  let scanIntensity = 1;    // 0..1 — swells in on entry, stable while visible, fades on exit
+  const SCAN_EDGE_RAMP_MS = 350; // exact ms for both the entry swell and the exit fade — not a fraction of scanDuration, so it's identical regardless of screen size or trail length
+  let scanEnteredPulseAt = -1;   // timestamp of the light-pulse fired once the beam is fully in — reset each round
+  let scanFullyEntered = false;
 
   function updateScan(t) {
     const elapsed = t - phaseStart;
@@ -858,7 +900,24 @@
     // Linear, not eased — a real scanner sweeps at one constant speed,
     // it doesn't slow down at the start/end of its pass.
     scanY = H + SCAN_START_OFFSET - prog * travel;
-    scanIntensity = Math.min(1, prog / SCAN_INTENSITY_RAMP);
+
+    // Entry/exit timing pinned to the beam's actual presence in the
+    // visible play field (y between 0 and H), not to the phase's full
+    // duration (which includes off-screen buffer for the trail).
+    const progEnter = SCAN_START_OFFSET / travel;
+    const progExit = (H + SCAN_START_OFFSET) / travel;
+    const msSinceEnter = (prog - progEnter) * scanDuration;
+    const msUntilExit = (progExit - prog) * scanDuration;
+    const enterRamp = prog < progEnter ? 0 : Math.min(1, msSinceEnter / SCAN_EDGE_RAMP_MS);
+    const exitRamp = prog > progExit ? 0 : Math.min(1, msUntilExit / SCAN_EDGE_RAMP_MS);
+    scanIntensity = Math.min(enterRamp, exitRamp);
+
+    // A single, brief light-pulse the moment the beam is fully swelled in
+    // (once per round) — the scanner "arriving" at full strength.
+    if (!scanFullyEntered && enterRamp >= 1) {
+      scanFullyEntered = true;
+      scanEnteredPulseAt = t;
+    }
 
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];

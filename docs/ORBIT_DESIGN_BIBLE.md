@@ -141,9 +141,17 @@ Haptics: licht, kort. Correct = enkele tik (`haptic(12)`). Fout = kort patroon (
 
 Puur visuele verfijning, geen enkele wijziging aan bevroren mechanics (gameplay-loop, scannersnelheid, physics-regels, ladder, engine):
 
-- **Nieuwe cellen vloeien in** (550ms, ease-out) wanneer de ladder meer cellen nodig heeft — mirror van de bestaande fade-out voor cellen die wegvallen. Voorheen "poppten" nieuwe cellen instant in beeld, wat niet paste bij hoe rustig het wegvallen al ging.
-- **Feedback-puls (correct/fout) is nu ease-out** in plaats van lineair: multiplicatieve decay (`×0.90` per frame voor de puls, `×0.85` voor de detectie-burst) i.p.v. een vaste hoeveelheid per frame. Zelfde totale duur, maar een natuurlijkere curve — snel begin, zachte uitloop.
-- **Welkomstscherm faded nu zachtjes in/uit** (0.4s) in plaats van een harde `display:none`-wissel.
+- **Nieuwe cellen vloeien in** (550ms, ease-out) wanneer de ladder meer cellen nodig heeft — mirror van de bestaande fade-out voor cellen die wegvallen.
+- **Feedback-puls (correct/fout) is ease-out** i.p.v. lineair: multiplicatieve decay (`×0.90`/frame voor de puls, `×0.85`/frame voor de detectie-burst).
+- **Welkomstscherm faded zachtjes in/uit** (0.4s) i.p.v. een harde `display:none`-wissel.
+- **Scanner-entree**: exacte 350ms opbouw naar volledige helderheid, gemeten in echte milliseconden en gekoppeld aan het moment dat de kern het zíchtbare speelveld binnenkomt — niet aan een fractie van de totale scanduur (die anders per schermgrootte varieerde).
+- **Scanner-lichtpuls**: een eenmalige, korte (220ms) extra gloed-flits exact op het moment dat de scanner volledig is ingezwollen — "de scanner komt aan".
+- **Scanner-exit**: symmetrische 350ms-uitdoof vlak vóór de kern het speelveld verlaat, in plaats van abrupt te verdwijnen.
+- **Cellen — meebewegende reflectie**: de specular highlight en sheen drijven langzaam rond (per cel een eigen fase, gebaseerd op `c.id`), in plaats van een vaste positie — geeft een gevoel van een levend oppervlak zonder iets opvallends te doen.
+- **Correct-feedback**: ±2% schaalpuls die direct meegaat met de bestaande witte ring, terug naar normaal zodra de puls wegebt.
+- **Fout-feedback**: lichte trilling (~2px, snel dempend) bovenop de bestaande rode ring/bloom — een zachte "flinch", geen schok.
+
+Nog bewust niet gedaan: het scannergeluid synchroon laten meezwellen — audio is verwijderd (zie boven) tot de stabiliteit elders is bevestigd.
 
 ---
 
