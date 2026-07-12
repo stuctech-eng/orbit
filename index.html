@@ -716,8 +716,16 @@
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = correct ? 'white' : 'red';
-    if (correct) { haptic(12); }
+    if (correct) { haptic(12); retriggerReveal(c); }
     else { haptic([10, 40, 10]); }
+  }
+
+  // Replays the same dark "reveal" the cell showed when the scanner first
+  // read it — a confirmation echo, so tapping the right cell mirrors the
+  // moment that made it the right one.
+  function retriggerReveal(c) {
+    c.revealed = true;
+    c.revealUntil = now() + REVEAL_DURATION;
   }
 
   // The actual round conclusion: bookkeeping, the Cognitive Engine
@@ -750,6 +758,7 @@
     c.feedback = 1;
     c.feedbackColor = 'white';
     haptic(10);
+    retriggerReveal(c);
   }
 
   // The scanner is a device, not an animation the player controls: it
@@ -817,8 +826,11 @@
   const BURST_DECAY = 0.85;    // multiplicative per frame
 
   // Advances a cell's time-based visual state (ambient glow breathing,
-  // feedback pulse decay, detection-burst decay). Kept separate from
-  // drawCell so "update" and "draw" aren't tangled into one responsibility.
+  // feedback pulse decay, detection-burst decay, reveal fade). Kept
+  // separate from drawCell so "update" and "draw" aren't tangled into one
+  // responsibility. Phase-independent — the reveal fade needs to keep
+  // animating even during MEMORY (a tap-confirmation re-flash), not just
+  // while updateScan() is running.
   function updateCellDecay(c, t) {
     c.glow = 0.5 + 0.5 * Math.sin(t / 1400 + (c.x + c.y) * 0.001);
 
@@ -829,6 +841,18 @@
     if (c.burst > 0) {
       c.burst *= BURST_DECAY;
       if (c.burst < 0.01) c.burst = 0;
+    }
+    if (c.revealed && c.revealUntil > 0) {
+      const remain = c.revealUntil - t;
+      if (remain > 0) {
+        const elapsedFrac = 1 - (remain / REVEAL_DURATION); // 0 -> 1
+        if (elapsedFrac < 0.15) c.reveal = elapsedFrac / 0.15;
+        else if (elapsedFrac > 0.85) c.reveal = (1 - elapsedFrac) / 0.15;
+        else c.reveal = 1;
+      } else {
+        c.reveal = 0;
+        c.revealUntil = 0;
+      }
     }
   }
 
@@ -1084,17 +1108,6 @@
           c.revealed = true;
           c.revealUntil = t + REVEAL_DURATION;
           c.burst = 1;
-        }
-      }
-      if (c.revealed && c.revealUntil > 0) {
-        const remain = c.revealUntil - t;
-        if (remain > 0) {
-          const elapsedFrac = 1 - (remain / REVEAL_DURATION); // 0 -> 1
-          if (elapsedFrac < 0.15) c.reveal = elapsedFrac / 0.15;
-          else if (elapsedFrac > 0.85) c.reveal = (1 - elapsedFrac) / 0.15;
-          else c.reveal = 1;
-        } else {
-          c.reveal = 0;
         }
       }
     }
