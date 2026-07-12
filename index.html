@@ -385,6 +385,11 @@
   // (more cells, 1 digit) and Memory (fewer cells, more digits) phases.
   // Deterministic step-through for now — the Cognitive Engine (performance-
   // based speed-up/slow-down) is a separate future layer on top of this.
+  // Premium visual symbols, not digits — the player never needs to recall
+  // WHICH symbol it was, only WHICH cell showed one. Keeps ORBIT feeling
+  // like a scanning system revealing hidden content, not a math game.
+  const REVEAL_SYMBOLS = ['●', '◆', '▲', '■', '✚', '○'];
+
   const LADDER = [
     // Phase A — Tracking
     { cells: 3, digits: 1 }, { cells: 4, digits: 1 }, { cells: 5, digits: 1 },
@@ -652,7 +657,6 @@
     phase = PHASE.INTRO;
     phaseStart = now();
     roundStartTime = now();
-    pendingRoundOutcome = null;
 
     // Ladder navigation: the fixed dataset (LADDER) never changes — only
     // WHERE we are in it moves, per the Cognitive Engine's last decision.
@@ -681,7 +685,7 @@
 
     for (const c of cells) {
       if (c.dying) continue; // leave fading cells alone — they're not part of this round
-      c.digit = roundTargets.has(c.id) ? Math.floor(rand(0, 10)) : null;
+      c.digit = roundTargets.has(c.id) ? REVEAL_SYMBOLS[Math.floor(rand(0, REVEAL_SYMBOLS.length))] : null;
       c.reveal = 0;
       c.revealed = false;
       c.found = false;
@@ -754,18 +758,15 @@
   }
 
   // The scanner is a device, not an animation the player controls: it
-  // always completes its full pass, at its own fixed pace, no matter what
-  // the player does. A round-concluding tap DURING the scan gets its
-  // acknowledgment pulse/sound immediately (see pulseTapFeedback) — that's
-  // the player's own cell reacting, not the scanner. Only the round
-  // actually ending and the next one starting are held until the scanner
-  // has fully left the screen. The scanner never reacts to the player.
-  let pendingRoundOutcome = null; // { correct } — set by a tap during SCAN, resolved once the scan finishes
+  // always completes its full pass, at its own fixed pace. The memory
+  // phase — and therefore any tap — only begins once the scanner has
+  // fully left the screen. This deliberately keeps two cognitive tasks
+  // fully separate: observe/track/remember DURING the scan, then
+  // recall/recognize/choose only AFTER it — never both at once.
 
   // ---------- Interaction ----------
   function handleTap(clientX, clientY) {
-    if (phase !== PHASE.MEMORY && phase !== PHASE.SCAN) return;
-    if (pendingRoundOutcome) return; // this round's outcome is already locked in — waiting for the scanner to finish
+    if (phase !== PHASE.MEMORY) return;
     const rect = canvas.getBoundingClientRect();
     const x = clientX - rect.left;
     const y = clientY - rect.top;
@@ -791,22 +792,19 @@
       c.found = true;
       roundFound++;
       if (roundFound >= roundTargets.size) {
-        // last target found — round decided. Pulse/sound happen right now
-        // regardless of phase; only the actual round-end waits on the
-        // scanner if it's still sweeping.
+        // last target found — round complete
         pulseTapFeedback(true, hitIndex);
-        if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: true };
-        else resolveRound(true);
+        resolveRound(true);
       } else {
         // more targets still to find — stay in memory phase
         pulseFound(hitIndex);
       }
     } else {
-      // wrong cell (or an already-found one tapped again) — round decided,
-      // same immediate-pulse / deferred-resolution split applies.
+      // wrong cell (or an already-found one tapped again) — round over.
+      // The scanner has already finished its scan by now, so there's
+      // nothing for it to react to — it simply isn't involved anymore.
       pulseTapFeedback(false, hitIndex);
-      if (phase === PHASE.SCAN) pendingRoundOutcome = { correct: false };
-      else resolveRound(false);
+      resolveRound(false);
     }
   }
 
@@ -943,14 +941,14 @@
     ctx.fillStyle = `rgba(255,255,255,${0.2 + lift * 0.15})`;
     ctx.fill();
 
-    // digit reveal — slight scale-in gives a sense of depth, of looking into the cell
+    // symbol reveal — slight scale-in gives a sense of depth, of looking into the cell
     if (c.reveal > 0 && c.digit !== null) {
       ctx.globalAlpha = c.reveal;
       const digitScale = 0.88 + c.reveal * 0.12;
       ctx.save();
       ctx.scale(digitScale, digitScale);
       ctx.fillStyle = '#000000';
-      ctx.font = `600 ${Math.floor(c.r * 1.05)}px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif`;
+      ctx.font = `600 ${Math.floor(c.r * 0.95)}px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(c.digit), 0, c.r * 0.06);
@@ -1112,15 +1110,7 @@
 
     if (prog >= 1) {
       for (const c of cells) c.reveal = 0;
-      if (pendingRoundOutcome) {
-        const outcome = pendingRoundOutcome;
-        pendingRoundOutcome = null;
-        // Pulse feedback already played at tap time (see handleTap) — only
-        // the actual round resolution was waiting on the scanner.
-        resolveRound(outcome.correct);
-      } else {
-        beginMemory();
-      }
+      beginMemory();
     }
   }
 

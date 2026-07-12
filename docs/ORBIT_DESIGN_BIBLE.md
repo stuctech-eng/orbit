@@ -78,18 +78,25 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 
 ---
 
-## 4. Gameflow (definitief)
+## 4. Gameflow (definitief — "Definitieve Classic Mode")
 
 1. Nieuwe ronde start
 2. Scanner beweegt automatisch, vaste snelheid, van onder naar boven
-3. Cijfers worden ~600ms onthuld op het moment dat de scan een doelcel raakt
-4. Scanner verdwijnt (of de ronde-beslissing wordt vastgelegd door een eerdere tik — tikken mag al tijdens de scan, maar de scanner zelf wordt daar nooit door onderbroken, versneld of veranderd; de afhandeling wacht tot de scanner het scherm volledig heeft verlaten)
-5. Cellen blijven bewegen
-6. Speler tikt de juiste cel(len) — bij meerdere cijfers: elke juiste tik geeft eigen feedback, pas de laatste sluit de ronde af
-7. Feedback (correct of fout)
-8. Direct volgende ronde — geen wachttijd, geen popups
+3. Een premium symbool (zie 5.1) wordt ~600ms onthuld op het moment dat de scan een doelcel raakt
+4. Scanner verlaat het scherm — licht en (wanneer audio terugkomt) geluid doven rustig uit
+5. Pas wanneer de scanner het scherm volledig heeft verlaten begint de geheugenfase — **tikken tijdens de scan doet niets**, dit is bewust: observeren/volgen/onthouden gebeurt uitsluitend tíjdens de scan, herinneren/kiezen uitsluitend érná. Die twee cognitieve taken worden nooit vermengd
+6. Cellen zijn tijdens de hele scan gewoon blijven bewegen — dit test puur geheugen, geen reactiesnelheid
+7. Speler tikt de juiste cel(len) — bij meerdere symbolen: elke juiste tik geeft eigen feedback, pas de laatste sluit de ronde af
+8. Feedback (correct of fout) — de scanner reageert hier nooit op, die is al klaar met zijn taak
+9. Direct volgende ronde — geen wachttijd, geen popups
 
-**Vastgezet, wijzigt niet zonder aantoonbare fout:** automatische scan-start, scansnelheid, deze volgorde.
+**Vastgezet, wijzigt niet zonder aantoonbare fout:** automatische scan-start, scansnelheid, deze volgorde, en het strikt gescheiden houden van de scan-fase (observeren) en de memory-fase (kiezen).
+
+---
+
+### 4.1 Waarom geen tikken tijdens de scan
+
+Eerder is dit wél gebouwd en weer teruggedraaid. De reden: tikken tijdens de scan verandert een geheugenspel in een reactiespel en maakt de spelregel minder eenduidig. Door de fases hard te scheiden blijft de volledige focus liggen op werkgeheugen, objecttracking en concentratie.
 
 ---
 
@@ -104,18 +111,22 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 - Zachte aura eromheen (blur, apart laagje) voor bloom zonder de rand te vervagen
 - Asymmetrische sleep: vrijwel geen gloed vóór de kern (richting beweging), een lange uitwaaierende staart erachter die geleidelijk vervaagt
 - Lichte, onregelmatige flikkering (twee overlappende sinusgolven) — energiek zonder storend te zijn
-- **Helderheids-opbouw:** bij het verschijnen bouwt de volledige lichtintensiteit (kern, gloed, staart — via één gedeelde `flicker`-factor) op over de eerste ~8% van de doorkruising, bereikt dan maximum en blijft daarna stabiel
+- **Helderheids-opbouw:** exact 350ms (echte milliseconden, niet een fractie van de scanduur), gekoppeld aan het moment dat de kern het zíchtbare speelveld binnenkomt. Eenmalige lichtpuls zodra volledig ingezwollen. Symmetrische 350ms-uitdoof vlak vóór het speelveld verlaten
 - Vaste snelheid: 4500ms om het zichtbare scherm te doorkruisen, lineair (geen easing)
-- **Onderbreekbaar door niets:** de scanner maakt altijd zijn volledige pass af, ook als de speler eerder al heeft getikt (zie Gameflow-regel hieronder)
+- **Onderbreekbaar door niets:** de scanner maakt altijd zijn volledige pass af. Tikken tijdens de scan doet niets — de memory-fase (en dus elke tik) begint pas nadat de scanner het scherm volledig heeft verlaten (zie Gameflow 4.1)
 
 ### Cellen ("Soft Pearl")
 - Radiale gradient, minimaal contrast, brede zachte sheen — geen scherp glinstertje, geen rim light, geen diepe schaduw
 - Lichten op ("lift") tijdens reveal en detectie-burst, richting puur wit
 - Grootte schaalt mee met het aantal cellen (32–72px basisstraal, krimpt met `sqrt(3/n)`)
+- Meebewegende reflectie: highlight/sheen drijft langzaam rond, eigen fase per cel (`c.id`)
+
+### Verborgen inhoud — symbolen, geen cijfers
+De scanner onthult een premium symbool, geen getal: `● ◆ ▲ ■ ✚ ○` — willekeurig gekozen per doelcel. De speler hoeft het symbool zelf nooit te onthouden; het dient alleen als natuurlijke "inhoud" die de scanner zichtbaar maakt. De echte opdracht blijft altijd: onthoud wélke bewegende cel werd onthuld. Dit houdt ORBIT een scanningssysteem, geen rekenspel.
 
 ### Feedback
-- Correct: witte pulse-ring, subtiel
-- Fout: rode pulse-ring + zachte rode bloom eromheen — duidelijker dan correct, maar nog steeds subtiel, nooit fel
+- Correct: witte pulse-ring + ±2% schaalpuls, direct terug
+- Fout: rode pulse-ring + zachte rode bloom + lichte trilling (~2px, snel dempend)
 
 ---
 
