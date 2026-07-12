@@ -82,7 +82,7 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 
 1. Nieuwe ronde start
 2. Scanner beweegt automatisch, vaste snelheid, van onder naar boven
-3. Een uitgedrukte zwarte cirkel (zie 5) wordt ~600ms onthuld op het moment dat de scan een doelcel raakt
+3. De doelcel wordt heel even bijna zwart (zie 5) — ~600ms — op het moment dat de scan haar raakt
 4. Scanner verlaat het scherm — licht en (wanneer audio terugkomt) geluid doven rustig uit
 5. Pas wanneer de scanner het scherm volledig heeft verlaten begint de geheugenfase — **tikken tijdens de scan doet niets**, dit is bewust: observeren/volgen/onthouden gebeurt uitsluitend tíjdens de scan, herinneren/kiezen uitsluitend érná. Die twee cognitieve taken worden nooit vermengd
 6. Cellen zijn tijdens de hele scan gewoon blijven bewegen — dit test puur geheugen, geen reactiesnelheid
@@ -121,8 +121,10 @@ Eerder is dit wél gebouwd en weer teruggedraaid. De reden: tikken tijdens de sc
 - Grootte schaalt mee met het aantal cellen (32–72px basisstraal, krimpt met `sqrt(3/n)`)
 - Meebewegende reflectie: highlight/sheen drijft langzaam rond, eigen fase per cel (`c.id`)
 
-### Verborgen inhoud — een uitgedrukte zwarte cirkel, geen cijfers of symbolen
-De scanner "drukt" een zwarte cirkel in de cel uit — vol zwart vanbinnen, met een dunne lichte rand eromheen voor definitie. Geen getal, geen icoon dat variatie nodig heeft; elke onthulling ziet er identiek uit. De speler hoeft nooit iets over de inhoud te onthouden; het dient alleen als natuurlijke "opening" die de scanner zichtbaar maakt. De echte opdracht blijft altijd: onthoud wélke bewegende cel werd onthuld. Dit houdt ORBIT een scanningssysteem, geen rekenspel.
+### Verborgen inhoud — de cel wordt donker, niet lichter
+De scanner leest een cel niet uit door hem te verlichten, maar door hem bijna zwart te laten worden — alsof de scanner de energie uit de cel trekt om hem te lezen. Op een witte-cellen/zwarte-achtergrond-wereld is dit een veel unieker signaal dan "nog witter worden". De hele cel dimt (geen apart vormelement — het bestaande materiaal blijft zichtbaar, alleen sterk gedempt, ~82% richting zwart), met een korte fade erin en eruit (geen instant hard-cut, geen langzame animatie). De speler onthoudt niet wát hij zag, maar wélke bewegende cel heel even van uiterlijk veranderde.
+
+**Losgekoppeld van de detectie-burst:** de korte felle flits die al bestond op het moment dat de scanner een cel raakt (materiaal-lift, extra gloed, lichte schaal-pop) is bewust apart gehouden — die brightening blijft, want dat is de scanner die "aankomt", niet de inhoud die onthuld wordt. De donkere reveal zelf brengt geen extra gloed of schaalverandering met zich mee — puur een kleurverandering, verder niets.
 
 ### Feedback
 - Correct: witte pulse-ring + ±2% schaalpuls, direct terug

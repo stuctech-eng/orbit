@@ -901,9 +901,9 @@
 
     // outer glow — intensifies sharply during the burst, gently during reveal
     ctx.shadowColor = 'rgba(255,255,255,0.4)';
-    ctx.shadowBlur = 20 + c.glow * 9 + c.reveal * 22 + c.burst * 40;
+    ctx.shadowBlur = 20 + c.glow * 9 + c.burst * 40;
 
-    const revealScale = 1 + c.reveal * 0.08 + c.burst * 0.06;
+    const revealScale = 1 + c.burst * 0.06;
     const R = c.r * revealScale;
 
     // soft pearl material: minimal, smooth, barely-there sheen — brightens
@@ -917,7 +917,7 @@
 
     ctx.beginPath();
     ctx.arc(0, 0, R, 0, Math.PI * 2);
-    const lift = c.reveal * 0.5 + c.burst * 0.5;
+    const lift = c.burst; // only the brief detection-burst brightens the material now — reveal darkens instead (see below)
     const material = ctx.createRadialGradient(
       -R * 0.15 + driftX, -R * 0.2 + driftY, R * 0.2,
       0, 0, R * 1.05
@@ -936,22 +936,15 @@
     ctx.fillStyle = `rgba(255,255,255,${0.2 + lift * 0.15})`;
     ctx.fill();
 
-    // reveal — a black circle "punched into" the cell, with a light thin
-    // rim around its edge. Same scale-in as before for a sense of depth.
+    // reveal — the whole cell darkens, near-black, instead of lighting up.
+    // On a white-cells/black-background world, going DARK reads as far more
+    // distinctive than getting brighter — as if the scanner is draining the
+    // cell to read it, not illuminating it.
     if (c.reveal > 0 && c.digit !== null) {
-      ctx.globalAlpha = c.reveal;
-      const holeScale = 0.88 + c.reveal * 0.12;
-      const holeR = c.r * 0.36 * holeScale;
-      ctx.save();
       ctx.beginPath();
-      ctx.arc(0, c.r * 0.06, holeR, 0, Math.PI * 2);
-      ctx.fillStyle = '#000000';
+      ctx.arc(0, 0, R, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,0,0,${c.reveal * 0.82})`;
       ctx.fill();
-      ctx.lineWidth = Math.max(1, c.r * 0.03);
-      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-      ctx.stroke();
-      ctx.restore();
-      ctx.globalAlpha = fadeAlpha;
     }
 
     ctx.restore();
