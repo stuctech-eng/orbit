@@ -101,12 +101,145 @@
     min-height: 44px;
   }
   #welcome button:active { background: rgba(255,255,255,0.15); }
+  #welcome .menuStack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 220px;
+  }
+
+  /* The single subtle interaction point during gameplay — styled like the
+     scanner itself, not like a UI control. */
+  #scannerIndicator {
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top));
+    left: 0; right: 0;
+    height: 44px; /* generous tap target */
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  #scannerIndicator .line {
+    width: 72px;
+    height: 1px;
+    background: rgba(255,255,255,0.22);
+    box-shadow: 0 0 6px rgba(255,255,255,0.25);
+    transition: opacity 0.2s ease;
+  }
+  #scannerIndicator:active .line { opacity: 0.6; }
+  #scannerIndicator.hidden { display: none; }
+
+  #pauseOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: rgba(0,0,0,0.88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  #pauseOverlay.visible { opacity: 1; pointer-events: auto; }
+  #pauseOverlay .menuStack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 220px;
+  }
+  #pauseOverlay button {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.04);
+    color: #ffffff;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    font-family: inherit;
+    padding: 15px 0;
+    border-radius: 999px;
+    min-height: 44px;
+  }
+  #pauseOverlay button:active { background: rgba(255,255,255,0.14); }
+
+  #settingsOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 26;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    color: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  #settingsOverlay.visible { opacity: 1; pointer-events: auto; }
+  #settingsOverlay .title {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+  #settingsOverlay .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 220px;
+    padding: 16px 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 15px;
+    margin-bottom: 24px;
+  }
+  #settingsOverlay .toggle {
+    width: 50px; height: 30px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    position: relative;
+    flex-shrink: 0;
+  }
+  #settingsOverlay .toggle .knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s ease;
+  }
+  #settingsOverlay .toggle.on { background: rgba(255,255,255,0.85); }
+  #settingsOverlay .toggle.on .knob { transform: translateX(20px); background: #000; }
+  #settingsOverlay button.close {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 14px;
+    padding: 14px 0;
+    border-radius: 999px;
+    min-height: 44px;
+    width: 220px;
+  }
 </style>
 </head>
 <body>
 <div id="stage">
   <canvas id="c"></canvas>
 </div>
+<button id="scannerIndicator" aria-label="Menu"><span class="line"></span></button>
 <div id="welcome" class="hidden">
   <div class="title">ORBIT</div>
   <div class="stats">
@@ -115,7 +248,29 @@
     <div class="stat"><div class="value" id="statScore">–</div><div class="label">Hoogste score</div></div>
     <div class="stat"><div class="value" id="statRating">–</div><div class="label">Cognitive Rating</div></div>
   </div>
-  <button id="resumeBtn">▶ Verder spelen</button>
+  <div class="menuStack">
+    <button id="resumeBtn">▶ Verder spelen</button>
+    <button id="newSessionBtn">↺ Nieuwe sessie</button>
+    <button id="homeSettingsBtn">⚙ Instellingen</button>
+  </div>
+</div>
+
+<div id="pauseOverlay">
+  <div class="menuStack">
+    <button id="pauseResumeBtn">▶ Verder spelen</button>
+    <button id="pauseHomeBtn">🏠 Home</button>
+    <button id="pauseNewSessionBtn">↺ Nieuwe sessie</button>
+    <button id="pauseSettingsBtn">⚙ Instellingen</button>
+  </div>
+</div>
+
+<div id="settingsOverlay">
+  <div class="title">Instellingen</div>
+  <div class="row">
+    <span>Trilling</span>
+    <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
+  </div>
+  <button class="close" id="closeSettingsOverlay">Sluiten</button>
 </div>
 
 <script>
@@ -155,7 +310,21 @@
   }
   resize();
 
+  // ---------- Settings (minimal — audio is currently removed, see notes) ----------
+  const SETTINGS_KEY = 'orbit_settings_v1';
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  let settings = Object.assign({ haptics: true }, loadSettings() || {});
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
+  }
+
   function haptic(pattern) {
+    if (!settings.haptics) return;
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
 
@@ -955,8 +1124,34 @@
     }
   }
 
+  let paused = false;
+  let pauseStartedAt = 0;
+
+  function pauseGame() {
+    if (paused) return;
+    paused = true;
+    pauseStartedAt = now();
+    persistSave();
+  }
+
+  function resumeGame() {
+    if (!paused) return;
+    const pausedMs = now() - pauseStartedAt;
+    // Shift the round's clocks forward by exactly how long we were paused,
+    // so the scan resumes from precisely where it left off instead of
+    // jumping ahead (or the intro/feedback timers firing instantly).
+    phaseStart += pausedMs;
+    roundStartTime += pausedMs;
+    paused = false;
+  }
+
   function frame() {
     const t = now();
+    if (paused) {
+      lastT = t; // keep the clock current so resuming doesn't jump dt/phaseStart-relative timers forward
+      requestAnimationFrame(frame);
+      return;
+    }
     const dt = Math.min(0.032, (t - lastT) / 1000);
     lastT = t;
 
@@ -988,19 +1183,127 @@
     requestAnimationFrame(frame);
   }
 
+  function startNewSession() {
+    // Resets the CURRENT run's position in the ladder and current score —
+    // lifetime stats (highest score/level, totals, play time) are kept.
+    ladderIndex = 0;
+    pendingAdjustment = 1;
+    roundHistory = [];
+    save.ladderIndex = 0;
+    save.score = 0;
+    persistSave();
+  }
+
+  // ---------- Navigation ----------
   const welcomeEl = document.getElementById('welcome');
-  if (save.totalRounds > 0) {
+  const pauseOverlayEl = document.getElementById('pauseOverlay');
+  const settingsOverlayEl = document.getElementById('settingsOverlay');
+  const scannerIndicatorEl = document.getElementById('scannerIndicator');
+  const hapticsToggleEl = document.getElementById('toggleHaptics');
+
+  let gameLaunched = false;
+  let settingsReturnTo = 'pause'; // 'pause' | 'home' — which screen re-appears when Settings closes
+
+  function refreshHomeStats() {
     document.getElementById('statLevel').textContent = String(save.ladderIndex + 1);
     document.getElementById('statHighLevel').textContent = String(save.highestLadderIndex + 1);
     document.getElementById('statScore').textContent = String(save.highestScore);
     document.getElementById('statRating').textContent = String(cognitiveRating(save));
-    welcomeEl.classList.remove('hidden');
-    document.getElementById('resumeBtn').addEventListener('click', () => {
-      welcomeEl.classList.add('hidden');
+  }
+
+  function updateIndicatorVisibility() {
+    const anyOverlayOpen = !welcomeEl.classList.contains('hidden')
+      || pauseOverlayEl.classList.contains('visible')
+      || settingsOverlayEl.classList.contains('visible');
+    scannerIndicatorEl.classList.toggle('hidden', anyOverlayOpen || !gameLaunched);
+  }
+
+  function goToGameplay() {
+    welcomeEl.classList.add('hidden');
+    pauseOverlayEl.classList.remove('visible');
+    if (!gameLaunched) {
+      gameLaunched = true;
       launchGame();
-    }, { once: true });
+    } else {
+      resumeGame();
+    }
+    updateIndicatorVisibility();
+  }
+
+  function showHome() {
+    pauseOverlayEl.classList.remove('visible');
+    settingsOverlayEl.classList.remove('visible');
+    refreshHomeStats();
+    welcomeEl.classList.remove('hidden');
+    updateIndicatorVisibility();
+  }
+
+  function openPause() {
+    pauseGame();
+    pauseOverlayEl.classList.add('visible');
+    updateIndicatorVisibility();
+  }
+
+  function openSettings(returnTo) {
+    settingsReturnTo = returnTo;
+    pauseOverlayEl.classList.remove('visible');
+    settingsOverlayEl.classList.add('visible');
+    updateIndicatorVisibility();
+  }
+
+  function closeSettings() {
+    settingsOverlayEl.classList.remove('visible');
+    if (settingsReturnTo === 'home') showHome();
+    else pauseOverlayEl.classList.add('visible');
+    updateIndicatorVisibility();
+  }
+
+  // The single subtle interaction point during gameplay
+  scannerIndicatorEl.addEventListener('click', openPause);
+
+  // Pause menu
+  document.getElementById('pauseResumeBtn').addEventListener('click', goToGameplay);
+  document.getElementById('pauseHomeBtn').addEventListener('click', () => { persistSave(); showHome(); });
+  document.getElementById('pauseNewSessionBtn').addEventListener('click', () => {
+    startNewSession();
+    pauseOverlayEl.classList.remove('visible');
+    if (!gameLaunched) { gameLaunched = true; launchGame(); }
+    else { resumeGame(); startRound(); }
+    updateIndicatorVisibility();
+  });
+  document.getElementById('pauseSettingsBtn').addEventListener('click', () => openSettings('pause'));
+
+  // Home menu
+  document.getElementById('resumeBtn').addEventListener('click', goToGameplay);
+  document.getElementById('newSessionBtn').addEventListener('click', () => {
+    startNewSession();
+    welcomeEl.classList.add('hidden');
+    if (!gameLaunched) { gameLaunched = true; launchGame(); }
+    else { resumeGame(); startRound(); }
+    updateIndicatorVisibility();
+  });
+  document.getElementById('homeSettingsBtn').addEventListener('click', () => openSettings('home'));
+
+  // Settings
+  function refreshSettingsUI() { hapticsToggleEl.classList.toggle('on', settings.haptics); }
+  refreshSettingsUI();
+  hapticsToggleEl.addEventListener('click', () => {
+    settings.haptics = !settings.haptics;
+    saveSettings();
+    refreshSettingsUI();
+  });
+  document.getElementById('closeSettingsOverlay').addEventListener('click', closeSettings);
+
+  // Auto-save whenever the app is backgrounded or closed (in addition to
+  // the existing end-of-round save) — the player never has to think about it.
+  window.addEventListener('pagehide', () => { if (paused) return; persistSave(); });
+
+  if (save.totalRounds > 0) {
+    showHome();
   } else {
+    gameLaunched = true;
     launchGame();
+    updateIndicatorVisibility();
   }
 
   // Belt-and-suspenders against iOS Safari's bounce/rubber-band scroll,

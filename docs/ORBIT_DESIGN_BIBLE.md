@@ -155,7 +155,23 @@ Nog bewust niet gedaan: het scannergeluid synchroon laten meezwellen — audio i
 
 ---
 
-## 8. Wat hier NIET in thuishoort
+## 7b. In-Game Navigatie
+
+Minimalistisch principe: tijdens gameplay is er precies **één** subtiel interactiepunt, geen klassieke Home/Back/Save-knoppen.
+
+- **Scanner-indicator**: dunne witte lijn (1px, lage opaciteit, zachte gloed) bovenaan het scherm, altijd zichtbaar tijdens gameplay, stijl van de scanner zelf — geen herkenbaar UI-icoon. 44px onzichtbaar tikgebied eromheen voor bereikbaarheid.
+- **Tik erop** → pauzeert het spel (physics, scan, timers bevriezen exact; canvas blijft het laatste beeld tonen) en opent het pauzemenu met een zachte fade (0.35s), geen harde overgang.
+- **Pauzemenu** (precies 4 opties): ▶ Verder spelen · 🏠 Home · ↺ Nieuwe sessie · ⚙ Instellingen.
+- **Verder spelen**: fade-out, gameplay hervat exact waar die was — `phaseStart` en `roundStartTime` schuiven op met precies de gepauzeerde duur, dus de scan springt niet vooruit en geen enkele timer "ontploft" na een lange pauze. Geen laadscherm.
+- **Home**: hergebruikt het bestaande welkomstscherm (met stats), nu uitgebreid met Nieuwe sessie en Instellingen als losse knoppen.
+- **Nieuwe sessie**: reset alleen de huidige ladder-positie en score van de lopende run (`ladderIndex`, `roundHistory`, `score` terug naar 0). Lifetime-stats (hoogste level/score, totalCorrect, speeltijd) blijven staan — geen destructieve reset van prestaties.
+- **Instellingen**: momenteel minimaal (alleen Trilling aan/uit), omdat audio-instellingen zijn verwijderd samen met de audio-laag zelf.
+
+**Auto-save, geen handmatige Save-knop.** Slaat op bij: einde van elke ronde (al bestaand), het openen van het pauzemenu, terug naar Home, en het naar de achtergrond gaan van de app (`pagehide`/`visibilitychange`, al bestaand).
+
+---
+
+
 
 Dingen die bewust zijn afgewezen of uitgesteld, zodat ze niet per ongeluk terugkomen://
 - Kleur (ook niet subtiel cyaan/teal — expliciet overwogen en afgewezen)
