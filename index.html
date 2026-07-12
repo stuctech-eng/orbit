@@ -651,7 +651,6 @@
   function startRound() {
     phase = PHASE.INTRO;
     phaseStart = now();
-    roundStartTime = now();
 
     // Ladder navigation: the fixed dataset (LADDER) never changes — only
     // WHERE we are in it moves, per the Cognitive Engine's last decision.
@@ -707,6 +706,7 @@
   function beginMemory() {
     phase = PHASE.MEMORY;
     phaseStart = now();
+    roundStartTime = now(); // reaction time counts from HERE — when the player can actually respond — not from round start (which would always include the ~5-7s mandatory scan wait)
   }
 
   // Immediate, player-facing acknowledgment of a tap — the pulse ring and

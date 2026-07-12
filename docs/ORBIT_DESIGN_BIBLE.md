@@ -66,6 +66,8 @@ Huidige versie (V2): kijkt naar de laatste 5 rondes.
 
 Nooit onder ladder-index 0. Toekomstige versies (rolling accuracy, streaks, per-fase gedrag) veranderen alleen de inhoud van `decide()` — nooit de aanroep ervan, nooit de ladder, nooit de gameplay.
 
+**Bugfix:** reactietijd werd aanvankelijk gemeten vanaf het begin van de ronde (`startRound()`), dus inclusief de volledige verplichte scan-duur (~5-7s, ruim boven de 3500ms-drempel). Daardoor kon de speler nooit als "snel genoeg" gelden, ongeacht prestatie — de ladder bleef vastzitten op "blijft gelijk". Reactietijd wordt nu gemeten vanaf `beginMemory()`, het moment waarop de speler daadwerkelijk kan reageren.
+
 ### 3.3 Save System
 `localStorage`, key `orbit_save_v1`. Opgeslagen na elke ronde en bij het verlaten van de app:
 - `ladderIndex`, `highestLadderIndex`
