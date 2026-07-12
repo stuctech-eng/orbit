@@ -178,11 +178,22 @@ Minimalistisch principe: tijdens gameplay is er precies **één** subtiel intera
 - **Tik erop** → pauzeert het spel (physics, scan, timers bevriezen exact; canvas blijft het laatste beeld tonen) en opent het pauzemenu met een zachte fade (0.35s), geen harde overgang.
 - **Pauzemenu** (precies 4 opties): ▶ Verder spelen · 🏠 Home · ↺ Nieuwe sessie · ⚙ Instellingen.
 - **Verder spelen**: fade-out, gameplay hervat exact waar die was — `phaseStart` en `roundStartTime` schuiven op met precies de gepauzeerde duur, dus de scan springt niet vooruit en geen enkele timer "ontploft" na een lange pauze. Geen laadscherm.
-- **Home**: hergebruikt het bestaande welkomstscherm (met stats), nu uitgebreid met Nieuwe sessie en Instellingen als losse knoppen.
+- **Home**: hergebruikt het bestaande welkomstscherm (met stats), nu uitgebreid met Nieuwe sessie, Statistieken en Instellingen als losse knoppen.
 - **Nieuwe sessie**: reset alleen de huidige ladder-positie en score van de lopende run (`ladderIndex`, `roundHistory`, `score` terug naar 0). Lifetime-stats (hoogste level/score, totalCorrect, speeltijd) blijven staan — geen destructieve reset van prestaties.
 - **Instellingen**: momenteel minimaal (alleen Trilling aan/uit), omdat audio-instellingen zijn verwijderd samen met de audio-laag zelf.
 
 **Auto-save, geen handmatige Save-knop.** Slaat op bij: einde van elke ronde (al bestaand), het openen van het pauzemenu, terug naar Home, en het naar de achtergrond gaan van de app (`pagehide`/`visibilitychange`, al bestaand).
+
+---
+
+## 7c. Statistieken (Sprint 4)
+
+Minimalistisch scherm, geen dashboard — vijf regels, bereikbaar via een "Statistieken"-knop op Home:
+- Hoogste level, Hoogste score, Cognitive Rating (al eerder aanwezig op Home zelf)
+- **Speeltijd** — nieuw, `mm`/`uu mm`-notatie, telt de lopende sessie live mee (niet pas na de eerstvolgende save)
+- **Sessies** — nieuw save-veld (`save.sessions`), telt één per app-launch, opgehoogd zodra het script start
+
+Bewuste keuze: dit is een apart scherm, niet ingebouwd in de bestaande Home-statistiekjes-grid — dat matcht de oorspronkelijke navigatiespec ("Van daaruit kan de speler: ... Statistieken bekijken ..."), die tot nu toe nooit een eigen knop had gekregen.
 
 ---
 

@@ -233,6 +233,62 @@
     min-height: 44px;
     width: 220px;
   }
+
+  #statsOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 26;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    color: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  #statsOverlay.visible { opacity: 1; pointer-events: auto; }
+  #statsOverlay .title {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+  #statsOverlay .statRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 240px;
+    padding: 14px 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  #statsOverlay .statRow .label {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+  }
+  #statsOverlay .statRow .value {
+    font-size: 17px;
+    font-weight: 300;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  #statsOverlay button.close {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 14px;
+    padding: 14px 0;
+    border-radius: 999px;
+    min-height: 44px;
+    width: 220px;
+    margin-top: 28px;
+  }
 </style>
 </head>
 <body>
@@ -251,6 +307,7 @@
   <div class="menuStack">
     <button id="resumeBtn">▶ Verder spelen</button>
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
+    <button id="homeStatsBtn">Statistieken</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
   </div>
 </div>
@@ -262,6 +319,16 @@
     <button id="pauseNewSessionBtn">↺ Nieuwe sessie</button>
     <button id="pauseSettingsBtn">⚙ Instellingen</button>
   </div>
+</div>
+
+<div id="statsOverlay">
+  <div class="title">Statistieken</div>
+  <div class="statRow"><span class="label">Hoogste level</span><span class="value" id="statsHighLevel">–</span></div>
+  <div class="statRow"><span class="label">Hoogste score</span><span class="value" id="statsHighScore">–</span></div>
+  <div class="statRow"><span class="label">Cognitive Rating</span><span class="value" id="statsRating">–</span></div>
+  <div class="statRow"><span class="label">Speeltijd</span><span class="value" id="statsPlayTime">–</span></div>
+  <div class="statRow"><span class="label">Sessies</span><span class="value" id="statsSessions">–</span></div>
+  <button class="close" id="closeStatsOverlay">Sluiten</button>
 </div>
 
 <div id="settingsOverlay">
@@ -348,11 +415,14 @@
       totalCorrect: 0,
       totalRounds: 0,
       totalPlayTimeMs: 0,
+      sessions: 0,
       lastPlayed: null
     };
   }
 
   let save = loadSave() || defaultSave();
+  if (typeof save.sessions !== 'number') save.sessions = 0; // guard against saves from before this field existed
+  save.sessions++; // one launch of the app = one session, counted immediately (not per round)
   let sessionStart = now();
 
   function persistSave() {
@@ -1192,6 +1262,7 @@
   const welcomeEl = document.getElementById('welcome');
   const pauseOverlayEl = document.getElementById('pauseOverlay');
   const settingsOverlayEl = document.getElementById('settingsOverlay');
+  const statsOverlayEl = document.getElementById('statsOverlay');
   const scannerIndicatorEl = document.getElementById('scannerIndicator');
   const hapticsToggleEl = document.getElementById('toggleHaptics');
 
@@ -1205,10 +1276,31 @@
     document.getElementById('statRating').textContent = String(cognitiveRating(save));
   }
 
+  // Minimalist duration formatting — "45m", "2u 15m", never raw ms.
+  function formatPlayTime(ms) {
+    const totalMinutes = Math.floor(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) return `${hours}u ${minutes}m`;
+    return `${minutes}m`;
+  }
+
+  function refreshStatsOverlay() {
+    // Includes the current, not-yet-persisted portion of this session so
+    // the number feels alive rather than stuck at the last save point.
+    const liveMs = save.totalPlayTimeMs + (now() - sessionStart);
+    document.getElementById('statsHighLevel').textContent = String(save.highestLadderIndex + 1);
+    document.getElementById('statsHighScore').textContent = String(save.highestScore);
+    document.getElementById('statsRating').textContent = String(cognitiveRating(save));
+    document.getElementById('statsPlayTime').textContent = formatPlayTime(liveMs);
+    document.getElementById('statsSessions').textContent = String(save.sessions);
+  }
+
   function updateIndicatorVisibility() {
     const anyOverlayOpen = !welcomeEl.classList.contains('hidden')
       || pauseOverlayEl.classList.contains('visible')
-      || settingsOverlayEl.classList.contains('visible');
+      || settingsOverlayEl.classList.contains('visible')
+      || statsOverlayEl.classList.contains('visible');
     scannerIndicatorEl.classList.toggle('hidden', anyOverlayOpen || !gameLaunched);
   }
 
@@ -1227,6 +1319,7 @@
   function showHome() {
     pauseOverlayEl.classList.remove('visible');
     settingsOverlayEl.classList.remove('visible');
+    statsOverlayEl.classList.remove('visible');
     refreshHomeStats();
     welcomeEl.classList.remove('hidden');
     updateIndicatorVisibility();
@@ -1236,6 +1329,17 @@
     pauseGame();
     pauseOverlayEl.classList.add('visible');
     updateIndicatorVisibility();
+  }
+
+  function openStats() {
+    refreshStatsOverlay();
+    statsOverlayEl.classList.add('visible');
+    updateIndicatorVisibility();
+  }
+
+  function closeStats() {
+    statsOverlayEl.classList.remove('visible');
+    showHome();
   }
 
   function openSettings(returnTo) {
@@ -1289,6 +1393,8 @@
     updateIndicatorVisibility();
   });
   document.getElementById('homeSettingsBtn').addEventListener('click', () => openSettings('home'));
+  document.getElementById('homeStatsBtn').addEventListener('click', openStats);
+  document.getElementById('closeStatsOverlay').addEventListener('click', closeStats);
 
   // Settings
   function refreshSettingsUI() { hapticsToggleEl.classList.toggle('on', settings.haptics); }
