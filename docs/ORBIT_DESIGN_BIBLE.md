@@ -137,6 +137,16 @@ Haptics: licht, kort. Correct = enkele tik (`haptic(12)`). Fout = kort patroon (
 
 ---
 
+## 7a. Motion Design (Sprint 3)
+
+Puur visuele verfijning, geen enkele wijziging aan bevroren mechanics (gameplay-loop, scannersnelheid, physics-regels, ladder, engine):
+
+- **Nieuwe cellen vloeien in** (550ms, ease-out) wanneer de ladder meer cellen nodig heeft — mirror van de bestaande fade-out voor cellen die wegvallen. Voorheen "poppten" nieuwe cellen instant in beeld, wat niet paste bij hoe rustig het wegvallen al ging.
+- **Feedback-puls (correct/fout) is nu ease-out** in plaats van lineair: multiplicatieve decay (`×0.90` per frame voor de puls, `×0.85` voor de detectie-burst) i.p.v. een vaste hoeveelheid per frame. Zelfde totale duur, maar een natuurlijkere curve — snel begin, zachte uitloop.
+- **Welkomstscherm faded nu zachtjes in/uit** (0.4s) in plaats van een harde `display:none`-wissel.
+
+---
+
 ## 8. Wat hier NIET in thuishoort
 
 Dingen die bewust zijn afgewezen of uitgesteld, zodat ze niet per ongeluk terugkomen://

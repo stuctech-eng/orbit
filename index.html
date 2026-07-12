@@ -57,8 +57,10 @@
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     color: #ffffff;
+    opacity: 1;
+    transition: opacity 0.4s ease;
   }
-  #welcome.hidden { display: none; }
+  #welcome.hidden { opacity: 0; pointer-events: none; }
   #welcome .title {
     font-size: 15px;
     letter-spacing: 0.28em;
@@ -310,11 +312,14 @@
       feedbackColor: null,
       digit: null,
       dying: false,      // true while fading out after being dropped by the ladder
-      fadeStart: 0
+      fadeStart: 0,
+      spawning: false,   // true while fading in after being newly added by the ladder
+      spawnStart: 0
     };
   }
 
-  const FADE_DURATION = 550; // ms for a departing cell to fade out
+  const FADE_DURATION = 550;  // ms for a departing cell to fade out
+  const SPAWN_DURATION = 550; // ms for a newly arriving cell to fade in — mirrors FADE_DURATION
 
   let gameStarted = false;
 
@@ -371,9 +376,9 @@
           for (const c of cells) {
             if (Math.hypot(x - c.x, y - c.y) < baseRadius * 2.3) { ok = false; break; }
           }
-          if (ok) { cells.push(makeCell(x, y)); placed = true; }
+          if (ok) { const nc = makeCell(x, y); nc.spawning = true; nc.spawnStart = now(); cells.push(nc); placed = true; }
         }
-        if (!placed) cells.push(makeCell(rand(marginX, W - marginX), rand(marginYTop, H - marginYBottom)));
+        if (!placed) { const nc = makeCell(rand(marginX, W - marginX), rand(marginYTop, H - marginYBottom)); nc.spawning = true; nc.spawnStart = now(); cells.push(nc); }
       }
     } else if (activeCount > n) {
       // Don't remove instantly — mark the excess as dying so they fade out
@@ -644,8 +649,8 @@
     ctx.fillRect(0, 0, W, H);
   }
 
-  const FEEDBACK_DECAY_RATE = 0.028; // per frame
-  const BURST_DECAY_RATE = 0.045;    // per frame
+  const FEEDBACK_DECAY = 0.90; // multiplicative per frame — ease-out curve instead of a linear fade
+  const BURST_DECAY = 0.85;    // multiplicative per frame
 
   // Advances a cell's time-based visual state (ambient glow breathing,
   // feedback pulse decay, detection-burst decay). Kept separate from
@@ -654,12 +659,12 @@
     c.glow = 0.5 + 0.5 * Math.sin(t / 1400 + (c.x + c.y) * 0.001);
 
     if (c.feedback > 0) {
-      c.feedback -= FEEDBACK_DECAY_RATE;
-      if (c.feedback < 0) c.feedback = 0;
+      c.feedback *= FEEDBACK_DECAY;
+      if (c.feedback < 0.01) c.feedback = 0;
     }
     if (c.burst > 0) {
-      c.burst -= BURST_DECAY_RATE;
-      if (c.burst < 0) c.burst = 0;
+      c.burst *= BURST_DECAY;
+      if (c.burst < 0.01) c.burst = 0;
     }
   }
 
@@ -675,6 +680,13 @@
       const fadeProgress = Math.min(1, (t - c.fadeStart) / FADE_DURATION);
       fadeAlpha = Math.max(0, 1 - fadeProgress);
       ctx.globalAlpha = fadeAlpha;
+    } else if (c.spawning) {
+      const spawnProgress = Math.min(1, (t - c.spawnStart) / SPAWN_DURATION);
+      // ease-out (1 - (1-x)^2) — starts quickly, settles gently, feels less
+      // mechanical than a linear fade
+      fadeAlpha = 1 - Math.pow(1 - spawnProgress, 2);
+      ctx.globalAlpha = fadeAlpha;
+      if (spawnProgress >= 1) c.spawning = false;
     }
 
     // feedback ring
