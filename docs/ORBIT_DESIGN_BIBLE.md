@@ -54,19 +54,32 @@ Vast dataset, 18 stappen, cyclisch:
 
 Na fase E herhaalt het patroon. De ladder zelf verandert nooit — alleen de positie erin.
 
-### 3.2 Cognitive Engine
+### 3.2 Cognitive Engine V2.0
 Interface-contract (stabiel, mag nooit breken):
 ```
 CognitiveEngine.decide(roundHistory) -> -1 | 0 | 1
 ```
-Huidige versie (V2): kijkt naar de laatste 5 rondes.
-- ≥80% correct + gemiddelde reactietijd ≤3500ms → **+1** (vooruit)
-- ≥80% correct maar traag, of 60–79% correct → **0** (blijft gelijk)
-- <60% correct → **-1** (terug)
+Versiegeschiedenis: V1 keek naar één ronde, V2 (kort in gebruik) naar een raam van 5 rondes met accuracy/snelheid-drempels, **V3 — "Cognitive Engine V2.0" (huidig)** gebruikt een interne, nooit-getoonde **Confidence Score** (0–100, start op 50).
 
-Nooit onder ladder-index 0. Toekomstige versies (rolling accuracy, streaks, per-fase gedrag) veranderen alleen de inhoud van `decide()` — nooit de aanroep ervan, nooit de ladder, nooit de gameplay.
+**Vijf factoren per ronde, opgeteld bij de Confidence Score:**
+1. **Correctheid** — juist: +3, fout: −6
+2. **Reactietijd** — vergeleken met de *eigen* verwachte tijd van de huidige ladder-stap (niet één vaste limiet): `verwacht = max(500, 400×cellen − 200) + 700×(cijfers−1)` ms. Sneller dan verwacht: +2. Erg langzaam (≥1.8×): −1, tenzij vermoeid (zie hieronder) dan 0. Normaal: 0.
+3. **Streak-bonus** — eenmalig bij exact 3 achter elkaar (+2), 5 (+4), 10 (+8), en daarna elke 5 verder (+2)
+4. **Foutenreeks** — eenmalig bij exact 2 fouten achter elkaar (−2 extra), 3 (−5 extra), 4+ (−8 extra)
+5. **Extreme prestatie** — bij een streak ≥5 én ruim sneller dan verwacht: +1 extra bovenop de streak-bonus (versnelt de Confidence Score, slaat nooit een level over)
 
-**Bugfix:** reactietijd werd aanvankelijk gemeten vanaf het begin van de ronde (`startRound()`), dus inclusief de volledige verplichte scan-duur (~5-7s, ruim boven de 3500ms-drempel). Daardoor kon de speler nooit als "snel genoeg" gelden, ongeacht prestatie — de ladder bleef vastzitten op "blijft gelijk". Reactietijd wordt nu gemeten vanaf `beginMemory()`, het moment waarop de speler daadwerkelijk kan reageren.
+**Beslissing:**
+- Score > 80 → **+1** (vooruit), score reset naar **55** (niet 50 — houdt de flow vast)
+- Score < 35 → **−1** (terug), score reset naar **50**
+- Daartussen → **0** (blijft gelijk)
+
+**Vermoeidheid:** na ~15 minuten onafgebroken spelen (`continuousPlayStart`, reset bij hervatten na pauze of nieuwe sessie) vervalt de −1-straf voor trage reacties.
+
+**Waarom geen expliciet rollend venster van 10 rondes (zoals de spec voorstelt):** de Confidence Score zelf is de facto al een rollend gemiddelde — een enkele ronde kan de score met hooguit een paar punten verschuiven, en de drempels (80/35) vereisen aanhoudende prestatie om te bereiken. Dat geeft hetzelfde "reageert op trends, niet op toeval"-gedrag als een expliciet raam, met minder state om bij te houden. `roundHistory` blijft wel bestaan (nu ook met `cells`/`digits` per ronde, nodig voor de verwachte-reactietijd-berekening) voor eventuele toekomstige analyse.
+
+Persistente state (overleeft pauze/hervatten én app-herstart, net als de ladder zelf): `save.confidenceScore`, `save.currentStreak`, `save.currentErrorStreak`. Worden gereset bij "Nieuwe sessie", net als de ladder-positie.
+
+Nooit onder ladder-index 0. De architectuur-scheiding blijft absoluut: de engine kent uitsluitend `{correct, reactionMs, cells, digits}` — nooit physics, scanner, animaties, audio, rendering of UI.
 
 ### 3.3 Save System
 `localStorage`, key `orbit_save_v1`. Opgeslagen na elke ronde en bij het verlaten van de app:
@@ -188,12 +201,14 @@ Minimalistisch principe: tijdens gameplay is er precies **één** subtiel intera
 
 ## 7c. Statistieken (Sprint 4)
 
-Minimalistisch scherm, geen dashboard — vijf regels, bereikbaar via een "Statistieken"-knop op Home:
+Minimalistisch scherm, geen dashboard — zeven regels, bereikbaar via een "Statistieken"-knop op Home:
 - Hoogste level, Hoogste score, Cognitive Rating (al eerder aanwezig op Home zelf)
-- **Speeltijd** — nieuw, `mm`/`uu mm`-notatie, telt de lopende sessie live mee (niet pas na de eerstvolgende save)
-- **Sessies** — nieuw save-veld (`save.sessions`), telt één per app-launch, opgehoogd zodra het script start
+- **Correcte antwoorden** (`totalCorrect`) — werd al bijgehouden en gebruikt in de Cognitive Rating-berekening, maar stond nergens zichtbaar
+- **Speeltijd** — `mm`/`uu mm`-notatie, telt de lopende sessie live mee (niet pas na de eerstvolgende save)
+- **Sessies** (`save.sessions`) — telt één per app-launch, opgehoogd zodra het script start
+- **Laatste keer gespeeld** (`lastPlayed`) — "Vandaag, 14:32" als het vandaag is, anders een volledige datum (nl-NL notatie)
 
-Bewuste keuze: dit is een apart scherm, niet ingebouwd in de bestaande Home-statistiekjes-grid — dat matcht de oorspronkelijke navigatiespec ("Van daaruit kan de speler: ... Statistieken bekijken ..."), die tot nu toe nooit een eigen knop had gekregen.
+Bewuste keuze: apart scherm, niet ingebouwd in de bestaande Home-statistiekjes-grid — matcht de oorspronkelijke navigatiespec.
 
 ---
 

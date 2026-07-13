@@ -326,8 +326,10 @@
   <div class="statRow"><span class="label">Hoogste level</span><span class="value" id="statsHighLevel">–</span></div>
   <div class="statRow"><span class="label">Hoogste score</span><span class="value" id="statsHighScore">–</span></div>
   <div class="statRow"><span class="label">Cognitive Rating</span><span class="value" id="statsRating">–</span></div>
+  <div class="statRow"><span class="label">Correcte antwoorden</span><span class="value" id="statsCorrect">–</span></div>
   <div class="statRow"><span class="label">Speeltijd</span><span class="value" id="statsPlayTime">–</span></div>
   <div class="statRow"><span class="label">Sessies</span><span class="value" id="statsSessions">–</span></div>
+  <div class="statRow"><span class="label">Laatste keer gespeeld</span><span class="value" id="statsLastPlayed">–</span></div>
   <button class="close" id="closeStatsOverlay">Sluiten</button>
 </div>
 
@@ -416,14 +418,21 @@
       totalRounds: 0,
       totalPlayTimeMs: 0,
       sessions: 0,
-      lastPlayed: null
+      lastPlayed: null,
+      confidenceScore: 50,   // Cognitive Engine V2 — internal, never shown to the player
+      currentStreak: 0,
+      currentErrorStreak: 0
     };
   }
 
   let save = loadSave() || defaultSave();
   if (typeof save.sessions !== 'number') save.sessions = 0; // guard against saves from before this field existed
+  if (typeof save.confidenceScore !== 'number') save.confidenceScore = 50;
+  if (typeof save.currentStreak !== 'number') save.currentStreak = 0;
+  if (typeof save.currentErrorStreak !== 'number') save.currentErrorStreak = 0;
   save.sessions++; // one launch of the app = one session, counted immediately (not per round)
   let sessionStart = now();
+  let continuousPlayStart = now(); // for the fatigue easing factor — resets on resume/new session, not on every save
 
   function persistSave() {
     save.totalPlayTimeMs += now() - sessionStart;
@@ -473,40 +482,94 @@
   let roundStartTime = 0;    // for reaction-time tracking
   let roundHistory = [];     // { correct, reactionMs } per round, oldest first — the engine's only input
 
-  // ---------- Cognitive Engine ----------
+  // ---------- Cognitive Engine V2.0 ----------
   // Deliberately isolated from both the ladder (the fixed training dataset
   // above) and the gameplay loop. Its ONLY output is a navigation decision:
   // move forward through the ladder, stay at the current step, or step
   // back. It never changes what the ladder contains or how a round plays.
+  // It knows nothing about physics, scanner, animations, audio, rendering,
+  // or UI — only player performance.
   //
   // Interface contract, kept stable across versions so nothing outside this
   // object ever needs to change:
   //   CognitiveEngine.decide(roundHistory) -> -1 | 0 | 1
-  // roundHistory is the player's full round-by-round record (oldest first);
-  // how much of it a given version actually looks at is an internal detail.
-  //   V1 (previous): looked only at the single most recent round.
-  //   V2 (current):  looks at a rolling window of recent rounds.
-  //   V3 (future):   could use the entire history — call site never changes.
+  //   V1: looked only at the single most recent round.
+  //   V2 (previous): a rolling window of the last 5 rounds' accuracy/speed.
+  //   V3 (current, "Cognitive Engine V2.0" per spec): an internal,
+  //     never-shown Confidence Score (0-100, starts at 50) that every round
+  //     nudges up or down based on correctness, reaction time relative to
+  //     THIS ladder step's own expected pace, streaks, and error runs. A
+  //     level change only fires once the score clears a threshold — a
+  //     single round can only move the score a few points, so the decision
+  //     is inherently about a trend, not one lucky or unlucky round.
   const CognitiveEngine = {
-    WINDOW_SIZE: 5,
-    SLOW_REACTION_MS: 3500,
-    ADVANCE_ACCURACY: 0.8,   // >= this and fast enough -> move forward
-    HOLD_ACCURACY: 0.6,      // >= this (but below advance) -> stay put
+    ADVANCE_THRESHOLD: 80,
+    RETREAT_THRESHOLD: 35,
+    RESET_AFTER_ADVANCE: 55, // not back to 50 — keeps a good flow going
+    RESET_AFTER_RETREAT: 50,
+    FATIGUE_MS: 15 * 60 * 1000, // ~15-20 min continuous play — softens the reaction-time penalty
 
-    // roundHistory: [{ correct: boolean, reactionMs: number }], oldest first
-    // returns: 1 (advance), 0 (stay), -1 (retreat)
+    // Every ladder step has its own expected pace instead of one fixed
+    // limit — fitted to the spec's examples (3 cells≈1s, 5≈2s, 8≈3s;
+    // +~700ms per memory point beyond the first).
+    expectedReactionMs(cells, digits) {
+      const base = Math.max(500, 400 * cells - 200);
+      return base + 700 * Math.max(0, digits - 1);
+    },
+
+    // roundHistory: [{ correct, reactionMs, cells, digits }], oldest first —
+    // only the just-finished round (the last entry) is scored; confidence
+    // itself carries the trend forward round to round.
     decide(roundHistory) {
-      const window = roundHistory.slice(-this.WINDOW_SIZE);
-      if (window.length === 0) return 1;
+      const last = roundHistory[roundHistory.length - 1];
+      if (!last) return 1;
 
-      const accuracy = window.filter((r) => r.correct).length / window.length;
-      const avgReaction = window.reduce((sum, r) => sum + (r.reactionMs || 0), 0) / window.length;
+      let delta = 0;
 
-      if (accuracy >= this.ADVANCE_ACCURACY) {
-        return avgReaction <= this.SLOW_REACTION_MS ? 1 : 0;
+      // Factor 1 — correctness, still the dominant signal
+      delta += last.correct ? 3 : -6;
+
+      // Factor 2 — reaction time, judged against this round's OWN expected
+      // pace, not a fixed limit. A slow-but-correct player is never
+      // punished harshly, and gets even gentler treatment when fatigued.
+      const expected = this.expectedReactionMs(last.cells || 3, last.digits || 1);
+      const fatigued = (now() - continuousPlayStart) > this.FATIGUE_MS;
+      if (last.reactionMs <= expected * 0.75) delta += 2;
+      else if (last.reactionMs >= expected * 1.8) delta += fatigued ? 0 : -1;
+
+      // Factor 3 — streak bonus (correct) / Factor 4 — error-run penalty
+      // (wrong). One-time bumps exactly at the milestones, not every round.
+      if (last.correct) {
+        save.currentStreak++;
+        save.currentErrorStreak = 0;
+        if (save.currentStreak === 3) delta += 2;
+        else if (save.currentStreak === 5) delta += 4;
+        else if (save.currentStreak === 10) delta += 8;
+        else if (save.currentStreak > 10 && save.currentStreak % 5 === 0) delta += 2;
+
+        // Extreme performance: sustained excellence builds confidence a
+        // little faster — never skips a level, only accelerates reaching
+        // the same ADVANCE_THRESHOLD.
+        if (save.currentStreak >= 5 && last.reactionMs <= expected * 0.85) delta += 1;
+      } else {
+        save.currentErrorStreak++;
+        save.currentStreak = 0;
+        if (save.currentErrorStreak === 2) delta -= 2;
+        else if (save.currentErrorStreak === 3) delta -= 5;
+        else if (save.currentErrorStreak >= 4) delta -= 8;
       }
-      if (accuracy >= this.HOLD_ACCURACY) return 0;
-      return -1;
+
+      save.confidenceScore = Math.max(0, Math.min(100, save.confidenceScore + delta));
+
+      if (save.confidenceScore > this.ADVANCE_THRESHOLD) {
+        save.confidenceScore = this.RESET_AFTER_ADVANCE;
+        return 1;
+      }
+      if (save.confidenceScore < this.RETREAT_THRESHOLD) {
+        save.confidenceScore = this.RESET_AFTER_RETREAT;
+        return -1;
+      }
+      return 0;
     }
   };
 
@@ -812,7 +875,7 @@
       save.score += numCells + roundTargets.size * 2;
     }
     const reactionMs = now() - roundStartTime;
-    roundHistory.push({ correct, reactionMs });
+    roundHistory.push({ correct, reactionMs, cells: numCells, digits: roundTargets.size });
     if (roundHistory.length > 50) roundHistory.shift();
     pendingAdjustment = CognitiveEngine.decide(roundHistory);
 
@@ -1207,6 +1270,7 @@
     phaseStart += pausedMs;
     roundStartTime += pausedMs;
     paused = false;
+    continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
   }
 
   function frame() {
@@ -1243,6 +1307,7 @@
   }
 
   function launchGame() {
+    continuousPlayStart = now();
     startRound();
     requestAnimationFrame(frame);
   }
@@ -1255,6 +1320,10 @@
     roundHistory = [];
     save.ladderIndex = 0;
     save.score = 0;
+    save.confidenceScore = 50;
+    save.currentStreak = 0;
+    save.currentErrorStreak = 0;
+    continuousPlayStart = now();
     persistSave();
   }
 
@@ -1285,6 +1354,17 @@
     return `${minutes}m`;
   }
 
+  function formatLastPlayed(iso) {
+    if (!iso) return 'Nu (eerste keer)';
+    const d = new Date(iso);
+    const today = new Date();
+    const sameDay = d.toDateString() === today.toDateString();
+    if (sameDay) {
+      return `Vandaag, ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
   function refreshStatsOverlay() {
     // Includes the current, not-yet-persisted portion of this session so
     // the number feels alive rather than stuck at the last save point.
@@ -1292,8 +1372,10 @@
     document.getElementById('statsHighLevel').textContent = String(save.highestLadderIndex + 1);
     document.getElementById('statsHighScore').textContent = String(save.highestScore);
     document.getElementById('statsRating').textContent = String(cognitiveRating(save));
+    document.getElementById('statsCorrect').textContent = String(save.totalCorrect);
     document.getElementById('statsPlayTime').textContent = formatPlayTime(liveMs);
     document.getElementById('statsSessions').textContent = String(save.sessions);
+    document.getElementById('statsLastPlayed').textContent = formatLastPlayed(save.lastPlayed);
   }
 
   function updateIndicatorVisibility() {
