@@ -510,9 +510,9 @@
     // Scanner tone: one low, static note. Starts/stops purely because it
     // was TOLD scannerStarted/scannerFinished happened — it never decides
     // when the scanner starts or ends.
-    const SCAN_TONE_TYPE = 'triangle';
-    const SCAN_TONE_FREQ = 44;
-    const SCAN_TONE_VOL = 0.06;
+    const SCAN_TONE_TYPE = 'sine';   // was 'triangle' — buzzy/harsh at this low pitch, reads as an alarm-like chime. Sine is smooth and warm.
+    const SCAN_TONE_FREQ = 60;       // slightly higher than 44Hz — pure low sines can feel like an inaudible rumble on small phone speakers
+    const SCAN_TONE_VOL = 0.055;
     const SCAN_TONE_ATTACK = 0.3;
     const SCAN_TONE_RELEASE = 1.0;
     let scanTone = null;
