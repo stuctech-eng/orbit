@@ -460,8 +460,20 @@
     function ensureAudio() {
       unmuteIOS();
       if (!actx) {
-        try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
-        catch (e) { actx = null; }
+        try {
+          actx = new (window.AudioContext || window.webkitAudioContext)();
+          // Prime the audio graph with an inaudible burst right away. A
+          // freshly-created context can take a beat to actually start
+          // rendering frames — without this, a real sound scheduled in the
+          // same gesture can be silently lost during that startup gap.
+          // This exercises the exact same start/stop path as a real tone.
+          const primer = actx.createOscillator();
+          const primerGain = actx.createGain();
+          primerGain.gain.value = 0.0001;
+          primer.connect(primerGain).connect(actx.destination);
+          primer.start();
+          primer.stop(actx.currentTime + 0.05);
+        } catch (e) { actx = null; }
       }
       if (actx && actx.state === 'suspended') {
         actx.resume();
