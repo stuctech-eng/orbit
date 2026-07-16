@@ -149,9 +149,47 @@ De scanner leest een cel niet uit door hem te verlichten, maar door hem bijna zw
 
 ## 6. Geluid & Haptics
 
-**Status: audio volledig verwijderd (tijdelijk).** Na herhaalde iteraties raakte de audio-laag verstrengeld met de ronde-flow-logica en werd het geheel onbetrouwbaar. Op verzoek is alle Web Audio-code (AudioContext, alle `play*()`-functies, de scanner-toon) volledig uit `index.html` gehaald, om eerst weer een aantoonbaar stabiele gameplay-flow te hebben. Haptics (`navigator.vibrate`) zijn wel behouden — dat is geen audio en had geen aandeel in de problemen.
+**Status: audio herbouwd, volledig losgekoppeld via een event-architectuur (zie 6.1).**
 
-Wanneer audio terugkomt, gebeurt dat als een strikt losstaande laag die alleen op reeds-bepaalde uitkomsten reageert (zie Gameflow hierboven — geluid bepaalt nooit `correct`, nooit de timing van een ronde), en wordt eerst apart getest vóór hij weer in de hoofdflow wordt gehaakt.
+### 6.1 Event-architectuur: GameEvents + AudioManager
+
+Harde architectuurregel: **Gameplay stuurt Audio. Audio stuurt nooit Gameplay.** Wanneer audio volledig wordt verwijderd of uitgeschakeld, moet ORBIT nog steeds 100% identiek functioneren — dit is precies wat de eerdere audio-instabiliteit veroorzaakte (audio-functies werden rechtstreeks vanuit gameplay-functies aangeroepen), en is nu structureel onmogelijk gemaakt.
+
+**`GameEvents`** — een minimale, standalone pub/sub (`on`/`emit`). Kernregel: **een event is een observatie, geen opdracht.** Gameplay meldt dat iets al is gebeurd; ze vraagt nooit iets en verneemt nooit wat een listener ermee doet.
+
+Afgedwongen door de implementatie zelf:
+- `emit()` geeft nooit een bruikbare returnwaarde
+- `emit()` wacht nooit op een listener (geen await, geen promise)
+- `emit()` kan nooit gameplay breken — een falende listener wordt in een try/catch opgevangen
+- `emit()` is een snelle no-op zodra er geen listeners zijn
+- Listeners kunnen nooit bepalen wát er geëmit wordt of wannéér
+
+**Zes observatiepunten**, elk één regel toegevoegd op een bestaand beslismoment (geen bestaande regel gewijzigd of verwijderd):
+
+| Event | Waar | Moment |
+|---|---|---|
+| `scannerStarted` | `updateScan()` | kern komt het zíchtbare speelveld binnen (niet bij fase-start — die ligt eerder, vanwege de onzichtbare sleep-buffer) |
+| `scannerReveal` | `updateScan()` | een cel wordt gedetecteerd |
+| `scannerFinished` | `updateScan()` | kern verlaat het zichtbare speelveld |
+| `correctAnswer` | `pulseTapFeedback()` | speler tikt de laatste juiste cel |
+| `wrongAnswer` | `pulseTapFeedback()` | speler tikt fout |
+| `levelUp` | `resolveRound()` | Cognitive Engine besluit +1, ná de beslissing (audio verneemt 'm, bepaalt 'm niet) |
+
+**`AudioManager`** — een volledig losstaande listener. Kent geen `phase`, `cells`, `scanY`, of enige andere gameplay-state; alleen de events die binnenkomen. Zou dit hele blok verwijderd worden, dan draait de game 100% identiek. Eén andere concern staat er expliciet los van: het "unlocken" van Web Audio bij de eerste tik (`AudioManager.ensureAudio`) — dat is een audio-technische vereiste (iOS), geen gameplay-aangelegenheid.
+
+**Toekomstbestendig:** Haptics, Analytics, Achievements of een replay-systeem kunnen later op exact dezelfde zes events abonneren, zonder ooit een regel gameplay-code aan te raken. Gameplay kent `GameEvents` — verder niets.
+
+### 6.2 Geluiden (in AudioManager, laatst afgestemde waarden)
+
+### 6.2 Geluiden (in AudioManager, laatst afgestemde waarden)
+
+| Event | Geluid | Karakter |
+|---|---|---|
+| `scannerStarted`/`scannerFinished` | 44Hz triangle, statisch, vol 0.06, 0.3s aanzwellen / 1s uitsterven | Eén doorlopende lage toon, start/stopt puur omdat AudioManager de events kreeg — bepaalt zelf niets over wanneer |
+| `scannerReveal` | 600Hz sine, kort | Zachte tik per detectie |
+| `correctAnswer` | 880Hz + 1320Hz sine | Helder akkoord |
+| `wrongAnswer` | 340→230Hz triangle, dalend | Zacht, duidelijk "fout" |
+| `levelUp` | 660→880→1100Hz sine, oplopend | Drieklank, alleen bij een daadwerkelijke +1-beslissing |
 
 Haptics: licht, kort. Correct = enkele tik (`haptic(12)`). Fout = kort patroon (`haptic([10,40,10])`). Interim juiste tik (bij meerdere cijfers) = korte tik (`haptic(10)`).
 

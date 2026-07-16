@@ -397,6 +397,124 @@
     if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} }
   }
 
+  // ---------- GameEvents ----------
+  // Events are observations, not commands. Gameplay reports that something
+  // already happened; it never asks anyone to do anything and never learns
+  // what (if anything) reacted. This is the ONLY seam between gameplay and
+  // any listening module (AudioManager today; Haptics/Analytics/Achievements/
+  // Recording could subscribe later without gameplay ever knowing they exist).
+  //
+  // Hard rules, enforced by this implementation itself:
+  //   - emit() never returns anything meaningful (always undefined)
+  //   - emit() never awaits a listener, sync or async
+  //   - emit() never throws — a broken listener can't affect gameplay
+  //   - emit() is a fast no-op when nothing is listening
+  //   - listeners cannot change what emit() does or when it's called
+  const GameEvents = (() => {
+    const listeners = {};
+    return {
+      on(event, fn) {
+        (listeners[event] || (listeners[event] = [])).push(fn);
+      },
+      emit(event, data) {
+        const fns = listeners[event];
+        if (!fns || fns.length === 0) return; // no one listening — do virtually nothing
+        for (let i = 0; i < fns.length; i++) {
+          try { fns[i](data); } catch (e) { /* a listener's failure is never gameplay's problem */ }
+        }
+      }
+    };
+  })();
+
+  // ---------- AudioManager ----------
+  // A passive listener, nothing more. It has no reference to phase, cells,
+  // scanY, timers, or any other gameplay state — it only knows the events
+  // GameEvents hands it. If this whole block were deleted, gameplay would
+  // run 100% identically. Sound choices here are the last-tuned values from
+  // before audio was pulled out for the stability investigation.
+  const AudioManager = (() => {
+    let actx = null;
+    function ensureAudio() {
+      if (!actx) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch (e) { actx = null; }
+      } else if (actx.state === 'suspended') {
+        actx.resume();
+      }
+    }
+
+    function tone(freq, dur, vol, type) {
+      if (!actx) return;
+      const t0 = actx.currentTime;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain).connect(actx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    }
+
+    function playCorrect() { tone(880, 0.35, 0.05, 'sine'); tone(1320, 0.3, 0.03, 'sine'); }
+    function playWrong() {
+      tone(340, 0.16, 0.05, 'triangle');
+      setTimeout(() => tone(230, 0.3, 0.055, 'triangle'), 90);
+    }
+    function playTick() { tone(600, 0.1, 0.05, 'sine'); }
+    function playLevelUp() {
+      tone(660, 0.12, 0.045, 'sine');
+      setTimeout(() => tone(880, 0.16, 0.05, 'sine'), 70);
+      setTimeout(() => tone(1100, 0.24, 0.04, 'sine'), 140);
+    }
+
+    // Scanner tone: one low, static note. Starts/stops purely because it
+    // was TOLD scannerStarted/scannerFinished happened — it never decides
+    // when the scanner starts or ends.
+    const SCAN_TONE_TYPE = 'triangle';
+    const SCAN_TONE_FREQ = 44;
+    const SCAN_TONE_VOL = 0.06;
+    const SCAN_TONE_ATTACK = 0.3;
+    const SCAN_TONE_RELEASE = 1.0;
+    let scanTone = null;
+
+    function startScanTone() {
+      if (!actx) return;
+      stopScanTone();
+      const t0 = actx.currentTime;
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = SCAN_TONE_TYPE;
+      osc.frequency.setValueAtTime(SCAN_TONE_FREQ, t0);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(SCAN_TONE_VOL, t0 + SCAN_TONE_ATTACK);
+      osc.connect(gain).connect(actx.destination);
+      osc.start(t0);
+      scanTone = { osc, gain };
+    }
+    function stopScanTone() {
+      if (!scanTone || !actx) return;
+      const t = actx.currentTime;
+      const { osc, gain } = scanTone;
+      gain.gain.cancelScheduledValues(t);
+      gain.gain.setValueAtTime(gain.gain.value, t);
+      gain.gain.linearRampToValueAtTime(0, t + SCAN_TONE_RELEASE);
+      try { osc.stop(t + SCAN_TONE_RELEASE + 0.1); } catch (e) {}
+      scanTone = null;
+    }
+
+    GameEvents.on('scannerStarted', startScanTone);
+    GameEvents.on('scannerFinished', stopScanTone);
+    GameEvents.on('scannerReveal', playTick);
+    GameEvents.on('correctAnswer', playCorrect);
+    GameEvents.on('wrongAnswer', playWrong);
+    GameEvents.on('levelUp', playLevelUp);
+
+    return { ensureAudio };
+  })();
+
   // ---------- Save / Resume ----------
   const SAVE_KEY = 'orbit_save_v1';
 
@@ -829,6 +947,8 @@
     phaseStart = now();
     scanFullyEntered = false;
     scanEnteredPulseAt = -1;
+    scannerEnteredField = false;
+    scannerLeftField = false;
     scanY = H + SCAN_START_OFFSET;
     // The extra off-screen padding needed for the trail travels at that same
     // fixed speed, added proportionally, so trail length never changes it.
@@ -849,8 +969,8 @@
     const c = cells[cellIndex];
     c.feedback = 1;
     c.feedbackColor = correct ? 'white' : 'red';
-    if (correct) { haptic(12); retriggerReveal(c); }
-    else { haptic([10, 40, 10]); }
+    if (correct) { haptic(12); retriggerReveal(c); GameEvents.emit('correctAnswer'); }
+    else { haptic([10, 40, 10]); GameEvents.emit('wrongAnswer'); }
   }
 
   // Replays the same dark "reveal" the cell showed when the scanner first
@@ -878,6 +998,7 @@
     roundHistory.push({ correct, reactionMs, cells: numCells, digits: roundTargets.size });
     if (roundHistory.length > 50) roundHistory.shift();
     pendingAdjustment = CognitiveEngine.decide(roundHistory);
+    if (pendingAdjustment === 1) GameEvents.emit('levelUp'); // observation only — the decision itself is already made
 
     save.highestScore = Math.max(save.highestScore, save.score);
     save.ladderIndex = ladderIndex;
@@ -1207,6 +1328,8 @@
   const SCAN_EDGE_RAMP_MS = 350; // exact ms for both the entry swell and the exit fade — not a fraction of scanDuration, so it's identical regardless of screen size or trail length
   let scanEnteredPulseAt = -1;   // timestamp of the light-pulse fired once the beam is fully in — reset each round
   let scanFullyEntered = false;
+  let scannerEnteredField = false; // for the scannerStarted observation — separate from the visual entrance-pulse flag above
+  let scannerLeftField = false;    // for the scannerFinished observation
 
   function updateScan(t) {
     const elapsed = t - phaseStart;
@@ -1227,6 +1350,13 @@
     const exitRamp = prog > progExit ? 0 : Math.min(1, msUntilExit / SCAN_EDGE_RAMP_MS);
     scanIntensity = Math.min(enterRamp, exitRamp);
 
+    // Observation only — the beam has just become present in the visible
+    // field. Fires once per pass; changes nothing about the pass itself.
+    if (!scannerEnteredField && prog >= progEnter) {
+      scannerEnteredField = true;
+      GameEvents.emit('scannerStarted');
+    }
+
     // A single, brief light-pulse the moment the beam is fully swelled in
     // (once per round) — the scanner "arriving" at full strength.
     if (!scanFullyEntered && enterRamp >= 1) {
@@ -1241,8 +1371,17 @@
           c.revealed = true;
           c.revealUntil = t + REVEAL_DURATION;
           c.burst = 1;
+          GameEvents.emit('scannerReveal'); // observation only
         }
       }
+    }
+
+    // Observation only — the beam has just left the visible field. Fires
+    // once per pass, exactly at the same position-based moment the light
+    // itself finishes fading out (see drawScan's exitRamp).
+    if (!scannerLeftField && prog >= progExit) {
+      scannerLeftField = true;
+      GameEvents.emit('scannerFinished');
     }
 
     if (prog >= 1) {
@@ -1499,6 +1638,10 @@
     launchGame();
     updateIndicatorVisibility();
   }
+
+  // Web Audio requires a user gesture to unlock — purely an audio concern,
+  // kept entirely separate from gameplay's own pointerdown handling.
+  window.addEventListener('pointerdown', AudioManager.ensureAudio, { once: true });
 
   // Belt-and-suspenders against iOS Safari's bounce/rubber-band scroll,
   // which can shift the whole page during a drag even with touch-action:
