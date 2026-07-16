@@ -993,10 +993,13 @@
     scanDuration = SCAN_CROSS_DURATION * (travel / H);
   }
 
+  let memorySignalAt = -1; // timestamp of the full-screen "you can tap now" flash
+
   function beginMemory() {
     phase = PHASE.MEMORY;
     phaseStart = now();
     roundStartTime = now(); // reaction time counts from HERE — when the player can actually respond — not from round start (which would always include the ~5-7s mandatory scan wait)
+    memorySignalAt = now();
   }
 
   // Immediate, player-facing acknowledgment of a tap — the pulse ring and
@@ -1050,6 +1053,7 @@
     c.feedbackColor = 'white';
     haptic(10);
     retriggerReveal(c);
+    GameEvents.emit('correctAnswer'); // observation only — this was missing, which is why only the LAST correct tap of a multi-target round made a sound
   }
 
   // The scanner is a device, not an animation the player controls: it
@@ -1473,6 +1477,7 @@
 
     drawScan();
     for (const c of cells) drawCell(c);
+    drawMemorySignal(t);
 
     // Purge cells that finished fading out (they've already had their
     // last, fully-transparent frame rendered above).
@@ -1481,6 +1486,17 @@
     }
 
     requestAnimationFrame(frame);
+  }
+
+  const MEMORY_SIGNAL_DURATION = 220; // ms — quick enough to never feel like a delay, clear enough to register as "go"
+
+  function drawMemorySignal(t) {
+    if (memorySignalAt < 0) return;
+    const elapsed = t - memorySignalAt;
+    if (elapsed >= MEMORY_SIGNAL_DURATION) { memorySignalAt = -1; return; }
+    const fade = 1 - elapsed / MEMORY_SIGNAL_DURATION; // 1 -> 0, ease via a squared falloff below
+    ctx.fillStyle = `rgba(255,255,255,${0.35 * fade * fade})`;
+    ctx.fillRect(0, 0, W, H);
   }
 
   function launchGame() {

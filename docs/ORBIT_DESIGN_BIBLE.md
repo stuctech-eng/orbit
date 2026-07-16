@@ -99,7 +99,7 @@ Cognitive Rating (afgeleid, niet opgeslagen): `70% nauwkeurigheid + 30% hoogst b
 2. Scanner beweegt automatisch, vaste snelheid, van onder naar boven
 3. De doelcel wordt heel even bijna zwart (zie 5) — ~600ms — op het moment dat de scan haar raakt
 4. Scanner verlaat het scherm — licht en (wanneer audio terugkomt) geluid doven rustig uit
-5. Pas wanneer de scanner het scherm volledig heeft verlaten begint de geheugenfase — **tikken tijdens de scan doet niets**, dit is bewust: observeren/volgen/onthouden gebeurt uitsluitend tíjdens de scan, herinneren/kiezen uitsluitend érná. Die twee cognitieve taken worden nooit vermengd
+5. Pas wanneer de scanner het scherm volledig heeft verlaten begint de geheugenfase — **tikken tijdens de scan doet niets**, dit is bewust: observeren/volgen/onthouden gebeurt uitsluitend tíjdens de scan, herinneren/kiezen uitsluitend érná. Die twee cognitieve taken worden nooit vermengd. Het begin van de geheugenfase krijgt een non-verbaal "ga"-signaal: een korte (220ms), volledige lichtflits over het hele scherm — geen tekst, geen uitleg, gewoon een helder wordend startpunt dat tikken nu mag
 6. Cellen zijn tijdens de hele scan gewoon blijven bewegen — dit test puur geheugen, geen reactiesnelheid
 7. Speler tikt de juiste cel(len) — bij meerdere symbolen: elke juiste tik geeft eigen feedback, pas de laatste sluit de ronde af
 8. Feedback (correct of fout) — de scanner reageert hier nooit op, die is al klaar met zijn taak
@@ -171,7 +171,7 @@ Afgedwongen door de implementatie zelf:
 | `scannerStarted` | `updateScan()` | kern komt het zíchtbare speelveld binnen (niet bij fase-start — die ligt eerder, vanwege de onzichtbare sleep-buffer) |
 | `scannerReveal` | `updateScan()` | een cel wordt gedetecteerd |
 | `scannerFinished` | `updateScan()` | kern verlaat het zichtbare speelveld |
-| `correctAnswer` | `pulseTapFeedback()` | speler tikt de laatste juiste cel |
+| `correctAnswer` | `pulseTapFeedback()` én `pulseFound()` | speler tikt een juiste cel — zowel de laatste (ronde-afsluitend) als een tussentijdse (bij meerdere symbolen). Aanvankelijk emitte alleen de laatste tik dit event, waardoor bij meerdere symbolen alleen de láátste juiste tik geluid gaf — gefixt |
 | `wrongAnswer` | `pulseTapFeedback()` | speler tikt fout |
 | `levelUp` | `resolveRound()` | Cognitive Engine besluit +1, ná de beslissing (audio verneemt 'm, bepaalt 'm niet) |
 
