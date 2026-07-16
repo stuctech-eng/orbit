@@ -480,31 +480,45 @@
       }
     }
 
-    function tone(freq, dur, vol, type) {
+    function tone(freq, dur, vol, type, filterHz) {
       if (!actx || !settings.sound) return;
       const t0 = actx.currentTime;
       const osc = actx.createOscillator();
       const gain = actx.createGain();
       osc.type = type || 'sine';
       osc.frequency.setValueAtTime(freq, t0);
+      let node = osc;
+      if (filterHz) {
+        const filter = actx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(filterHz, t0);
+        osc.connect(filter);
+        node = filter;
+      }
       gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+      gain.gain.linearRampToValueAtTime(vol, t0 + Math.min(0.08, dur * 0.3));
       gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      osc.connect(gain).connect(actx.destination);
+      node.connect(gain).connect(actx.destination);
       osc.start(t0);
       osc.stop(t0 + dur + 0.05);
     }
 
-    function playCorrect() { tone(880, 0.35, 0.05, 'sine'); tone(1320, 0.3, 0.03, 'sine'); }
-    function playWrong() {
-      tone(340, 0.16, 0.05, 'triangle');
-      setTimeout(() => tone(230, 0.3, 0.055, 'triangle'), 90);
+    // Sound set "B — Ademend": slow attack on everything (no sharp
+    // transients), low register, lowpass-filtered for warmth — reads as a
+    // breath rather than a notification chime.
+    function playCorrect() {
+      tone(440, 0.7, 0.045, 'sine', 1800);
+      setTimeout(() => tone(554, 0.65, 0.03, 'sine', 1800), 60);
     }
-    function playTick() { tone(600, 0.1, 0.05, 'sine'); }
+    function playWrong() {
+      tone(300, 0.6, 0.04, 'sine', 1400);
+      setTimeout(() => tone(250, 0.7, 0.04, 'sine', 1400), 150);
+    }
+    function playTick() { tone(400, 0.4, 0.045, 'sine', 1800); }
     function playLevelUp() {
-      tone(660, 0.12, 0.045, 'sine');
-      setTimeout(() => tone(880, 0.16, 0.05, 'sine'), 70);
-      setTimeout(() => tone(1100, 0.24, 0.04, 'sine'), 140);
+      tone(392, 0.35, 0.04, 'sine', 1800);
+      setTimeout(() => tone(494, 0.4, 0.042, 'sine', 1800), 130);
+      setTimeout(() => tone(587, 0.6, 0.045, 'sine', 1800), 260);
     }
 
     // Scanner tone: one low, static note. Starts/stops purely because it

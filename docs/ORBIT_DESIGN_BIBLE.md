@@ -179,19 +179,19 @@ Afgedwongen door de implementatie zelf:
 
 **Toekomstbestendig:** Haptics, Analytics, Achievements of een replay-systeem kunnen later op exact dezelfde zes events abonneren, zonder ooit een regel gameplay-code aan te raken. Gameplay kent `GameEvents` — verder niets.
 
-### 6.2 Geluiden (in AudioManager, laatst afgestemde waarden)
-
-### 6.2 Geluiden (in AudioManager, laatst afgestemde waarden)
+### 6.2 Geluiden (in AudioManager, Set B "Ademend")
 
 | Event | Geluid | Karakter |
 |---|---|---|
-| `scannerStarted`/`scannerFinished` | 44Hz triangle, statisch, vol 0.06, 0.3s aanzwellen / 1s uitsterven | Eén doorlopende lage toon, start/stopt puur omdat AudioManager de events kreeg — bepaalt zelf niets over wanneer |
-| `scannerReveal` | 600Hz sine, kort | Zachte tik per detectie |
-| `correctAnswer` | 880Hz + 1320Hz sine | Helder akkoord |
-| `wrongAnswer` | 340→230Hz triangle, dalend | Zacht, duidelijk "fout" |
-| `levelUp` | 660→880→1100Hz sine, oplopend | Drieklank, alleen bij een daadwerkelijke +1-beslissing |
+| `scannerStarted`/`scannerFinished` | 60Hz sine, statisch, vol 0.055, 0.3s aanzwellen / 1s uitsterven | Eén doorlopende lage toon, sine i.p.v. triangle (triangle klonk te zoemerig/alarmerend op deze lage toonhoogte) |
+| `scannerReveal` | 400Hz sine, 0.4s, lowpass 1800Hz | Zachte, langzaam aanzwellende tik, geen scherpe transient |
+| `correctAnswer` | 440Hz + 554Hz sine, lowpass 1800Hz, traag aanzwellend | Warm tweeklank-akkoord, ademend i.p.v. een helder "ping". Emit vanuit zowel `pulseTapFeedback()` (laatste/ronde-afsluitende tik) als `pulseFound()` (tussentijdse tik bij meerdere symbolen) — aanvankelijk emitte alleen de eerste, waardoor bij meerdere symbolen alleen de láátste juiste tik geluid gaf |
+| `wrongAnswer` | 300→250Hz sine, lowpass 1400Hz, traag | Zacht, laag, geen scherpe rand — duidelijk "fout" zonder onaangenaam te zijn |
+| `levelUp` | 392→494→587Hz sine, lowpass 1800Hz, oplopend | Drieklank, zelfde ademende karakter, alleen bij een daadwerkelijke +1-beslissing |
 
-Haptics: licht, kort. Correct = enkele tik (`haptic(12)`). Fout = kort patroon (`haptic([10,40,10])`). Interim juiste tik (bij meerdere cijfers) = korte tik (`haptic(10)`).
+Alle vijf zijn `tone()`-aanroepen met een lowpass-filter (`tone()` ondersteunt een `filterHz`-parameter) en een tragere aanzwelling dan de eerdere versie (geen directe attack) — dat geeft het "ademende" gevoel. Gekozen na een A/B/C-vergelijking van complete geluidsets; Set B won het van Set A ("Zachte klok") en Set C ("Minimaal warm").
+
+Haptics: licht, kort. Correct = enkele tik (`haptic(12)`). Fout = kort patroon (`haptic([10,40,10])`). Interim juiste tik (bij meerdere symbolen) = korte tik (`haptic(10)`).
 
 ---
 
