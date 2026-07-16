@@ -336,6 +336,10 @@
 <div id="settingsOverlay">
   <div class="title">Instellingen</div>
   <div class="row">
+    <span>Geluid</span>
+    <button class="toggle" id="toggleSound" aria-label="Geluid aan/uit"><span class="knob"></span></button>
+  </div>
+  <div class="row">
     <span>Trilling</span>
     <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
   </div>
@@ -387,7 +391,7 @@
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
-  let settings = Object.assign({ haptics: true }, loadSettings() || {});
+  let settings = Object.assign({ haptics: true, sound: true }, loadSettings() || {});
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
   }
@@ -445,7 +449,7 @@
     }
 
     function tone(freq, dur, vol, type) {
-      if (!actx) return;
+      if (!actx || !settings.sound) return;
       const t0 = actx.currentTime;
       const osc = actx.createOscillator();
       const gain = actx.createGain();
@@ -482,7 +486,7 @@
     let scanTone = null;
 
     function startScanTone() {
-      if (!actx) return;
+      if (!actx || !settings.sound) return;
       stopScanTone();
       const t0 = actx.currentTime;
       const osc = actx.createOscillator();
@@ -1475,6 +1479,7 @@
   const statsOverlayEl = document.getElementById('statsOverlay');
   const scannerIndicatorEl = document.getElementById('scannerIndicator');
   const hapticsToggleEl = document.getElementById('toggleHaptics');
+  const soundToggleEl = document.getElementById('toggleSound');
 
   let gameLaunched = false;
   let settingsReturnTo = 'pause'; // 'pause' | 'home' — which screen re-appears when Settings closes
@@ -1620,10 +1625,18 @@
   document.getElementById('closeStatsOverlay').addEventListener('click', closeStats);
 
   // Settings
-  function refreshSettingsUI() { hapticsToggleEl.classList.toggle('on', settings.haptics); }
+  function refreshSettingsUI() {
+    hapticsToggleEl.classList.toggle('on', settings.haptics);
+    soundToggleEl.classList.toggle('on', settings.sound);
+  }
   refreshSettingsUI();
   hapticsToggleEl.addEventListener('click', () => {
     settings.haptics = !settings.haptics;
+    saveSettings();
+    refreshSettingsUI();
+  });
+  soundToggleEl.addEventListener('click', () => {
+    settings.sound = !settings.sound;
     saveSettings();
     refreshSettingsUI();
   });
