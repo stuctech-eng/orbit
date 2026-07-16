@@ -438,7 +438,8 @@
       if (!actx) {
         try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
         catch (e) { actx = null; }
-      } else if (actx.state === 'suspended') {
+      }
+      if (actx && actx.state === 'suspended') {
         actx.resume();
       }
     }
@@ -1067,6 +1068,7 @@
   }
 
   canvas.addEventListener('pointerdown', (e) => {
+    AudioManager.ensureAudio(); // must unlock before handleTap can trigger any sound-emitting event
     handleTap(e.clientX, e.clientY);
   }, { passive: true });
 
