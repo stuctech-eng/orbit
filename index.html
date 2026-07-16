@@ -438,7 +438,27 @@
   // before audio was pulled out for the stability investigation.
   const AudioManager = (() => {
     let actx = null;
+    // A tiny, silent WAV played via a real <audio> element. This is the
+    // standard, documented workaround for a long-standing iOS Safari quirk:
+    // Web Audio oscillators (what this whole file uses) can be silenced by
+    // the physical mute switch, while an <audio> element ignores it. Playing
+    // one real <audio> element once, on the same user gesture, "unmutes"
+    // the audio session for the oscillators that follow. Has nothing to do
+    // with gameplay — purely a platform workaround inside AudioManager.
+    const SILENT_WAV = 'data:audio/wav;base64,UklGRlYAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTIAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
+    let unmuteEl = null;
+    let unmuted = false;
+    function unmuteIOS() {
+      if (unmuted) return;
+      unmuted = true;
+      try {
+        unmuteEl = new Audio(SILENT_WAV);
+        unmuteEl.play().catch(() => {});
+      } catch (e) {}
+    }
+
     function ensureAudio() {
+      unmuteIOS();
       if (!actx) {
         try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
         catch (e) { actx = null; }
