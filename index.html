@@ -672,7 +672,7 @@
   //     single round can only move the score a few points, so the decision
   //     is inherently about a trend, not one lucky or unlucky round.
   const CognitiveEngine = {
-    ADVANCE_THRESHOLD: 80,
+    ADVANCE_THRESHOLD: 70,
     RETREAT_THRESHOLD: 35,
     RESET_AFTER_ADVANCE: 55, // not back to 50 — keeps a good flow going
     RESET_AFTER_RETREAT: 50,
@@ -696,7 +696,7 @@
       let delta = 0;
 
       // Factor 1 — correctness, still the dominant signal
-      delta += last.correct ? 3 : -6;
+      delta += last.correct ? 4 : -6;
 
       // Factor 2 — reaction time, judged against this round's OWN expected
       // pace, not a fixed limit. A slow-but-correct player is never
@@ -1466,6 +1466,12 @@
     roundStartTime += pausedMs;
     paused = false;
     continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
+    // A break also resets streak MOMENTUM (not confidence score, not ladder
+    // position) — otherwise one rusty mistake right after returning gets
+    // treated as a continuation of an old error run and causes an unfairly
+    // large drop, which is exactly the "zak je te ver terug" complaint.
+    save.currentStreak = 0;
+    save.currentErrorStreak = 0;
   }
 
   function frame() {
@@ -1515,6 +1521,8 @@
 
   function launchGame() {
     continuousPlayStart = now();
+    save.currentStreak = 0;
+    save.currentErrorStreak = 0;
     startRound();
     requestAnimationFrame(frame);
   }

@@ -62,18 +62,22 @@ CognitiveEngine.decide(roundHistory) -> -1 | 0 | 1
 Versiegeschiedenis: V1 keek naar één ronde, V2 (kort in gebruik) naar een raam van 5 rondes met accuracy/snelheid-drempels, **V3 — "Cognitive Engine V2.0" (huidig)** gebruikt een interne, nooit-getoonde **Confidence Score** (0–100, start op 50).
 
 **Vijf factoren per ronde, opgeteld bij de Confidence Score:**
-1. **Correctheid** — juist: +3, fout: −6
+1. **Correctheid** — juist: +4, fout: −6
 2. **Reactietijd** — vergeleken met de *eigen* verwachte tijd van de huidige ladder-stap (niet één vaste limiet): `verwacht = max(500, 400×cellen − 200) + 700×(cijfers−1)` ms. Sneller dan verwacht: +2. Erg langzaam (≥1.8×): −1, tenzij vermoeid (zie hieronder) dan 0. Normaal: 0.
 3. **Streak-bonus** — eenmalig bij exact 3 achter elkaar (+2), 5 (+4), 10 (+8), en daarna elke 5 verder (+2)
 4. **Foutenreeks** — eenmalig bij exact 2 fouten achter elkaar (−2 extra), 3 (−5 extra), 4+ (−8 extra)
 5. **Extreme prestatie** — bij een streak ≥5 én ruim sneller dan verwacht: +1 extra bovenop de streak-bonus (versnelt de Confidence Score, slaat nooit een level over)
 
 **Beslissing:**
-- Score > 80 → **+1** (vooruit), score reset naar **55** (niet 50 — houdt de flow vast)
+- Score > 70 → **+1** (vooruit), score reset naar **55** (niet 50 — houdt de flow vast)
 - Score < 35 → **−1** (terug), score reset naar **50**
 - Daartussen → **0** (blijft gelijk)
 
+*(Bijgesteld: drempel was 80, punten per correct antwoord waren 3 — voelde te traag. Nu 70/4, ongeveer 2× zo snel voor een consistent goede speler, doorgerekend met een simulatie: van 2 naar 4 level-ups in 12 opeenvolgende perfecte rondes.)*
+
 **Vermoeidheid:** na ~15 minuten onafgebroken spelen (`continuousPlayStart`, reset bij hervatten na pauze of nieuwe sessie) vervalt de −1-straf voor trage reacties.
+
+**Streak-reset bij terugkeer:** `currentStreak`/`currentErrorStreak` worden gereset zodra de speler hervat (na pauze) of de app opnieuw opent — maar `confidenceScore` en de ladder-positie blijven staan. Zonder dit kon een speler die na een pauze even "roestig" is en één foutje maakt, dat foutje laten meetellen als voortzetting van een oude foutenreeks van vóór de pauze, met een onterecht grote terugval tot gevolg — precies de "zak je te ver terug"-klacht.
 
 **Waarom geen expliciet rollend venster van 10 rondes (zoals de spec voorstelt):** de Confidence Score zelf is de facto al een rollend gemiddelde — een enkele ronde kan de score met hooguit een paar punten verschuiven, en de drempels (80/35) vereisen aanhoudende prestatie om te bereiken. Dat geeft hetzelfde "reageert op trends, niet op toeval"-gedrag als een expliciet raam, met minder state om bij te houden. `roundHistory` blijft wel bestaan (nu ook met `cells`/`digits` per ronde, nodig voor de verwachte-reactietijd-berekening) voor eventuele toekomstige analyse.
 
