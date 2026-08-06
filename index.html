@@ -133,6 +133,95 @@
   #scannerIndicator:active .line { opacity: 0.6; }
   #scannerIndicator.hidden { display: none; }
 
+  #tutorialOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 22;
+    pointer-events: none; /* only specific children opt back in, so the real game underneath stays tappable */
+    display: none;
+  }
+  #tutorialOverlay.active { display: block; }
+  #tutorialOverlay .tut-text {
+    position: absolute;
+    left: 0; right: 0;
+    top: 42%;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    font-size: 17px;
+    font-weight: 300;
+    letter-spacing: 0.02em;
+    color: rgba(255,255,255,0.92);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    padding: 0 40px;
+  }
+  #tutorialOverlay .tut-text.visible { opacity: 1; }
+  #tutorialOverlay .tut-brand {
+    position: absolute;
+    top: max(50px, env(safe-area-inset-top));
+    left: 0; right: 0;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    color: rgba(255,255,255,0.35);
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  #tutorialOverlay .tut-brand.visible { opacity: 1; }
+  #tutorialOverlay .tut-panel {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: max(60px, env(safe-area-inset-bottom) + 40px);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
+  #tutorialOverlay .tut-panel.visible { opacity: 1; pointer-events: auto; }
+  #tutorialOverlay button.tut-btn {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    padding: 15px 44px;
+    border-radius: 999px;
+    min-height: 44px;
+  }
+  #tutorialOverlay button.tut-btn:active { background: rgba(255,255,255,0.2); }
+  #tutorialOverlay .tut-skip {
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-family: inherit;
+    font-size: 12px;
+    padding: 12px;
+    min-height: 44px;
+    pointer-events: auto;
+  }
+  #tutorialOverlay .tut-point {
+    position: absolute;
+    top: max(58px, env(safe-area-inset-top) + 44px);
+    left: 50%;
+    width: 40px; height: 40px;
+    margin-left: -20px;
+    border: 1.5px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    animation: tutPointPulse 1.4s ease-in-out infinite;
+  }
+  #tutorialOverlay .tut-point.visible { opacity: 1; }
+  @keyframes tutPointPulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.3); opacity: 0.15; }
+  }
+
   #pauseOverlay {
     position: fixed;
     inset: 0;
@@ -296,6 +385,17 @@
   <canvas id="c"></canvas>
 </div>
 <button id="scannerIndicator" aria-label="Menu"><span class="line"></span></button>
+
+<div id="tutorialOverlay">
+  <div class="tut-brand" id="tutBrand">ORBIT</div>
+  <div class="tut-text" id="tutText"></div>
+  <div class="tut-point" id="tutPoint"></div>
+  <div class="tut-panel" id="tutPanel">
+    <button class="tut-btn" id="tutActionBtn">▶ Begin</button>
+  </div>
+  <button class="tut-skip" id="tutSkip">Overslaan</button>
+</div>
+
 <div id="welcome" class="hidden">
   <div class="title">ORBIT</div>
   <div class="stats">
@@ -343,6 +443,7 @@
     <span>Trilling</span>
     <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
   </div>
+  <button class="close" id="replayTutorialBtn" style="margin-top:8px;">Tutorial opnieuw bekijken</button>
   <button class="close" id="closeSettingsOverlay">Sluiten</button>
 </div>
 
@@ -590,11 +691,13 @@
       lastPlayed: null,
       confidenceScore: 50,   // Cognitive Engine V2 — internal, never shown to the player
       currentStreak: 0,
-      currentErrorStreak: 0
+      currentErrorStreak: 0,
+      tutorialCompleted: false
     };
   }
 
   let save = loadSave() || defaultSave();
+  if (typeof save.tutorialCompleted !== 'boolean') save.tutorialCompleted = save.totalRounds > 0 || save.sessions > 0;
   if (typeof save.sessions !== 'number') save.sessions = 0; // guard against saves from before this field existed
   if (typeof save.confidenceScore !== 'number') save.confidenceScore = 50;
   if (typeof save.currentStreak !== 'number') save.currentStreak = 0;
@@ -1005,6 +1108,10 @@
     // fixed speed, added proportionally, so trail length never changes it.
     const travel = H + SCAN_START_OFFSET * 2;
     scanDuration = SCAN_CROSS_DURATION * (travel / H);
+    if (tutorialActive) {
+      if (tutorialStep === 1) showTutText('Kijk.', 1800);
+      else if (tutorialStep === 3) showTutText('Onthoud.', 1800);
+    }
   }
 
   let memorySignalAt = -1; // timestamp of the full-screen "you can tap now" flash
@@ -1014,6 +1121,7 @@
     phaseStart = now();
     roundStartTime = now(); // reaction time counts from HERE — when the player can actually respond — not from round start (which would always include the ~5-7s mandatory scan wait)
     memorySignalAt = now();
+    if (tutorialActive && tutorialStep === 1) showTutText('Nu jij.', 0);
   }
 
   // Immediate, player-facing acknowledgment of a tap — the pulse ring and
@@ -1042,6 +1150,12 @@
   function resolveRound(correct) {
     phase = PHASE.FEEDBACK;
     phaseStart = now();
+
+    if (tutorialActive) {
+      lastTutorialRoundCorrect = correct;
+      if (tutorialStep === 1) showTutText(correct ? 'Goed.' : 'Nog een keer.', 0);
+      return; // tutorial rounds never touch save, the ladder, or the Cognitive Engine
+    }
 
     save.totalRounds++;
     if (correct) {
@@ -1487,12 +1601,20 @@
     stepPhysics(dt);
     drawBackground();
 
-    if (phase === PHASE.INTRO) {
-      if (t - phaseStart > INTRO_DELAY) beginScan();
-    } else if (phase === PHASE.SCAN) {
-      updateScan(t);
-    } else if (phase === PHASE.FEEDBACK) {
-      if (t - phaseStart > FEEDBACK_DURATION) startRound();
+    // Tutorial step 0 is a deliberate idle moment — cells float, nothing
+    // else happens yet, so the normal phase machine is paused here without
+    // needing a separate rendering/physics path.
+    if (!(tutorialActive && tutorialStep === 0)) {
+      if (phase === PHASE.INTRO) {
+        if (t - phaseStart > INTRO_DELAY) beginScan();
+      } else if (phase === PHASE.SCAN) {
+        updateScan(t);
+      } else if (phase === PHASE.FEEDBACK) {
+        if (t - phaseStart > FEEDBACK_DURATION) {
+          if (tutorialActive) advanceTutorialAfterRound();
+          else startRound();
+        }
+      }
     }
 
     drawScan();
@@ -1541,6 +1663,125 @@
     continuousPlayStart = now();
     persistSave();
   }
+
+  // ---------- First Launch Tutorial ----------
+  // Uses the exact same gameplay: adjustCellCount, activeCellIds, beginScan,
+  // updateScan, handleTap, resolveRound (which early-returns for tutorial
+  // rounds, see above). No separate physics, scanner, or reveal code — only
+  // the cell/digit count is temporarily fixed and short text is overlaid.
+  let tutorialActive = false;
+  let tutorialStep = 0;
+  let lastTutorialRoundCorrect = false;
+  let tutTextTimer = null;
+
+  const tutorialOverlayEl = document.getElementById('tutorialOverlay');
+  const tutBrandEl = document.getElementById('tutBrand');
+  const tutTextEl = document.getElementById('tutText');
+  const tutPointEl = document.getElementById('tutPoint');
+  const tutPanelEl = document.getElementById('tutPanel');
+  const tutActionBtnEl = document.getElementById('tutActionBtn');
+
+  function showTutText(msg, autoFadeMs) {
+    clearTimeout(tutTextTimer);
+    tutTextEl.textContent = msg;
+    tutTextEl.classList.add('visible');
+    if (autoFadeMs) tutTextTimer = setTimeout(() => tutTextEl.classList.remove('visible'), autoFadeMs);
+  }
+  function hideTutText() {
+    clearTimeout(tutTextTimer);
+    tutTextEl.classList.remove('visible');
+  }
+
+  // Mirrors startRound()'s body minus the ladder/save/Cognitive Engine
+  // parts — same cell spawning and target-selection code, fixed counts.
+  function startTutorialRound(cellCount, digitCount) {
+    phase = PHASE.INTRO;
+    phaseStart = now();
+    numCells = cellCount;
+    adjustCellCount(cellCount);
+    const ids = activeCellIds();
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(rand(0, i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    roundTargets = new Set(ids.slice(0, digitCount));
+    roundFound = 0;
+    for (const c of cells) {
+      if (c.dying) continue;
+      c.digit = roundTargets.has(c.id) ? true : null;
+      c.reveal = 0; c.revealed = false; c.found = false; c.feedback = 0; c.feedbackColor = null;
+    }
+  }
+
+  function startTutorial() {
+    tutorialActive = true;
+    tutorialStep = 0;
+    gameLaunched = true;
+    scannerIndicatorEl.classList.add('hidden');
+    tutorialOverlayEl.classList.add('active');
+    tutBrandEl.classList.add('visible');
+    showTutText('Volg de scanner. Onthoud de juiste cel.', 0);
+    tutPanelEl.classList.add('visible');
+    tutActionBtnEl.textContent = '▶ Begin';
+    tutActionBtnEl.onclick = beginTutorialRoundA;
+    numCells = 3;
+    adjustCellCount(3); // first-ever spawn, so this is the calm triangle intro — same as a normal fresh launch
+    requestAnimationFrame(frame);
+  }
+
+  function beginTutorialRoundA() {
+    tutorialStep = 1;
+    hideTutText();
+    tutBrandEl.classList.remove('visible');
+    tutPanelEl.classList.remove('visible');
+    startTutorialRound(3, 1);
+  }
+
+  function advanceTutorialAfterRound() {
+    hideTutText();
+    if (tutorialStep === 1) {
+      if (lastTutorialRoundCorrect) {
+        tutorialStep = 3;
+        startTutorialRound(4, 1);
+      } else {
+        startTutorialRound(3, 1); // "Nog een keer." — no penalty, just retry
+      }
+    } else if (tutorialStep === 3) {
+      tutorialStep = 5;
+      beginTutorialNavDemo();
+    }
+  }
+
+  function beginTutorialNavDemo() {
+    phase = PHASE.MEMORY; // cells keep drifting; no active round underneath the nav demo
+    scannerIndicatorEl.classList.remove('hidden');
+    tutPointEl.classList.add('visible');
+    showTutText('Houd de scanner-indicator even ingedrukt.', 0);
+  }
+
+  function showTutorialReadyScreen() {
+    tutPointEl.classList.remove('visible');
+    tutBrandEl.classList.add('visible');
+    showTutText('Je bent er klaar voor.', 0);
+    tutPanelEl.classList.add('visible');
+    tutActionBtnEl.textContent = '▶ Start ORBIT';
+    tutActionBtnEl.onclick = finishTutorial;
+  }
+
+  function finishTutorial() {
+    tutorialActive = false;
+    save.tutorialCompleted = true;
+    persistSave();
+    tutorialOverlayEl.classList.remove('active');
+    tutBrandEl.classList.remove('visible');
+    hideTutText();
+    tutPanelEl.classList.remove('visible');
+    tutPointEl.classList.remove('visible');
+    updateIndicatorVisibility();
+    startRound(); // the real, ladder-driven first round
+  }
+
+  document.getElementById('tutSkip').addEventListener('click', finishTutorial);
 
   // ---------- Navigation ----------
   const welcomeEl = document.getElementById('welcome');
@@ -1603,6 +1844,14 @@
   }
 
   function goToGameplay() {
+    if (tutorialActive && tutorialStep === 5) {
+      pauseOverlayEl.classList.remove('visible');
+      resumeGame();
+      tutorialStep = 6;
+      showTutorialReadyScreen();
+      updateIndicatorVisibility();
+      return;
+    }
     welcomeEl.classList.add('hidden');
     pauseOverlayEl.classList.remove('visible');
     if (!gameLaunched) {
@@ -1711,12 +1960,21 @@
     refreshSettingsUI();
   });
   document.getElementById('closeSettingsOverlay').addEventListener('click', closeSettings);
+  document.getElementById('replayTutorialBtn').addEventListener('click', () => {
+    settingsOverlayEl.classList.remove('visible');
+    welcomeEl.classList.add('hidden');
+    pauseOverlayEl.classList.remove('visible');
+    paused = false;
+    startTutorial();
+  });
 
   // Auto-save whenever the app is backgrounded or closed (in addition to
   // the existing end-of-round save) — the player never has to think about it.
   window.addEventListener('pagehide', () => { if (paused) return; persistSave(); });
 
-  if (save.totalRounds > 0) {
+  if (!save.tutorialCompleted) {
+    startTutorial();
+  } else if (save.totalRounds > 0) {
     showHome();
   } else {
     gameLaunched = true;

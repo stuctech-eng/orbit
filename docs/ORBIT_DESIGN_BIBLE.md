@@ -254,12 +254,36 @@ Bewuste keuze: apart scherm, niet ingebouwd in de bestaande Home-statistiekjes-g
 
 ---
 
+## 7d. First Launch Tutorial
 
+Interactieve onboarding, uitsluitend bij een écht eerste bezoek. Geen tekstpagina, geen handleiding — de speler speelt vanaf seconde één de échte game, met tijdelijk vastgezette moeilijkheid en heel korte, vanzelf verdwijnende tekst.
+
+**Kernregel: geen aparte code.** De tutorial hergebruikt letterlijk dezelfde functies als de echte game (`adjustCellCount`, `activeCellIds`, `beginScan`, `updateScan`, `handleTap`, `resolveRound`, het pauzemenu). `startTutorialRound(cellCount, digitCount)` mirrort `startRound()` exact, minus de ladder/save/Cognitive-Engine-stappen. `resolveRound()` heeft één vroege `if (tutorialActive) { ...; return; }`-tak: een tutorial-ronde raakt save, ladder en Cognitive Engine nooit aan.
+
+**De zes stappen:**
+1. **Welkom** — 3 cellen zweven idle (dezelfde rustige driehoek-intro als een normale eerste start), "ORBIT" + "Volg de scanner. Onthoud de juiste cel." + ▶ Begin
+2. **Ronde A (3 cellen, 1 doel)** — tekst "Kijk." tijdens de scan (fadet na 1,8s), "Nu jij." zodra de memory-fase begint (blijft staan tot een tik). Fout? "Nog een keer." — geen straf, gewoon dezelfde ronde opnieuw
+3. **Ronde B (4 cellen, 1 doel)** — alleen "Onthoud." tijdens de scan, verder geen tekst — de speler ervaart vanzelf dat het moeilijker wordt
+4. **Navigatie-demo** — scanner-indicator verschijnt met een pulserende ring eromheen, tekst "Houd de scanner-indicator even ingedrukt." (bewust "houd ingedrukt", niet "tik" — dat is namelijk de échte interactie, zie 7b). Speler opent het echte pauzemenu, tikt Verder spelen → automatisch door naar stap 6
+5. **Klaar** — "Je bent er klaar voor." + ▶ Start ORBIT
+6. Bij tikken: `save.tutorialCompleted = true`, opgeslagen, en de eerste écht ladder-gedreven ronde start (`startRound()`)
+
+**Overslaan** — rechtsboven altijd zichtbaar tijdens de tutorial, springt direct naar stap 6's afronding, ongeacht waar de speler is.
+
+**Alleen bij een echt eerste bezoek.** `save.tutorialCompleted` is het enige criterium. Bestaande spelers die deze update ontvangen worden niet retroactief de tutorial voorgeschoteld: als hun save al `totalRounds > 0` of `sessions > 0` heeft (vóórdat de sessie-teller deze keer wordt opgehoogd), wordt `tutorialCompleted` stilzwijgend op `true` gezet bij het laden.
+
+**Opnieuw bekijken** — "Tutorial opnieuw bekijken" in Instellingen (bereikbaar via zowel Home als het pauzemenu) start `startTutorial()` direct opnieuw, zonder `tutorialCompleted` aan te raken.
+
+**Visueel:** volledig transparante overlay (`pointer-events: none`, alleen specifieke kinderen als knoppen zijn actief) zodat de échte cellen/scanner van het canvas erdoorheen zichtbaar blijven. Tekst is klein, dun, laag contrast, en fadet zichzelf weg — geen alinea's, nooit meer dan een paar woorden tegelijk.
+
+---
+
+## 8. Wat hier NIET in thuishoort
 
 Dingen die bewust zijn afgewezen of uitgesteld, zodat ze niet per ongeluk terugkomen://
 - Kleur (ook niet subtiel cyaan/teal — expliciet overwogen en afgewezen)
 - Score/streak-weergave tíjdens gameplay
-- Tekst, HUD-elementen, of uitleg tijdens het spelen
+- Tekst, HUD-elementen, of uitleg tijdens het spelen (behalve de eenmalige First Launch Tutorial, zie 7d)
 - Verplicht alle cellen aantikken vóór de scan start (overwogen, expliciet verworpen — scanner blijft altijd automatisch)
 - Device-specifieke edge cases (safe-area, canvas-randen) worden pas na de Premium Experience-fase verder verfijnd, niet ervoor
 
