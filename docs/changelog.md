@@ -4,6 +4,13 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 
 ---
 
+## Cognitive Engine — plateau-assist toegevoegd
+
+- **Idee:** als een speler lang op hetzelfde niveau blijft steken (niet vooruit, niet terug), moet de engine daar zelf iets aan doen — anders blijft iemand precies onder zijn skill-plafond vastzitten zonder ooit de Flow Zone te verlaten.
+- Nieuw: `save.plateauRounds` telt opeenvolgende "blijft gelijk"-beslissingen op hetzelfde niveau. Na 8 rondes versoepelt de snelheids-eis geleidelijk (0,75× → max 0,90× verwachte tijd) — nooit de nauwkeurigheids-eis, dat zou fouten belonen in plaats van tempo.
+- Reset zodra het level verandert (vooruit of terug) of bij een nieuwe sessie; blijft wél intact bij pauzeren/hervatten of het herstarten van de app, want de speler zit dan nog steeds op hetzelfde niveau.
+- Gevalideerd met een gesimuleerd hang-patroon (~63% nauwkeurigheid, nooit een reeks van 3): zonder assist bleef de speler na 80 rondes nog vast, met assist brak hij er na 68 rondes uit.
+
 ## Moeilijkheidscurve — de grote terugval gefixt
 
 - **Root cause:** de ladder liep van stap 18 via `% LADDER.length` weer terug naar stap 1 — van 11 cellen/3 symbolen (zwaarst) naar 3 cellen/1 symbool (lichtst). Veruit de grootste moeilijkheidsdaling in het spel, precies op het moment dat een sterke speler zou afhaken.

@@ -78,6 +78,8 @@ Versiegeschiedenis: V1 keek naar één ronde, V2 (kort in gebruik) naar een raam
 
 *(Bijgesteld: drempel was 80, punten per correct antwoord waren 3 — voelde te traag. Nu 70/4, ongeveer 2× zo snel voor een consistent goede speler, doorgerekend met een simulatie: van 2 naar 4 level-ups in 12 opeenvolgende perfecte rondes.)*
 
+**Plateau-assist:** blijft een speler 8 rondes achter elkaar op hetzelfde niveau steken op "blijft gelijk" (`save.plateauRounds`), dan versoepelt de snelheids-eis geleidelijk (nooit de nauwkeurigheids-eis — dat zou fouten maken belonen), tot maximaal 0,90× de verwachte tijd i.p.v. 0,75×. Reset zodra het level daadwerkelijk verandert. Los van elkaar getest met een gesimuleerd hang-patroon (~63% nauwkeurigheid, nooit een reeks van 3): zonder assist bleef de speler oneindig steken, met assist brak hij na 68 rondes alsnog door.
+
 **Vermoeidheid:** na ~15 minuten onafgebroken spelen (`continuousPlayStart`, reset bij hervatten na pauze of nieuwe sessie) vervalt de −1-straf voor trage reacties.
 
 **Streak-reset bij terugkeer:** `currentStreak`/`currentErrorStreak` worden gereset zodra de speler hervat (na pauze) of de app opnieuw opent — maar `confidenceScore` en de ladder-positie blijven staan. Zonder dit kon een speler die na een pauze even "roestig" is en één foutje maakt, dat foutje laten meetellen als voortzetting van een oude foutenreeks van vóór de pauze, met een onterecht grote terugval tot gevolg — precies de "zak je te ver terug"-klacht.

@@ -706,6 +706,7 @@
       confidenceScore: 50,   // Cognitive Engine V2 — internal, never shown to the player
       currentStreak: 0,
       currentErrorStreak: 0,
+      plateauRounds: 0,      // consecutive "stay" decisions at the current level
       tutorialCompleted: false
     };
   }
@@ -716,6 +717,7 @@
   if (typeof save.confidenceScore !== 'number') save.confidenceScore = 50;
   if (typeof save.currentStreak !== 'number') save.currentStreak = 0;
   if (typeof save.currentErrorStreak !== 'number') save.currentErrorStreak = 0;
+  if (typeof save.plateauRounds !== 'number') save.plateauRounds = 0;
   save.sessions++; // one launch of the app = one session, counted immediately (not per round)
   let sessionStart = now();
   let continuousPlayStart = now(); // for the fatigue easing factor — resets on resume/new session, not on every save
@@ -801,6 +803,8 @@
     RESET_AFTER_ADVANCE: 55, // not back to 50 — keeps a good flow going
     RESET_AFTER_RETREAT: 50,
     FATIGUE_MS: 15 * 60 * 1000, // ~15-20 min continuous play — softens the reaction-time penalty
+    PLATEAU_ROUNDS: 8,         // consecutive "stay" decisions at the same level before the engine starts helping
+    PLATEAU_EASE_STEP: 0.05,   // how much easier the speed bonus gets per plateau round, capped below
 
     // Every ladder step has its own expected pace instead of one fixed
     // limit — fitted to the spec's examples (3 cells≈1s, 5≈2s, 8≈3s;
@@ -825,9 +829,20 @@
       // Factor 2 — reaction time, judged against this round's OWN expected
       // pace, not a fixed limit. A slow-but-correct player is never
       // punished harshly, and gets even gentler treatment when fatigued.
+      //
+      // Plateau assist: accuracy alone can keep a player oscillating at
+      // "stay" indefinitely if their pace never quite earns the speed
+      // bonus — that's a hole in the Flow Zone goal, not intended
+      // gatekeeping. After PLATEAU_ROUNDS consecutive "stay" decisions at
+      // the SAME level, the speed bar (never the accuracy bar) eases
+      // gradually, capped at 0.9 — still requires being at-or-faster than
+      // expected, just less strict about the margin.
       const expected = this.expectedReactionMs(last.cells || 3, last.digits || 1);
       const fatigued = (now() - continuousPlayStart) > this.FATIGUE_MS;
-      if (last.reactionMs <= expected * 0.75) delta += 2;
+      const roundsPastPlateau = Math.max(0, save.plateauRounds - this.PLATEAU_ROUNDS);
+      const plateauEase = Math.min(0.15, roundsPastPlateau * this.PLATEAU_EASE_STEP);
+      const speedBonusThreshold = 0.75 + plateauEase;
+      if (last.reactionMs <= expected * speedBonusThreshold) delta += 2;
       else if (last.reactionMs >= expected * 1.8) delta += fatigued ? 0 : -1;
 
       // Factor 3 — streak bonus (correct) / Factor 4 — error-run penalty
@@ -856,12 +871,15 @@
 
       if (save.confidenceScore > this.ADVANCE_THRESHOLD) {
         save.confidenceScore = this.RESET_AFTER_ADVANCE;
+        save.plateauRounds = 0; // level moved — plateau, if any, is over
         return 1;
       }
       if (save.confidenceScore < this.RETREAT_THRESHOLD) {
         save.confidenceScore = this.RESET_AFTER_RETREAT;
+        save.plateauRounds = 0; // level moved — plateau, if any, is over
         return -1;
       }
+      save.plateauRounds++; // stayed put — one round closer to the engine helping
       return 0;
     }
   };
@@ -1703,6 +1721,7 @@
     save.confidenceScore = 50;
     save.currentStreak = 0;
     save.currentErrorStreak = 0;
+    save.plateauRounds = 0;
     continuousPlayStart = now();
     persistSave();
   }
