@@ -51,8 +51,11 @@ Vast dataset, 18 stappen, cyclisch:
 | C | 8 → 10 | 2 | Tracking |
 | D | 6 → 8 | 3 | Memory |
 | E | 9 → 11 | 3 | Tracking |
+| F | 7 → 9 | 4 | Memory |
+| G | 10 → 12 | 4 | Tracking |
+| H | 9 → 13 | 5 | Memory (plafond) |
 
-Na fase E herhaalt het patroon. De ladder zelf verandert nooit — alleen de positie erin.
+29 stappen totaal. **Geklemd aan beide uiteinden, niet cyclisch.** Oorspronkelijk liep de ladder via `% LADDER.length` terug naar stap 1 zodra fase E was uitgespeeld — van 11 cellen/3 symbolen naar 3 cellen/1 symbool, veruit de grootste moeilijkheidsdaling in het spel en precies het moment waarop een sterke speler zou afhaken. Nu herhaalt de zwaarste stap zichzelf. De curve is doorgerekend: geen enkele daling, ook niet bij de fase-overgangen waar het celaantal zakt (minder cellen + meer onthoudpunten is netto altijd zwaarder). De ladder zelf verandert nooit — alleen de positie erin.
 
 ### 3.2 Cognitive Engine V2.0
 Interface-contract (stabiel, mag nooit breken):

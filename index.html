@@ -144,7 +144,7 @@
   #tutorialOverlay .tut-text {
     position: absolute;
     left: 0; right: 0;
-    bottom: 22%;
+    top: 35%;
     text-align: center;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     font-size: 16px;
@@ -168,7 +168,7 @@
   #tutorialOverlay .tut-text.visible { opacity: 1; }
   /* When the pause menu is being demoed, its buttons occupy the centre —
      move the guidance up so the two never overlap. */
-  #tutorialOverlay .tut-text.high { bottom: auto; top: 18%; }
+  #tutorialOverlay .tut-text.high { top: 18%; }
   #tutorialOverlay .tut-brand {
     position: absolute;
     top: max(50px, env(safe-area-inset-top));
@@ -761,7 +761,14 @@
     // Phase D — Memory
     { cells: 6, digits: 3 }, { cells: 7, digits: 3 }, { cells: 8, digits: 3 },
     // Phase E — Tracking
-    { cells: 9, digits: 3 }, { cells: 10, digits: 3 }, { cells: 11, digits: 3 }
+    { cells: 9, digits: 3 }, { cells: 10, digits: 3 }, { cells: 11, digits: 3 },
+    // Phase F — Memory (4 onthoudpunten)
+    { cells: 7, digits: 4 }, { cells: 8, digits: 4 }, { cells: 9, digits: 4 },
+    // Phase G — Tracking
+    { cells: 10, digits: 4 }, { cells: 11, digits: 4 }, { cells: 12, digits: 4 },
+    // Phase H — Memory (5 onthoudpunten) — het plafond
+    { cells: 9, digits: 5 }, { cells: 10, digits: 5 }, { cells: 11, digits: 5 },
+    { cells: 12, digits: 5 }, { cells: 13, digits: 5 }
   ];
   let ladderIndex = save.ladderIndex || 0;
   let pendingAdjustment = 1; // the Cognitive Engine's decision for the round now resolving: 1 forward, 0 stay, -1 back
@@ -1074,10 +1081,18 @@
     // Ladder navigation: the fixed dataset (LADDER) never changes — only
     // WHERE we are in it moves, per the Cognitive Engine's last decision.
     // Clamped so it can never go before the start of the ladder.
-    ladderIndex = Math.max(0, ladderIndex + pendingAdjustment);
+    // Clamped at BOTH ends. The ceiling matters as much as the floor: it
+    // previously wrapped (`% LADDER.length`), so a player who cleared the
+    // whole ladder was dumped straight back to 3 cells / 1 symbol — by far
+    // the biggest difficulty drop in the game, and exactly the moment a
+    // strong player would quit. Now the hardest step simply repeats.
+    // The NEXT scan gets tinted to signal the level change — no extra scan,
+    // no pause, no dead time. The signal rides along with gameplay that was
+    // going to happen anyway.
+    ladderIndex = Math.max(0, Math.min(LADDER.length - 1, ladderIndex + pendingAdjustment));
     pendingAdjustment = 1; // default if the round isn't finished by the engine's usual path (shouldn't normally happen)
 
-    const step = LADDER[ladderIndex % LADDER.length];
+    const step = LADDER[ladderIndex];
     numCells = step.cells;
 
     adjustCellCount(numCells);
@@ -1181,6 +1196,7 @@
     if (roundHistory.length > 50) roundHistory.shift();
     pendingAdjustment = CognitiveEngine.decide(roundHistory);
     if (pendingAdjustment === 1) GameEvents.emit('levelUp'); // observation only — the decision itself is already made
+    else if (pendingAdjustment === -1) GameEvents.emit('levelDown');
 
     save.highestScore = Math.max(save.highestScore, save.score);
     save.ladderIndex = ladderIndex;
@@ -1412,6 +1428,10 @@
     ctx.restore();
   }
 
+  let scanTint = null; // null | 'up' | 'down' — colours the next scan to signal a level change
+  GameEvents.on('levelUp', () => { scanTint = 'up'; });
+  GameEvents.on('levelDown', () => { scanTint = 'down'; });
+
   const SCAN_CORE_WIDTH = 2;    // aura width around the hairline — kept tight, not thick
   const SCAN_LEAD = 10;          // tight fade just ahead of the core (direction of travel)
   const SCAN_TRAIL = 140;        // long billowing trail behind it
@@ -1431,6 +1451,14 @@
       + 0.09 * Math.sin(t * 0.0075)
       + 0.05 * Math.sin(t * 0.0331 + 1.7)) * scanIntensity;
 
+    // Level-change signal: this scan is tinted green (promoted) or red
+    // (demoted). Chosen over firing extra dedicated scans, which would add
+    // ~9s of dead time per level change and break the "no waiting" rule —
+    // this rides along with a scan that was happening anyway.
+    const RGB = scanTint === 'up' ? '120,255,170'
+              : scanTint === 'down' ? '255,110,110'
+              : '255,255,255';
+
     // Asymmetric streak: almost no glow ahead of the core (it's heading
     // into darkness), but a long trail behind it that flares brightest
     // just behind the core — as if the energy billows out — then wanes
@@ -1441,29 +1469,29 @@
     const corePos = SCAN_LEAD / span;
 
     const grad = ctx.createLinearGradient(0, top, 0, bottom);
-    grad.addColorStop(0, 'rgba(255,255,255,0)');
-    grad.addColorStop(Math.max(0, corePos - 0.03), `rgba(255,255,255,${0.05 * flicker})`);
-    grad.addColorStop(corePos, `rgba(255,255,255,${0.34 * flicker})`);
+    grad.addColorStop(0, `rgba(${RGB},0)`);
+    grad.addColorStop(Math.max(0, corePos - 0.03), `rgba(${RGB},${0.05 * flicker})`);
+    grad.addColorStop(corePos, `rgba(${RGB},${0.34 * flicker})`);
     const trailStops = [
       [0.08, 0.30], [0.22, 0.22], [0.42, 0.13], [0.64, 0.07], [0.85, 0.025], [1.0, 0]
     ];
     for (const [frac, alpha] of trailStops) {
       const pos = Math.min(1, corePos + frac * (1 - corePos));
-      grad.addColorStop(pos, `rgba(255,255,255,${alpha * flicker})`);
+      grad.addColorStop(pos, `rgba(${RGB},${alpha * flicker})`);
     }
     ctx.fillStyle = grad;
     ctx.fillRect(0, top, W, span);
 
     // Soft aura behind the core — gives it bloom without softening the edge itself
-    ctx.shadowColor = 'rgba(255,255,255,0.9)';
+    ctx.shadowColor = `rgba(${RGB},0.9)`;
     ctx.shadowBlur = 16 * flicker;
-    ctx.fillStyle = `rgba(255,255,255,${0.45 * flicker})`;
+    ctx.fillStyle = `rgba(${RGB},${0.45 * flicker})`;
     ctx.fillRect(0, scanY - SCAN_CORE_WIDTH / 2, W, SCAN_CORE_WIDTH);
     ctx.shadowBlur = 0;
 
     // Razor-sharp hairline on top — pixel-snapped, no blur, flinterdun and near-white-hot
     const coreY = Math.round(scanY);
-    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, 1.0 * flicker)})`;
+    ctx.fillStyle = `rgba(${RGB},${Math.min(1, 1.0 * flicker)})`;
     ctx.fillRect(0, coreY, W, 1);
 
     // A single, brief light-pulse the instant the beam is fully swelled in
@@ -1473,9 +1501,9 @@
       const PULSE_DURATION = 220;
       if (pulseAge < PULSE_DURATION) {
         const pulseFrac = 1 - pulseAge / PULSE_DURATION; // 1 -> 0
-        ctx.shadowColor = 'rgba(255,255,255,0.95)';
+        ctx.shadowColor = `rgba(${RGB},0.95)`;
         ctx.shadowBlur = 34 * pulseFrac;
-        ctx.fillStyle = `rgba(255,255,255,${0.4 * pulseFrac})`;
+        ctx.fillStyle = `rgba(${RGB},${0.4 * pulseFrac})`;
         ctx.fillRect(0, coreY - 1, W, 3);
         ctx.shadowBlur = 0;
       }
@@ -1566,6 +1594,7 @@
     if (!scannerLeftField && prog >= progExit) {
       scannerLeftField = true;
       GameEvents.emit('scannerFinished');
+      scanTint = null; // one tinted scan per level change, then back to white
     }
 
     if (prog >= 1) {

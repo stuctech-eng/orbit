@@ -4,6 +4,14 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 
 ---
 
+## Moeilijkheidscurve — de grote terugval gefixt
+
+- **Root cause:** de ladder liep van stap 18 via `% LADDER.length` weer terug naar stap 1 — van 11 cellen/3 symbolen (zwaarst) naar 3 cellen/1 symbool (lichtst). Veruit de grootste moeilijkheidsdaling in het spel, precies op het moment dat een sterke speler zou afhaken.
+- **Fix:** ladder uitgebreid van 18 naar 29 stappen (fases F/G/H toegevoegd: 4 en 5 onthoudpunten, tot 13 cellen), en de wrap-around vervangen door een clamp — de zwaarste stap herhaalt zichzelf i.p.v. terug te vallen
+- Volledige curve doorgerekend: geen enkele moeilijkheidsdaling meer, plafond nu ~11× zwaarder dan de start (was ~6,5×)
+- Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
+- Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
+
 ## First Launch Tutorial
 
 - Interactieve onboarding, alleen bij een écht eerste bezoek (`save.tutorialCompleted`)
