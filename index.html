@@ -136,7 +136,7 @@
   #tutorialOverlay {
     position: fixed;
     inset: 0;
-    z-index: 22;
+    z-index: 30; /* above the pause/settings/stats overlays (25/26) — tutorial guidance must stay visible while demoing the pause menu */
     pointer-events: none; /* only specific children opt back in, so the real game underneath stays tappable */
     display: none;
   }
@@ -144,18 +144,31 @@
   #tutorialOverlay .tut-text {
     position: absolute;
     left: 0; right: 0;
-    top: 42%;
+    bottom: 22%;
     text-align: center;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-    font-size: 17px;
-    font-weight: 300;
+    font-size: 16px;
+    font-weight: 400;
     letter-spacing: 0.02em;
-    color: rgba(255,255,255,0.92);
+    color: #ffffff;
     opacity: 0;
     transition: opacity 0.6s ease;
-    padding: 0 40px;
+    padding: 0 24px;
+    pointer-events: none;
+  }
+  /* Dark backing pill — white text on white cells is unreadable, and cells
+     drift everywhere, so the text needs its own guaranteed contrast. */
+  #tutorialOverlay .tut-text span {
+    display: inline-block;
+    background: rgba(0,0,0,0.82);
+    padding: 12px 20px;
+    border-radius: 999px;
+    box-shadow: 0 0 24px rgba(0,0,0,0.9);
   }
   #tutorialOverlay .tut-text.visible { opacity: 1; }
+  /* When the pause menu is being demoed, its buttons occupy the centre —
+     move the guidance up so the two never overlap. */
+  #tutorialOverlay .tut-text.high { bottom: auto; top: 18%; }
   #tutorialOverlay .tut-brand {
     position: absolute;
     top: max(50px, env(safe-area-inset-top));
@@ -195,12 +208,13 @@
     position: absolute;
     top: max(14px, env(safe-area-inset-top));
     right: max(16px, env(safe-area-inset-right));
-    background: none;
-    border: none;
-    color: rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 999px;
+    color: rgba(255,255,255,0.7);
     font-family: inherit;
     font-size: 12px;
-    padding: 12px;
+    padding: 10px 16px;
     min-height: 44px;
     pointer-events: auto;
   }
@@ -1109,8 +1123,8 @@
     const travel = H + SCAN_START_OFFSET * 2;
     scanDuration = SCAN_CROSS_DURATION * (travel / H);
     if (tutorialActive) {
-      if (tutorialStep === 1) showTutText('Kijk.', 1800);
-      else if (tutorialStep === 3) showTutText('Onthoud.', 1800);
+      if (tutorialStep === 1) showTutText('Kijk. De scanner onthult één cel.', 2600);
+      else if (tutorialStep === 3) showTutText('Nu vier cellen. Ze blijven bewegen.', 2600);
     }
   }
 
@@ -1121,7 +1135,7 @@
     phaseStart = now();
     roundStartTime = now(); // reaction time counts from HERE — when the player can actually respond — not from round start (which would always include the ~5-7s mandatory scan wait)
     memorySignalAt = now();
-    if (tutorialActive && tutorialStep === 1) showTutText('Nu jij.', 0);
+    if (tutorialActive && (tutorialStep === 1 || tutorialStep === 3)) showTutText('Nu jij. Tik de cel aan.', 0);
   }
 
   // Immediate, player-facing acknowledgment of a tap — the pulse ring and
@@ -1153,7 +1167,7 @@
 
     if (tutorialActive) {
       lastTutorialRoundCorrect = correct;
-      if (tutorialStep === 1) showTutText(correct ? 'Goed.' : 'Nog een keer.', 0);
+      if (tutorialStep === 1 || tutorialStep === 3) showTutText(correct ? 'Goed.' : 'Bijna. Nog een keer.', 0);
       return; // tutorial rounds never touch save, the ladder, or the Cognitive Engine
     }
 
@@ -1683,7 +1697,8 @@
 
   function showTutText(msg, autoFadeMs) {
     clearTimeout(tutTextTimer);
-    tutTextEl.textContent = msg;
+    tutTextEl.innerHTML = '<span></span>';
+    tutTextEl.firstChild.textContent = msg;
     tutTextEl.classList.add('visible');
     if (autoFadeMs) tutTextTimer = setTimeout(() => tutTextEl.classList.remove('visible'), autoFadeMs);
   }
@@ -1717,6 +1732,14 @@
     tutorialActive = true;
     tutorialStep = 0;
     gameLaunched = true;
+    // Every other screen must be gone — the tutorial overlay is transparent
+    // by design (so the real cells show through), so anything left visible
+    // underneath bleeds through and collides with the tutorial text.
+    welcomeEl.classList.add('hidden');
+    pauseOverlayEl.classList.remove('visible');
+    settingsOverlayEl.classList.remove('visible');
+    statsOverlayEl.classList.remove('visible');
+    paused = false;
     scannerIndicatorEl.classList.add('hidden');
     tutorialOverlayEl.classList.add('active');
     tutBrandEl.classList.add('visible');
@@ -1744,11 +1767,15 @@
         tutorialStep = 3;
         startTutorialRound(4, 1);
       } else {
-        startTutorialRound(3, 1); // "Nog een keer." — no penalty, just retry
+        startTutorialRound(3, 1); // no penalty, just retry the same step
       }
     } else if (tutorialStep === 3) {
-      tutorialStep = 5;
-      beginTutorialNavDemo();
+      if (lastTutorialRoundCorrect) {
+        tutorialStep = 5;
+        beginTutorialNavDemo();
+      } else {
+        startTutorialRound(4, 1); // same retry-until-it-clicks rule as round A
+      }
     }
   }
 
@@ -1756,13 +1783,14 @@
     phase = PHASE.MEMORY; // cells keep drifting; no active round underneath the nav demo
     scannerIndicatorEl.classList.remove('hidden');
     tutPointEl.classList.add('visible');
-    showTutText('Houd de scanner-indicator even ingedrukt.', 0);
+    showTutText('Nog één ding. Houd het streepje bovenaan even ingedrukt.', 0);
   }
 
   function showTutorialReadyScreen() {
     tutPointEl.classList.remove('visible');
+    tutTextEl.classList.remove('high');
     tutBrandEl.classList.add('visible');
-    showTutText('Je bent er klaar voor.', 0);
+    showTutText('Je bent er klaar voor. Het wordt vanzelf moeilijker.', 0);
     tutPanelEl.classList.add('visible');
     tutActionBtnEl.textContent = '▶ Start ORBIT';
     tutActionBtnEl.onclick = finishTutorial;
@@ -1875,6 +1903,11 @@
   function openPause() {
     pauseGame();
     pauseOverlayEl.classList.add('visible');
+    if (tutorialActive && tutorialStep === 5) {
+      tutPointEl.classList.remove('visible');
+      tutTextEl.classList.add('high');
+      showTutText('Dit is het pauzemenu. Tik "Verder spelen".', 0);
+    }
     updateIndicatorVisibility();
   }
 
