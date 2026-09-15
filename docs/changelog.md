@@ -19,6 +19,17 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Nieuwe spelmodus — Moving Number Tracking (Fase 2, basisversie)
+
+- **Nieuwe modus naast Classic Mode**, volledig gescheiden: eigen state (`trackingBalls`), eigen physics-stap (`stepTrackingPhysics`), eigen tekenfunctie, eigen tik-afhandeling. Classic Mode's `handleTap`, `resolveRound`, `startRound`, `cells`-array — geen letter aangeraakt, geverifieerd met een grep-check op de functie-bodies.
+- `frame()` vertakt eenmaal, helemaal bovenaan, naar `frameTracking()` als `currentMode === 'tracking'` — de rest van de game-loop wordt dan niet eens bereikt.
+- Spelregels (Fase 2, exact zoals gespecificeerd): 3 witte ballen, elk met een uniek zichtbaar nummer (1-3), continu bewegend, stuiterend tegen de randen. Speler tikt 1 → 2 → 3 in volgorde. Fout tikken telt als fout maar beëindigt de ronde niet (Fase 6-principe alvast toegepast in de basisversie). Ronde compleet → resultaat kort getoond → volgende ronde (nog met hetzelfde aantal ballen; Fase 3-progressie is bewust nog niet gebouwd).
+- Minimale Fase 7-subset: `save.trackingBest`/`save.trackingLast` (aantal ballen, tijd, fouten) — geen UI ervoor gebouwd, puur de databasis alvast aanwezig.
+- Toegang: nieuwe knop "🔢 Getallen volgen" op het Home-scherm. Pauzemenu en Instellingen werken automatisch mee (pause/resume was al mode-onafhankelijk); "Nieuwe sessie" is bewust modus-bewust gemaakt zodat 'ie in tracking-modus een tracking-ronde herstart in plaats van Classic Mode's ladder te resetten.
+- **Getest, niet alleen gebouwd:** een losstaande Node-simulatie van de exacte spawn/physics/tik-logica (6 scenario's: spawn-integriteit over 3-12 ballen, 1000 frames physics-grenscontrole, volledige juiste reeks, foute tik zonder ronde-einde, al-getikte bal genegeerd, tik na ronde-einde genegeerd) — alle zes geslaagd.
+
+**Nog open (Fase 3+, bewust niet gebouwd in deze levering):** moeilijkheidsopbouw (meer ballen, snelheid, vervagende nummers), volledige foutstatistieken-weergave, uitgebreide Score/PR-UI, meerdere moeilijkheidsassen los van elkaar regelbaar.
+
 ## First Launch Tutorial
 
 - Interactieve onboarding, alleen bij een écht eerste bezoek (`save.tutorialCompleted`)
