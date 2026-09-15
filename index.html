@@ -927,6 +927,8 @@
   const TRACK_SPEED_GROWTH_PER_BALL = 0.04; // Fase 4 — gradual only, +4% per ball above the start count
   const TRACK_SPEED_MULT_CAP = 1.8;         // never more than 1.8x the base speed — "ik moet beter opletten", not "dit is onmogelijk"
   const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
+  const TRACK_NUMBER_HOLD_MS = 2500; // Fase 5 — number stays fully clear this long after spawning
+  const TRACK_NUMBER_FADE_MS = 3000; // then fades out gradually over this long — never an abrupt cut
   const TRACK_START_COUNT = 3;
 
   let trackBallR = TRACK_BALL_R_MAX;
@@ -986,6 +988,7 @@
         vy: Math.sin(angle) * speed,
         r: trackBallR,
         number: numbers[i],
+        spawnTime: now(),
         done: false,
         feedback: 0,
         feedbackColor: null
@@ -1103,9 +1106,19 @@
       ctx.fill();
     }
 
-    // Numbers are always visible in this mode — that's the point: read,
-    // track, tap in order. Tapped balls dim their number to show progress.
-    ctx.fillStyle = b.done ? 'rgba(0,0,0,0.28)' : '#000000';
+    // Fase 5 — numbers stay fully clear for a while, then fade out
+    // gradually (never an abrupt cut). The ball itself is untouched by
+    // this — only the digit dims, so the player has to start remembering
+    // where a number was, while movement continues underneath as normal.
+    let numberOpacity = 1;
+    if (!b.done) {
+      const sinceSpawn = t - b.spawnTime;
+      if (sinceSpawn > TRACK_NUMBER_HOLD_MS) {
+        const fadeProgress = Math.min(1, (sinceSpawn - TRACK_NUMBER_HOLD_MS) / TRACK_NUMBER_FADE_MS);
+        numberOpacity = 1 - fadeProgress;
+      }
+    }
+    ctx.fillStyle = b.done ? 'rgba(0,0,0,0.28)' : `rgba(0,0,0,${numberOpacity})`;
     ctx.font = `600 ${Math.floor(b.r * 0.9)}px -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

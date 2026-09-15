@@ -19,6 +19,12 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — Fase 5 (nummers geleidelijk vervagen)
+
+- Elk cijfer blijft 2,5s volledig helder na verschijnen, vervaagt daarna geleidelijk over 3s tot onzichtbaar. De bal zelf blijft te allen tijde volledig zichtbaar — alleen het cijfer dooft. Beweging gaat gewoon door.
+- Introduceert de geheugendimensie: de speler moet op een gegeven moment onthouden waar welk nummer zat, in plaats van het steeds te kunnen aflezen.
+- **Getest:** vervaagcurve doorgerekend — geen enkele sprong (max 0,00033 opaciteitsverandering per ms), volledig verdwenen na exact 5,5s.
+
 ## Number Tracking — Fase 4 (bewegingssnelheid)
 
 - Snelheid schaalt nu geleidelijk mee met dezelfde teller als het aantal ballen (+4% per bal boven het startaantal van 3), geplafonneerd op 1,8× de basissnelheid — nooit chaotisch, nooit een sprong.
