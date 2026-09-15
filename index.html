@@ -921,7 +921,7 @@
 
   // ---------- Number Tracking Mode ----------
   const TRACK_BALL_R_MAX = 42;
-  const TRACK_BALL_R_MIN = 26; // never smaller than this — stays comfortably tappable
+  const TRACK_BALL_R_MIN = 34; // was 26 — too small once several balls floated close together; difficulty should come from tracking, not tap precision
   const TRACK_SPEED_MIN = 22;
   const TRACK_SPEED_MAX = 32;
   const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
@@ -931,7 +931,7 @@
   function computeTrackRadius(n) {
     const scale = Math.min(W, H);
     const factor = Math.sqrt(3 / n);
-    trackBallR = Math.max(TRACK_BALL_R_MIN, Math.min(TRACK_BALL_R_MAX, scale * 0.11 * factor));
+    trackBallR = Math.max(TRACK_BALL_R_MIN, Math.min(TRACK_BALL_R_MAX, scale * 0.125 * factor));
   }
 
   let trackingBalls = [];
@@ -985,6 +985,8 @@
   // Mirrors stepPhysics()'s wall-bounce approach, deliberately kept simple
   // per spec: "Geen obstakels", no ball-ball collision in this basisversie
   // — movement stays maximally smooth and predictable.
+  const TRACK_COLLISION_BUFFER = 10; // extra gap kept between balls, on top of their radii
+
   function stepTrackingPhysics(dt) {
     for (const b of trackingBalls) {
       if (b.feedback > 0) { b.feedback *= 0.9; if (b.feedback < 0.01) b.feedback = 0; }
@@ -995,6 +997,40 @@
       if (b.x > W - marginX) { b.x = W - marginX; b.vx = -Math.abs(b.vx); }
       if (b.y < marginTop) { b.y = marginTop; b.vy = Math.abs(b.vy); }
       if (b.y > H - marginBottom) { b.y = H - marginBottom; b.vy = -Math.abs(b.vy); }
+    }
+
+    // Pairwise soft collisions — was missing entirely, which is why balls
+    // could drift straight through each other. Same approach as Classic
+    // Mode's cells (separate along the contact normal, exchange velocity
+    // elastically), so it's a proven pattern, not a new one.
+    for (let i = 0; i < trackingBalls.length; i++) {
+      for (let j = i + 1; j < trackingBalls.length; j++) {
+        const a = trackingBalls[i], b = trackingBalls[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        const minDist = a.r + b.r + TRACK_COLLISION_BUFFER;
+        if (dist < minDist && dist > 0.0001) {
+          const nx = dx / dist, ny = dy / dist;
+          const overlap = (minDist - dist) / 2;
+          a.x -= nx * overlap; a.y -= ny * overlap;
+          b.x += nx * overlap; b.y += ny * overlap;
+          const avn = a.vx * nx + a.vy * ny;
+          const bvn = b.vx * nx + b.vy * ny;
+          const diff = bvn - avn;
+          a.vx += diff * nx; a.vy += diff * ny;
+          b.vx -= diff * nx; b.vy -= diff * ny;
+        }
+      }
+    }
+
+    // Collision separation can push a ball past a wall it already cleared
+    // this frame — re-clamp so nothing ever renders outside the play area.
+    for (const b of trackingBalls) {
+      const marginX = b.r, marginTop = b.r + 70, marginBottom = b.r + 90;
+      if (b.x < marginX) b.x = marginX;
+      if (b.x > W - marginX) b.x = W - marginX;
+      if (b.y < marginTop) b.y = marginTop;
+      if (b.y > H - marginBottom) b.y = H - marginBottom;
     }
   }
 

@@ -19,6 +19,14 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — overlap-bug + te-kleine-ballen gefixt
+
+- **Root cause overlap:** ballen hadden alleen wand-botsing, geen botsing tussen elkaar — konden dus gewoon door elkaar heen bewegen zodra ze dicht bij elkaar kwamen. Zichtbaar in een screenshot (bal 2 en 3 overlappend).
+- **Root cause gemiste tikken bij 6 ballen:** rechtstreeks gevolg van de overlap — bij overlappende ballen wordt precies de juiste raken lastig tot onmogelijk, wat aanvoelde als "reageert niet meer".
+- **Fix:** paarsgewijze botsing toegevoegd aan `stepTrackingPhysics`, letterlijk dezelfde bewezen aanpak als Classic Mode's cellen (scheiden langs de contactnormaal, elastische snelheidsuitwisseling).
+- **Ondergrens bal-grootte verhoogd** van 26px naar 34px, en de krimpformule iets afgevlakt — moeilijkheid bij meer ballen moet uit het volgen/onthouden komen, niet uit steeds kleiner wordende tikdoelen.
+- **Getest:** 50 gesimuleerde seconden fysica per aantal ballen (3, 6, 9, 12, 15) — nul overlap-frames in alle gevallen, minimale middelpunt-afstand blijft altijd ruim boven de vereiste grens.
+
 ## Number Tracking — Fase 3 (moeilijkheidsopbouw)
 
 - **Enige moeilijkheidsfactor deze fase:** één bal erbij per geslaagde ronde (3 → 4 → 5 → ...), exact zoals de spec vraagt — snelheid en zichtbaarheid blijven onaangeroerd tot de basis goed speelbaar is gebleken.
