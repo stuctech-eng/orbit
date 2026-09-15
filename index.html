@@ -987,11 +987,22 @@
   const TRACK_BALL_R_MIN = 43; // was 38 — balls at higher counts still felt small after the transition
   const TRACK_SPEED_MIN = 22;
   const TRACK_SPEED_MAX = 32;
-  const TRACK_SPEED_GROWTH_PER_BALL = 0.04; // Fase 4 — gradual only, +4% per ball above the start count
+  const TRACK_SPEED_GROWTH_PER_STEP = 0.04; // +4% per speed-growth round (see TRACK_CYCLE below)
   const TRACK_SPEED_MULT_CAP = 1.8;         // never more than 1.8x the base speed — "ik moet beter opletten", not "dit is onmogelijk"
   const TRACK_NUMBER_HOLD_MS = 3500; // was 2500 — user feedback: iets langer
   const TRACK_NUMBER_FADE_MS = 4000; // was 3000, scaled proportionally
   const TRACK_START_COUNT = 3;
+
+  // Fase 8 — moeilijkheidsassen losgekoppeld. Bal-aantal en snelheid liepen
+  // eerder altijd samen op (beide gedreven door dezelfde teller). Nu
+  // stijgt er per geslaagde ronde maar één as: een cyclus van 4 rondes —
+  // de eerste 3 groeien in aantal ballen, de 4e in snelheid (ballen blijft
+  // dan gelijk). "Rustig aan moeilijker" — nooit twee dingen tegelijk.
+  const TRACK_BALL_BLOCK = 4;   // eerste blok: alleen ballen groeien
+  const TRACK_SPEED_BLOCK = 3;  // tweede blok: alleen snelheid groeit, ballen bevroren
+  const TRACK_CYCLE_LENGTH = TRACK_BALL_BLOCK + TRACK_SPEED_BLOCK; // herhaalt daarna
+  let trackingCycleStep = 0;   // 0..TRACK_CYCLE_LENGTH-1 — welke ronde binnen de cyclus
+  let trackingSpeedLevel = 0;  // increments only on a speed-growth round
 
   let trackBallR = TRACK_BALL_R_MAX;
   function computeTrackRadius(n) {
@@ -1000,11 +1011,10 @@
     trackBallR = Math.max(TRACK_BALL_R_MIN, Math.min(TRACK_BALL_R_MAX, scale * 0.143 * factor));
   }
 
-  // Speed scales with how far past the start count the player has climbed —
-  // the same progression driver as ball count, so both move in lockstep
-  // and nothing ever jumps unpredictably between rounds.
-  function trackSpeedMultiplier(count) {
-    const mult = 1 + Math.max(0, count - TRACK_START_COUNT) * TRACK_SPEED_GROWTH_PER_BALL;
+  // Speed now derives from its own level, only touched on a dedicated
+  // speed-growth round — no longer tied to ball count at all.
+  function trackSpeedMultiplier(speedLevel) {
+    const mult = 1 + speedLevel * TRACK_SPEED_GROWTH_PER_STEP;
     return Math.min(TRACK_SPEED_MULT_CAP, mult);
   }
 
@@ -1021,6 +1031,8 @@
   function startTrackingSession() {
     trackingSessionErrors = 0;
     trackingSessionStart = now();
+    trackingCycleStep = 0;
+    trackingSpeedLevel = 0;
     startTrackingRound(TRACK_START_COUNT);
   }
 
@@ -1030,7 +1042,7 @@
     trackingActive = true;
     trackingBalls = [];
     computeTrackRadius(count);
-    const speedMult = trackSpeedMultiplier(count);
+    const speedMult = trackSpeedMultiplier(trackingSpeedLevel);
 
     const numbers = [];
     for (let i = 1; i <= count; i++) numbers.push(i);
@@ -1235,7 +1247,18 @@
     // Ronde voltooid, geen pauze, geen tussenscherm — direct door naar de
     // volgende reeks. Rust tijdens het spelen betekent ook geen
     // onderbreking na elke geslaagde ronde.
-    trackingNextCount = trackingBallCount + 1;
+    const isBallPhase = trackingCycleStep < TRACK_BALL_BLOCK;
+    if (isBallPhase) {
+      // Eerste blok van de cyclus: alleen ballen groeien, snelheid blijft
+      // op het huidige niveau staan.
+      trackingNextCount = trackingBallCount + 1;
+    } else {
+      // Tweede blok: alleen snelheid groeit, aantal ballen bevriest —
+      // nooit beide tegelijk.
+      trackingSpeedLevel++;
+      trackingNextCount = trackingBallCount;
+    }
+    trackingCycleStep = (trackingCycleStep + 1) % TRACK_CYCLE_LENGTH;
     startTrackingRound(trackingNextCount);
   }
 

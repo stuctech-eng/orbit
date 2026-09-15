@@ -19,6 +19,19 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — Fase 8 herzien (blok-schema i.p.v. korte cyclus)
+
+- Eerdere versie wisselde elke 4 rondes snel van as (3 ballen-rondes, 1 snelheid-ronde). Op voorstel (via GPT, akkoord bevonden) vervangen door rustigere blokken: 4 rondes alleen ballen, dan 3 rondes alleen snelheid, herhaald — geeft de speler meer tijd om aan één uitdaging te wennen voordat de volgende komt.
+- **Audit vooraf uitgevoerd** (zoals gevraagd): gecontroleerd dat snelheid nergens meer verborgen aan `trackingBallCount` hangt — bevestigd, `trackSpeedMultiplier` wordt uitsluitend met de eigen `trackingSpeedLevel`-teller aangeroepen. (`computeTrackRadius` hangt terecht nog wel aan bal-aantal — dat is bal-grootte/layout, geen moeilijkheidsas.)
+- **Getest:** doorgerekend tegen het exacte schema uit het voorstel (ronde 1-11: 3,4,5,6,7,7,7,7,8,9,10 ballen) — komt precies overeen. Herhaling tot ronde 25 doorgerekend, patroon blijft consistent.
+
+## Number Tracking — Fase 8 (moeilijkheidsassen losgekoppeld)
+
+- Ballen-aantal en snelheid liepen tot nu toe altijd samen op (beide gedreven door dezelfde teller). Nu een gefaseerde cyclus van 4 rondes: de eerste 3 laten alleen het aantal ballen groeien (snelheid bevriest), de 4e laat alleen de snelheid groeien (ballen blijft gelijk). Herhaalt zich.
+- "Rustig aan moeilijker" — nooit twee assen tegelijk, exact zoals de spec vraagt ("verhoog deze niet allemaal tegelijk").
+- Snelheid komt nu uit een eigen teller (`trackingSpeedLevel`), volledig losgekoppeld van het aantal ballen.
+- **Getest:** 16 rondes doorgerekend — in elke ronde verandert precies één van de twee assen, nooit beide tegelijk, nooit geen van beide.
+
 ## Number Tracking — Home-knop op Game Over-scherm
 
 - Terecht gevonden gat: het Game Over-scherm dekte de scanner-indicator zelfs visueel af (hogere z-index), dus er was geen enkele weg terug naar Home — alleen "Opnieuw proberen".
