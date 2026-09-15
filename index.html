@@ -920,8 +920,8 @@
   let currentMode = 'classic'; // 'classic' | 'tracking'
 
   // ---------- Number Tracking Mode ----------
-  const TRACK_BALL_R_MAX = 48; // corrected — user wanted bigger, not smaller (misread earlier feedback)
-  const TRACK_BALL_R_MIN = 38;
+  const TRACK_BALL_R_MAX = 48;
+  const TRACK_BALL_R_MIN = 43; // was 38 — balls at higher counts still felt small after the transition
   const TRACK_SPEED_MIN = 22;
   const TRACK_SPEED_MAX = 32;
   const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
@@ -1043,13 +1043,14 @@
     let scale = 1;
     if (b.feedback > 0.01 && b.feedbackColor === 'white') scale = 1 + 0.05 * b.feedback; // was 0.02 — a touch more pop
 
-    // Sparkling correct-flash: a few short rays radiating out, behind the
-    // ball, fading with the same feedback envelope. Kept restrained (thin,
-    // few rays) so it reads as "sparkle", not a burst effect.
-    if (b.feedback > 0.01 && b.feedbackColor === 'white') {
+    // Sparkling flash on any feedback — a few short rays radiating out,
+    // behind the ball, fading with the same feedback envelope. Kept
+    // restrained (thin, few rays) so it reads as "sparkle", not a burst
+    // effect. Colour follows the feedback: white for correct, red for wrong.
+    if (b.feedback > 0.01) {
       ctx.save();
       ctx.globalAlpha = b.feedback * 0.8;
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = b.feedbackColor === 'white' ? '#ffffff' : 'rgb(255,90,90)';
       ctx.lineWidth = 2;
       const rayCount = 6;
       const rayLen = b.r * (0.5 + (1 - b.feedback) * 0.6);

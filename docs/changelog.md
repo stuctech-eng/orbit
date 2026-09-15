@@ -19,6 +19,11 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — rood ook sprankelend, kleinere ballen groter
+
+- Sprankel-lijntjes gelden nu ook bij een foute tik (rood i.p.v. wit) — was alleen bij correct.
+- Ondergrens balgrootte verder omhoog: 38px → 43px, zodat ballen na de overgang naar hogere aantallen niet meer zo klein aanvoelen. Getest tot 15 ballen — plaatsing blijft altijd lukken.
+
 ## Number Tracking — sterkere correct/fout-feedback
 
 - **Correct:** materiaal licht nu echt op richting puur wit (zelfde "lift"-principe als Classic Mode's detectie-burst), plus zes korte sprankel-lijntjes die kort naar buiten stralen, plus een dikkere/helderdere ring en iets meer schaal-pop (0,02 → 0,05).
