@@ -927,8 +927,8 @@
   const TRACK_SPEED_GROWTH_PER_BALL = 0.04; // Fase 4 — gradual only, +4% per ball above the start count
   const TRACK_SPEED_MULT_CAP = 1.8;         // never more than 1.8x the base speed — "ik moet beter opletten", not "dit is onmogelijk"
   const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
-  const TRACK_NUMBER_HOLD_MS = 2500; // Fase 5 — number stays fully clear this long after spawning
-  const TRACK_NUMBER_FADE_MS = 3000; // then fades out gradually over this long — never an abrupt cut
+  const TRACK_NUMBER_HOLD_MS = 3500; // was 2500 — user feedback: iets langer
+  const TRACK_NUMBER_FADE_MS = 4000; // was 3000, scaled proportionally
   const TRACK_START_COUNT = 3;
 
   let trackBallR = TRACK_BALL_R_MAX;

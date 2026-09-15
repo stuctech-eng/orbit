@@ -19,6 +19,10 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — vervaging iets langer
+
+- Hold-periode 2,5s → 3,5s, vervaagtijd 3s → 4s. Cijfer nu volledig verdwenen na 7,5s (was 5,5s).
+
 ## Number Tracking — Fase 5 (nummers geleidelijk vervagen)
 
 - Elk cijfer blijft 2,5s volledig helder na verschijnen, vervaagt daarna geleidelijk over 3s tot onzichtbaar. De bal zelf blijft te allen tijde volledig zichtbaar — alleen het cijfer dooft. Beweging gaat gewoon door.
