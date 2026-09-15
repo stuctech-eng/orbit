@@ -19,6 +19,11 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — Fase 4 (bewegingssnelheid)
+
+- Snelheid schaalt nu geleidelijk mee met dezelfde teller als het aantal ballen (+4% per bal boven het startaantal van 3), geplafonneerd op 1,8× de basissnelheid — nooit chaotisch, nooit een sprong.
+- **Getest:** progressie doorgerekend van 3 t/m 40 ballen — elke stap is exact +4%, plafond wordt bereikt rond 23 ballen, daarna blijft snelheid gelijk terwijl alleen het aantal verder groeit. Geen enkele sprong groter dan de vaste stapgrootte.
+
 ## Number Tracking — rood ook sprankelend, kleinere ballen groter
 
 - Sprankel-lijntjes gelden nu ook bij een foute tik (rood i.p.v. wit) — was alleen bij correct.

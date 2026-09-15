@@ -924,6 +924,8 @@
   const TRACK_BALL_R_MIN = 43; // was 38 — balls at higher counts still felt small after the transition
   const TRACK_SPEED_MIN = 22;
   const TRACK_SPEED_MAX = 32;
+  const TRACK_SPEED_GROWTH_PER_BALL = 0.04; // Fase 4 — gradual only, +4% per ball above the start count
+  const TRACK_SPEED_MULT_CAP = 1.8;         // never more than 1.8x the base speed — "ik moet beter opletten", not "dit is onmogelijk"
   const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
   const TRACK_START_COUNT = 3;
 
@@ -932,6 +934,14 @@
     const scale = Math.min(W, H);
     const factor = Math.sqrt(3 / n);
     trackBallR = Math.max(TRACK_BALL_R_MIN, Math.min(TRACK_BALL_R_MAX, scale * 0.143 * factor));
+  }
+
+  // Speed scales with how far past the start count the player has climbed —
+  // the same progression driver as ball count, so both move in lockstep
+  // and nothing ever jumps unpredictably between rounds.
+  function trackSpeedMultiplier(count) {
+    const mult = 1 + Math.max(0, count - TRACK_START_COUNT) * TRACK_SPEED_GROWTH_PER_BALL;
+    return Math.min(TRACK_SPEED_MULT_CAP, mult);
   }
 
   let trackingBalls = [];
@@ -952,6 +962,7 @@
     trackingResultUntil = -1;
     trackingBalls = [];
     computeTrackRadius(count);
+    const speedMult = trackSpeedMultiplier(count);
 
     const numbers = [];
     for (let i = 1; i <= count; i++) numbers.push(i);
@@ -968,7 +979,7 @@
         attempts++;
       } while (!ok && attempts < 200);
       const angle = rand(0, Math.PI * 2);
-      const speed = rand(TRACK_SPEED_MIN, TRACK_SPEED_MAX);
+      const speed = rand(TRACK_SPEED_MIN, TRACK_SPEED_MAX) * speedMult;
       trackingBalls.push({
         x, y,
         vx: Math.cos(angle) * speed,
