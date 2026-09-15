@@ -298,6 +298,18 @@
     min-height: 44px;
   }
   .tgo-retry:active { background: rgba(255,255,255,0.18); }
+  .tgo-home {
+    appearance: none;
+    border: none;
+    background: none;
+    color: rgba(255,255,255,0.45);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 16px 0 4px;
+    width: 100%;
+    min-height: 44px;
+  }
+  .tgo-home:active { color: rgba(255,255,255,0.8); }
 
 
   #pauseOverlay {
@@ -473,6 +485,7 @@
     </div>
     <div class="tgo-record" id="tgoRecord">–</div>
     <button class="tgo-retry" id="tgoRetryBtn">↺ Opnieuw proberen</button>
+    <button class="tgo-home" id="tgoHomeBtn">🏠 Home</button>
   </div>
 </div>
 
@@ -1261,6 +1274,10 @@
   document.getElementById('tgoRetryBtn').addEventListener('click', () => {
     hideTrackingGameOver();
     startTrackingSession();
+  });
+  document.getElementById('tgoHomeBtn').addEventListener('click', () => {
+    hideTrackingGameOver();
+    showHome();
   });
 
   function frameTracking(t, dt) {
@@ -2320,7 +2337,8 @@
     const anyOverlayOpen = !welcomeEl.classList.contains('hidden')
       || pauseOverlayEl.classList.contains('visible')
       || settingsOverlayEl.classList.contains('visible')
-      || statsOverlayEl.classList.contains('visible');
+      || statsOverlayEl.classList.contains('visible')
+      || trackingGameOverEl.classList.contains('visible');
     scannerIndicatorEl.classList.toggle('hidden', anyOverlayOpen || !gameLaunched);
   }
 

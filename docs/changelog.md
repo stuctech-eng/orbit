@@ -19,6 +19,12 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — Home-knop op Game Over-scherm
+
+- Terecht gevonden gat: het Game Over-scherm dekte de scanner-indicator zelfs visueel af (hogere z-index), dus er was geen enkele weg terug naar Home — alleen "Opnieuw proberen".
+- "🏠 Home"-knop toegevoegd, secundair aan de retry-knop.
+- `updateIndicatorVisibility()` houdt nu ook rekening met het Game Over-scherm, zodat de scanner-indicator nooit meer onbedoeld interactief blijft onder een volledig-scherm-overlay.
+
 ## Number Tracking — definitieve fout-/Game Over-flow (aanvulling)
 
 Op basis van een definitief document van de gebruiker, dat het eerdere BEST/HUIDIG-paneel-ontwerp expliciet afkeurt en een echte Game Over-structuur vastlegt:
