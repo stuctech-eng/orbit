@@ -19,6 +19,12 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## BUG: Classic Mode onbereikbaar (regressie, gevonden tijdens Fase 9-speeltest)
+
+- **Root cause:** `currentMode` was een eenrichtingsschakelaar. Zodra "Getallen volgen" één keer was aangetikt, stond `currentMode` op 'tracking' — en er bestond nergens een knop die 'm terugzette op 'classic'. "Verder spelen" en "Nieuwe sessie" op Home checken beide `currentMode` en bleven daardoor voorgoed naar Number Tracking wijzen.
+- **Fix:** los "⚪ Classic Mode"-knop toegevoegd op Home, met een eigen `launchClassicMode()` die expliciet terugschakelt, ongeacht wat er laatst actief was. Herstelt Classic Mode's fase/cellen-status precies waar die was (die werd nooit aangeraakt tijdens tracking-mode, dus niets ging verloren).
+- Dit is precies het soort fout waar de eigen testfase (Fase 9) voor bedoeld is — bevestigt de waarde van de echte iPhone-speeltest.
+
 ## Number Tracking — Fase 8 herzien (blok-schema i.p.v. korte cyclus)
 
 - Eerdere versie wisselde elke 4 rondes snel van as (3 ballen-rondes, 1 snelheid-ronde). Op voorstel (via GPT, akkoord bevonden) vervangen door rustigere blokken: 4 rondes alleen ballen, dan 3 rondes alleen snelheid, herhaald — geeft de speler meer tijd om aan één uitdaging te wennen voordat de volgende komt.

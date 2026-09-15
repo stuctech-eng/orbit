@@ -509,6 +509,7 @@
   </div>
   <div class="menuStack">
     <button id="resumeBtn">▶ Verder spelen</button>
+    <button id="classicModeBtn">⚪ Classic Mode</button>
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
     <button id="trackingModeBtn">🔢 Getallen volgen</button>
     <button id="homeStatsBtn">Statistieken</button>
@@ -1319,6 +1320,20 @@
     if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
     else { resumeGame(); }
     startTrackingSession();
+    updateIndicatorVisibility();
+  }
+
+  // Mirrors launchTrackingMode() — this was the actual bug: currentMode
+  // was a one-way switch. Once 'tracking' was chosen via the button above,
+  // nothing anywhere ever set it back to 'classic', so "Verder spelen"
+  // and "Nieuwe sessie" (which both branch on currentMode) kept resolving
+  // to tracking mode forever, making Classic Mode unreachable.
+  function launchClassicMode() {
+    currentMode = 'classic';
+    welcomeEl.classList.add('hidden');
+    pauseOverlayEl.classList.remove('visible');
+    if (!gameLaunched) { gameLaunched = true; launchGame(); }
+    else { resumeGame(); if (!cells.length) startRound(); }
     updateIndicatorVisibility();
   }
 
@@ -2482,6 +2497,7 @@
     updateIndicatorVisibility();
   });
   document.getElementById('trackingModeBtn').addEventListener('click', launchTrackingMode);
+  document.getElementById('classicModeBtn').addEventListener('click', launchClassicMode);
   document.getElementById('homeSettingsBtn').addEventListener('click', () => openSettings('home'));
   document.getElementById('homeStatsBtn').addEventListener('click', openStats);
   document.getElementById('closeStatsOverlay').addEventListener('click', closeStats);
