@@ -19,6 +19,13 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — Fase 6 + 7 (foutenstatistiek + BEST/CURRENT-weergave)
+
+- **Fase 6 compleet:** gemiddelde tijd per correcte selectie wordt nu berekend en bijgehouden (`avgMs`), naast de al bestaande fouten-telling die de ronde niet meer beëindigt.
+- **Fase 7 compleet:** het tussenscherm tussen rondes toont nu een echt BEST/HUIDIG-paneel (donker, afgerond, zelfde visuele taal als de rest van ORBIT), precies zoals het voorbeeld in de spec. Bij een nieuw record staat er expliciet "Nieuw record!" in plaats van "Huidig".
+- BEST wordt bijgewerkt op basis van: eerst meeste ballen, dan (bij gelijke ballen) snelste tijd — exact zoals gespecificeerd.
+- **Getest:** vijf scenario's doorgerekend (nieuw record bij meer ballen, nieuw record bij zelfde ballen maar sneller, géén record bij minder ballen ook al was die ronde sneller, nieuw record bij weer meer ballen, gemiddelde-tijd-berekening) — allemaal correct.
+
 ## Number Tracking — vervaging iets langer
 
 - Hold-periode 2,5s → 3,5s, vervaagtijd 3s → 4s. Cijfer nu volledig verdwenen na 7,5s (was 5,5s).

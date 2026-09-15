@@ -236,30 +236,46 @@
     50% { transform: scale(1.3); opacity: 0.15; }
   }
 
-  /* Number Tracking mode — round-result message, same visual pattern as
-     the tutorial's text pill (dark backing, centred, fades), kept generic
-     since it's not tutorial-specific. */
-  #trackingMsg {
+  /* Number Tracking mode — round-result panel: HUIDIG vs BEST, per Fase 7.
+     Same dark/rounded visual language as the rest of ORBIT's overlays. */
+  #trackingResult {
     position: fixed;
     left: 0; right: 0;
-    top: 42%;
+    top: 38%;
     z-index: 12;
     text-align: center;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-    font-size: 15px;
-    color: #ffffff;
     opacity: 0;
     transition: opacity 0.4s ease;
     pointer-events: none;
     padding: 0 24px;
   }
-  #trackingMsg.visible { opacity: 1; }
-  #trackingMsg span {
+  #trackingResult.visible { opacity: 1; }
+  #trackingResult .panel {
     display: inline-block;
-    background: rgba(0,0,0,0.82);
-    padding: 12px 20px;
-    border-radius: 999px;
+    background: rgba(0,0,0,0.85);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 20px;
+    padding: 20px 28px;
+    min-width: 200px;
   }
+  #trackingResult .row { margin-bottom: 14px; }
+  #trackingResult .row:last-child { margin-bottom: 0; }
+  #trackingResult .label {
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 4px;
+  }
+  #trackingResult .stats {
+    font-size: 16px;
+    font-weight: 400;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+  }
+  #trackingResult .row.best .stats { color: rgba(255,255,255,0.75); }
+  #trackingResult .row.new .label { color: rgba(255,255,255,0.7); }
 
   #pauseOverlay {
     position: fixed;
@@ -424,7 +440,18 @@
   <canvas id="c"></canvas>
 </div>
 <button id="scannerIndicator" aria-label="Menu"><span class="line"></span></button>
-<div id="trackingMsg"><span></span></div>
+<div id="trackingResult">
+  <div class="panel">
+    <div class="row new">
+      <div class="label" id="trackingNewLabel">Huidig</div>
+      <div class="stats" id="trackingNewStats">–</div>
+    </div>
+    <div class="row best">
+      <div class="label">Best</div>
+      <div class="stats" id="trackingBestStats">–</div>
+    </div>
+  </div>
+</div>
 
 <div id="tutorialOverlay">
   <div class="tut-brand" id="tutBrand">ORBIT</div>
@@ -1164,31 +1191,51 @@
   function finishTrackingRound() {
     trackingActive = false;
     const elapsedMs = now() - trackingRoundStart;
+    const avgMsPerSelection = elapsedMs / trackingBallCount; // Fase 6 — "tijd per correcte selectie"
 
-    // Fase 7 (minimal subset): best-so-far by ball count, then by time.
-    if (!save.trackingBest
-      || trackingBallCount > save.trackingBest.balls
-      || (trackingBallCount === save.trackingBest.balls && elapsedMs < save.trackingBest.timeMs)) {
-      save.trackingBest = { balls: trackingBallCount, timeMs: Math.round(elapsedMs), errors: trackingErrors };
-    }
-    save.trackingLast = { balls: trackingBallCount, timeMs: Math.round(elapsedMs), errors: trackingErrors };
+    const result = {
+      balls: trackingBallCount,
+      timeMs: Math.round(elapsedMs),
+      errors: trackingErrors,
+      correct: trackingBallCount, // a round only completes once every number is correctly tapped
+      avgMs: Math.round(avgMsPerSelection)
+    };
+
+    // Fase 7: best-so-far by ball count, then by time — a new best is
+    // exactly what "meer ballen" or "zelfde ballen maar sneller" means.
+    const isNewBest = !save.trackingBest
+      || result.balls > save.trackingBest.balls
+      || (result.balls === save.trackingBest.balls && result.timeMs < save.trackingBest.timeMs);
+    if (isNewBest) save.trackingBest = result;
+    save.trackingLast = result;
     persistSave();
 
-    const seconds = (elapsedMs / 1000).toFixed(2);
-    showTrackingMessage(`${trackingBallCount} ballen · ${seconds}s · ${trackingErrors} ${trackingErrors === 1 ? 'fout' : 'fouten'}`);
+    showTrackingResult(result, save.trackingBest, isNewBest);
     trackingResultUntil = now() + TRACK_RESULT_PAUSE;
     // Fase 3 — de enige moeilijkheidsfactor voor nu: één bal erbij per
     // geslaagde ronde. Snelheid en vervaging komen pas in latere fases.
     trackingNextCount = trackingBallCount + 1;
   }
 
-  const trackingMsgEl = document.getElementById('trackingMsg');
-  function showTrackingMessage(msg) {
-    trackingMsgEl.firstChild.textContent = msg;
-    trackingMsgEl.classList.add('visible');
+  const trackingResultEl = document.getElementById('trackingResult');
+  const trackingNewLabelEl = document.getElementById('trackingNewLabel');
+  const trackingNewStatsEl = document.getElementById('trackingNewStats');
+  const trackingBestStatsEl = document.getElementById('trackingBestStats');
+
+  function formatTrackingStats(r) {
+    const seconds = (r.timeMs / 1000).toFixed(2);
+    const foutLabel = r.errors === 1 ? 'fout' : 'fouten';
+    return `${r.balls} ballen · ${seconds}s · ${r.errors} ${foutLabel}`;
   }
-  function hideTrackingMessage() {
-    trackingMsgEl.classList.remove('visible');
+
+  function showTrackingResult(current, best, isNewBest) {
+    trackingNewLabelEl.textContent = isNewBest ? 'Nieuw record!' : 'Huidig';
+    trackingNewStatsEl.textContent = formatTrackingStats(current);
+    trackingBestStatsEl.textContent = formatTrackingStats(best);
+    trackingResultEl.classList.add('visible');
+  }
+  function hideTrackingResult() {
+    trackingResultEl.classList.remove('visible');
   }
 
   function frameTracking(t, dt) {
@@ -1198,7 +1245,7 @@
 
     if (trackingResultUntil > 0 && t >= trackingResultUntil) {
       trackingResultUntil = -1;
-      hideTrackingMessage();
+      hideTrackingResult();
       startTrackingRound(trackingNextCount);
     }
   }
