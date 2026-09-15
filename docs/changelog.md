@@ -19,6 +19,13 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — Fase 3 (moeilijkheidsopbouw)
+
+- **Enige moeilijkheidsfactor deze fase:** één bal erbij per geslaagde ronde (3 → 4 → 5 → ...), exact zoals de spec vraagt — snelheid en zichtbaarheid blijven onaangeroerd tot de basis goed speelbaar is gebleken.
+- Bal-straal schaalt nu mee met het aantal (zelfde `sqrt(3/n)`-aanpak als Classic Mode's celgrootte), met een ondergrens van 26px zodat ballen altijd comfortabel aan te tikken blijven.
+- **Getest:** 15 opeenvolgende perfecte rondes gesimuleerd — plaatsing slaagt elke keer, radius schaalt vloeiend mee (42px → 26px, bereikt de vloer rond 9 ballen), alle ballen blijven binnen de grenzen. Stress-test tot 63 ballen over 60 rondes: geen enkele plaatsingsfout: het systeem degradeert netjes (iets minder perfecte spreiding bij extreme aantallen) in plaats van vast te lopen.
+- Geen kunstmatig plafond toegevoegd — 60+ opeenvolgende perfecte rondes is praktisch nooit haalbaar, en het systeem breekt sowieso niet als het wel gebeurt.
+
 ## Nieuwe spelmodus — Moving Number Tracking (Fase 2, basisversie)
 
 - **Nieuwe modus naast Classic Mode**, volledig gescheiden: eigen state (`trackingBalls`), eigen physics-stap (`stepTrackingPhysics`), eigen tekenfunctie, eigen tik-afhandeling. Classic Mode's `handleTap`, `resolveRound`, `startRound`, `cells`-array — geen letter aangeraakt, geverifieerd met een grep-check op de functie-bodies.

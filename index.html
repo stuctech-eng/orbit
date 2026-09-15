@@ -919,19 +919,29 @@
   // once, at the very top, before any Classic Mode logic runs.
   let currentMode = 'classic'; // 'classic' | 'tracking'
 
-  // ---------- Number Tracking Mode (Fase 2 — basisversie) ----------
-  const TRACK_BALL_R = 42;
+  // ---------- Number Tracking Mode ----------
+  const TRACK_BALL_R_MAX = 42;
+  const TRACK_BALL_R_MIN = 26; // never smaller than this — stays comfortably tappable
   const TRACK_SPEED_MIN = 22;
   const TRACK_SPEED_MAX = 32;
   const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
+  const TRACK_START_COUNT = 3;
+
+  let trackBallR = TRACK_BALL_R_MAX;
+  function computeTrackRadius(n) {
+    const scale = Math.min(W, H);
+    const factor = Math.sqrt(3 / n);
+    trackBallR = Math.max(TRACK_BALL_R_MIN, Math.min(TRACK_BALL_R_MAX, scale * 0.11 * factor));
+  }
 
   let trackingBalls = [];
-  let trackingBallCount = 3;   // fixed at 3 for this basisversie — Fase 3 adds progression
+  let trackingBallCount = TRACK_START_COUNT;
   let trackingTarget = 1;      // the next number the player must tap
   let trackingErrors = 0;
   let trackingRoundStart = 0;
   let trackingActive = false;
   let trackingResultUntil = -1;
+  let trackingNextCount = TRACK_START_COUNT;
 
   function startTrackingRound(count) {
     trackingBallCount = count;
@@ -941,19 +951,20 @@
     trackingActive = true;
     trackingResultUntil = -1;
     trackingBalls = [];
+    computeTrackRadius(count);
 
     const numbers = [];
     for (let i = 1; i <= count; i++) numbers.push(i);
 
-    const marginX = TRACK_BALL_R + 16;
-    const marginTop = TRACK_BALL_R + 70;
-    const marginBottom = TRACK_BALL_R + 90;
+    const marginX = trackBallR + 16;
+    const marginTop = trackBallR + 70;
+    const marginBottom = trackBallR + 90;
     for (let i = 0; i < count; i++) {
       let x, y, ok, attempts = 0;
       do {
         x = rand(marginX, W - marginX);
         y = rand(marginTop, H - marginBottom);
-        ok = trackingBalls.every((b) => Math.hypot(x - b.x, y - b.y) > TRACK_BALL_R * 2.4);
+        ok = trackingBalls.every((b) => Math.hypot(x - b.x, y - b.y) > trackBallR * 2.4);
         attempts++;
       } while (!ok && attempts < 200);
       const angle = rand(0, Math.PI * 2);
@@ -962,7 +973,7 @@
         x, y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        r: TRACK_BALL_R,
+        r: trackBallR,
         number: numbers[i],
         done: false,
         feedback: 0,
@@ -1070,6 +1081,9 @@
     const seconds = (elapsedMs / 1000).toFixed(2);
     showTrackingMessage(`${trackingBallCount} ballen · ${seconds}s · ${trackingErrors} ${trackingErrors === 1 ? 'fout' : 'fouten'}`);
     trackingResultUntil = now() + TRACK_RESULT_PAUSE;
+    // Fase 3 — de enige moeilijkheidsfactor voor nu: één bal erbij per
+    // geslaagde ronde. Snelheid en vervaging komen pas in latere fases.
+    trackingNextCount = trackingBallCount + 1;
   }
 
   const trackingMsgEl = document.getElementById('trackingMsg');
@@ -1089,7 +1103,7 @@
     if (trackingResultUntil > 0 && t >= trackingResultUntil) {
       trackingResultUntil = -1;
       hideTrackingMessage();
-      startTrackingRound(trackingBallCount); // Fase 2: repeats at the same count — Fase 3 adds progression
+      startTrackingRound(trackingNextCount);
     }
   }
 
@@ -1099,7 +1113,7 @@
     pauseOverlayEl.classList.remove('visible');
     if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
     else { resumeGame(); }
-    startTrackingRound(3);
+    startTrackingRound(TRACK_START_COUNT);
     updateIndicatorVisibility();
   }
 
@@ -2232,7 +2246,7 @@
     pauseOverlayEl.classList.remove('visible');
     if (currentMode === 'tracking') {
       paused = false;
-      startTrackingRound(3);
+      startTrackingRound(TRACK_START_COUNT);
       updateIndicatorVisibility();
       return;
     }
@@ -2250,7 +2264,7 @@
     if (currentMode === 'tracking') {
       if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
       else { resumeGame(); }
-      startTrackingRound(3);
+      startTrackingRound(TRACK_START_COUNT);
       updateIndicatorVisibility();
       return;
     }
