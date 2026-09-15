@@ -236,46 +236,69 @@
     50% { transform: scale(1.3); opacity: 0.15; }
   }
 
-  /* Number Tracking mode — round-result panel: HUIDIG vs BEST, per Fase 7.
-     Same dark/rounded visual language as the rest of ORBIT's overlays. */
-  #trackingResult {
+  /* Number Tracking mode — Game Over screen. Rustig, geen score-regel
+     (nog niet vastgesteld), gewoon Ballen/Fouten/Tijd + record. */
+  #trackingGameOver {
     position: fixed;
-    left: 0; right: 0;
-    top: 38%;
-    z-index: 12;
-    text-align: center;
+    inset: 0;
+    z-index: 24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.92);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     opacity: 0;
-    transition: opacity 0.4s ease;
     pointer-events: none;
+    transition: opacity 0.5s ease;
     padding: 0 24px;
   }
-  #trackingResult.visible { opacity: 1; }
-  #trackingResult .panel {
-    display: inline-block;
-    background: rgba(0,0,0,0.85);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 20px;
-    padding: 20px 28px;
-    min-width: 200px;
+  #trackingGameOver.visible { opacity: 1; pointer-events: auto; }
+  .tgo-panel { text-align: center; width: 100%; max-width: 280px; }
+  .tgo-title {
+    font-size: 13px;
+    letter-spacing: 0.28em;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 36px;
   }
-  #trackingResult .row { margin-bottom: 14px; }
-  #trackingResult .row:last-child { margin-bottom: 0; }
-  #trackingResult .label {
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.4);
-    margin-bottom: 4px;
+  .tgo-stats { margin-bottom: 28px; }
+  .tgo-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 12px 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
   }
-  #trackingResult .stats {
-    font-size: 16px;
+  .tgo-label {
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+  }
+  .tgo-value {
+    font-size: 19px;
     font-weight: 400;
     color: #ffffff;
     font-variant-numeric: tabular-nums;
   }
-  #trackingResult .row.best .stats { color: rgba(255,255,255,0.75); }
-  #trackingResult .row.new .label { color: rgba(255,255,255,0.7); }
+  .tgo-record {
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 32px;
+  }
+  .tgo-record.new { color: #ffffff; font-weight: 500; }
+  .tgo-retry {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.28);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 15px 0;
+    width: 100%;
+    border-radius: 999px;
+    min-height: 44px;
+  }
+  .tgo-retry:active { background: rgba(255,255,255,0.18); }
+
 
   #pauseOverlay {
     position: fixed;
@@ -440,16 +463,16 @@
   <canvas id="c"></canvas>
 </div>
 <button id="scannerIndicator" aria-label="Menu"><span class="line"></span></button>
-<div id="trackingResult">
-  <div class="panel">
-    <div class="row new">
-      <div class="label" id="trackingNewLabel">Huidig</div>
-      <div class="stats" id="trackingNewStats">–</div>
+<div id="trackingGameOver">
+  <div class="tgo-panel">
+    <div class="tgo-title">GAME OVER</div>
+    <div class="tgo-stats">
+      <div class="tgo-row"><span class="tgo-label">Ballen</span><span class="tgo-value" id="tgoBalls">–</span></div>
+      <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="tgoErrors">–</span></div>
+      <div class="tgo-row"><span class="tgo-label">Tijd</span><span class="tgo-value" id="tgoTime">–</span></div>
     </div>
-    <div class="row best">
-      <div class="label">Best</div>
-      <div class="stats" id="trackingBestStats">–</div>
-    </div>
+    <div class="tgo-record" id="tgoRecord">–</div>
+    <button class="tgo-retry" id="tgoRetryBtn">↺ Opnieuw proberen</button>
   </div>
 </div>
 
@@ -953,7 +976,6 @@
   const TRACK_SPEED_MAX = 32;
   const TRACK_SPEED_GROWTH_PER_BALL = 0.04; // Fase 4 — gradual only, +4% per ball above the start count
   const TRACK_SPEED_MULT_CAP = 1.8;         // never more than 1.8x the base speed — "ik moet beter opletten", not "dit is onmogelijk"
-  const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
   const TRACK_NUMBER_HOLD_MS = 3500; // was 2500 — user feedback: iets langer
   const TRACK_NUMBER_FADE_MS = 4000; // was 3000, scaled proportionally
   const TRACK_START_COUNT = 3;
@@ -973,22 +995,26 @@
     return Math.min(TRACK_SPEED_MULT_CAP, mult);
   }
 
+  const TRACK_MAX_ERRORS = 3; // "maximaal 3 fouten per volledige game" — the 3rd ends the session
+
   let trackingBalls = [];
   let trackingBallCount = TRACK_START_COUNT;
   let trackingTarget = 1;      // the next number the player must tap
-  let trackingErrors = 0;
-  let trackingRoundStart = 0;
+  let trackingSessionErrors = 0;  // session-wide — persists across rounds, resets only on a new session
+  let trackingSessionStart = 0;   // session-wide elapsed time for the Game Over screen
   let trackingActive = false;
-  let trackingResultUntil = -1;
   let trackingNextCount = TRACK_START_COUNT;
+
+  function startTrackingSession() {
+    trackingSessionErrors = 0;
+    trackingSessionStart = now();
+    startTrackingRound(TRACK_START_COUNT);
+  }
 
   function startTrackingRound(count) {
     trackingBallCount = count;
     trackingTarget = 1;
-    trackingErrors = 0;
-    trackingRoundStart = now();
     trackingActive = true;
-    trackingResultUntil = -1;
     trackingBalls = [];
     computeTrackRadius(count);
     const speedMult = trackSpeedMultiplier(count);
@@ -1179,84 +1205,80 @@
       trackingTarget++;
       if (trackingTarget > trackingBallCount) finishTrackingRound();
     } else {
-      // Fase 6 (minimal): a mistake is registered, never a hard stop —
-      // the player keeps going, still needs the SAME next number.
+      // Definitieve fout-flow: een fout beëindigt de ronde niet, het
+      // doelnummer blijft hetzelfde — behalve de 3e fout van de hele
+      // sessie, die is Game Over.
       hit.feedback = 1; hit.feedbackColor = 'red';
       haptic([10, 40, 10]);
       GameEvents.emit('wrongAnswer');
-      trackingErrors++;
+      trackingSessionErrors++;
+      if (trackingSessionErrors >= TRACK_MAX_ERRORS) {
+        endTrackingSession();
+      }
     }
   }
 
   function finishTrackingRound() {
+    // Ronde voltooid, geen pauze, geen tussenscherm — direct door naar de
+    // volgende reeks. Rust tijdens het spelen betekent ook geen
+    // onderbreking na elke geslaagde ronde.
+    trackingNextCount = trackingBallCount + 1;
+    startTrackingRound(trackingNextCount);
+  }
+
+  function endTrackingSession() {
     trackingActive = false;
-    const elapsedMs = now() - trackingRoundStart;
-    const avgMsPerSelection = elapsedMs / trackingBallCount; // Fase 6 — "tijd per correcte selectie"
+    const elapsedMs = now() - trackingSessionStart;
+    // "Ballen bereikt" = het niveau waar de speler was toen de sessie
+    // eindigde — geen apart levelsysteem, exact zoals besloten.
+    const result = { balls: trackingBallCount, errors: trackingSessionErrors, timeMs: Math.round(elapsedMs) };
 
-    const result = {
-      balls: trackingBallCount,
-      timeMs: Math.round(elapsedMs),
-      errors: trackingErrors,
-      correct: trackingBallCount, // a round only completes once every number is correctly tapped
-      avgMs: Math.round(avgMsPerSelection)
-    };
-
-    // Fase 7: best-so-far by ball count, then by time — a new best is
-    // exactly what "meer ballen" or "zelfde ballen maar sneller" means.
-    const isNewBest = !save.trackingBest
-      || result.balls > save.trackingBest.balls
-      || (result.balls === save.trackingBest.balls && result.timeMs < save.trackingBest.timeMs);
+    const isNewBest = !save.trackingBest || result.balls > save.trackingBest.balls;
     if (isNewBest) save.trackingBest = result;
     save.trackingLast = result;
     persistSave();
 
-    showTrackingResult(result, save.trackingBest, isNewBest);
-    trackingResultUntil = now() + TRACK_RESULT_PAUSE;
-    // Fase 3 — de enige moeilijkheidsfactor voor nu: één bal erbij per
-    // geslaagde ronde. Snelheid en vervaging komen pas in latere fases.
-    trackingNextCount = trackingBallCount + 1;
+    showTrackingGameOver(result, save.trackingBest, isNewBest);
   }
 
-  const trackingResultEl = document.getElementById('trackingResult');
-  const trackingNewLabelEl = document.getElementById('trackingNewLabel');
-  const trackingNewStatsEl = document.getElementById('trackingNewStats');
-  const trackingBestStatsEl = document.getElementById('trackingBestStats');
+  const trackingGameOverEl = document.getElementById('trackingGameOver');
+  const tgoBallsEl = document.getElementById('tgoBalls');
+  const tgoErrorsEl = document.getElementById('tgoErrors');
+  const tgoTimeEl = document.getElementById('tgoTime');
+  const tgoRecordEl = document.getElementById('tgoRecord');
 
-  function formatTrackingStats(r) {
-    const seconds = (r.timeMs / 1000).toFixed(2);
-    const foutLabel = r.errors === 1 ? 'fout' : 'fouten';
-    return `${r.balls} ballen · ${seconds}s · ${r.errors} ${foutLabel}`;
+  function showTrackingGameOver(result, best, isNewBest) {
+    tgoBallsEl.textContent = String(result.balls);
+    tgoErrorsEl.textContent = String(result.errors);
+    tgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
+    tgoRecordEl.textContent = isNewBest ? 'NIEUW RECORD' : ('BESTE: ' + best.balls + ' ballen');
+    tgoRecordEl.classList.toggle('new', isNewBest);
+    trackingGameOverEl.classList.add('visible');
   }
-
-  function showTrackingResult(current, best, isNewBest) {
-    trackingNewLabelEl.textContent = isNewBest ? 'Nieuw record!' : 'Huidig';
-    trackingNewStatsEl.textContent = formatTrackingStats(current);
-    trackingBestStatsEl.textContent = formatTrackingStats(best);
-    trackingResultEl.classList.add('visible');
+  function hideTrackingGameOver() {
+    trackingGameOverEl.classList.remove('visible');
   }
-  function hideTrackingResult() {
-    trackingResultEl.classList.remove('visible');
-  }
+  document.getElementById('tgoRetryBtn').addEventListener('click', () => {
+    hideTrackingGameOver();
+    startTrackingSession();
+  });
 
   function frameTracking(t, dt) {
     drawBackground();
+    if (!trackingActive) return; // frozen on the Game Over screen — no physics, no drawing changes
     stepTrackingPhysics(dt);
     for (const b of trackingBalls) drawTrackingBall(b, t);
-
-    if (trackingResultUntil > 0 && t >= trackingResultUntil) {
-      trackingResultUntil = -1;
-      hideTrackingResult();
-      startTrackingRound(trackingNextCount);
-    }
   }
+
 
   function launchTrackingMode() {
     currentMode = 'tracking';
     welcomeEl.classList.add('hidden');
     pauseOverlayEl.classList.remove('visible');
+    hideTrackingGameOver();
     if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
     else { resumeGame(); }
-    startTrackingRound(TRACK_START_COUNT);
+    startTrackingSession();
     updateIndicatorVisibility();
   }
 
@@ -2389,7 +2411,8 @@
     pauseOverlayEl.classList.remove('visible');
     if (currentMode === 'tracking') {
       paused = false;
-      startTrackingRound(TRACK_START_COUNT);
+      hideTrackingGameOver();
+      startTrackingSession();
       updateIndicatorVisibility();
       return;
     }
@@ -2407,7 +2430,8 @@
     if (currentMode === 'tracking') {
       if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
       else { resumeGame(); }
-      startTrackingRound(TRACK_START_COUNT);
+      hideTrackingGameOver();
+      startTrackingSession();
       updateIndicatorVisibility();
       return;
     }

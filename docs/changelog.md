@@ -19,6 +19,17 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — definitieve fout-/Game Over-flow (aanvulling)
+
+Op basis van een definitief document van de gebruiker, dat het eerdere BEST/HUIDIG-paneel-ontwerp expliciet afkeurt en een echte Game Over-structuur vastlegt:
+
+- **Fouten zijn nu sessie-breed** (niet meer per ronde): 1e en 2e fout gaan door met hetzelfde doelnummer, de 3e fout beëindigt de hele sessie. `trackingSessionErrors` vervangt het oude per-ronde `trackingErrors`.
+- **BEST/HUIDIG-paneel tijdens het spel verwijderd** — rondes lopen nu direct door naar de volgende zonder onderbreking of statistieken-weergave. Dit brak met het principe dat er tijdens het spelen geen scores zichtbaar zijn.
+- **Nieuw Game Over-scherm**: Ballen / Fouten / Tijd (bewust géén Score-regel — die formule is nog niet vastgesteld, expliciet uitgesteld tot na een echte speeltest), plus "NIEUW RECORD" of "BESTE: X ballen", plus een "Opnieuw proberen"-knop.
+- **Geen apart levelsysteem** — "Ballen" is de enige voortgangsmaat, zoals besloten ("Level = aantal ballen" was het alternatief, maar zelfs die naam is niet gebruikt — gewoon "Ballen").
+- Record-vergelijking is nu puur op hoogste bereikte ballen-aantal (geen tijd-tiebreak meer nodig, aangezien er geen score is om op te optimaliseren).
+- **Getest:** drie scenario's — (1) 1e/2e fout gaan door met hetzelfde doel, 3e fout triggert Game Over exact bij fout-teller 3; (2) fouten resetten niet tussen geslaagde rondes (sessie-breed bevestigd); (3) ballen-aantal loopt correct op zonder onderbreking tussen rondes (3→4→5→...→11 geverifieerd).
+
 ## Number Tracking — Fase 6 + 7 (foutenstatistiek + BEST/CURRENT-weergave)
 
 - **Fase 6 compleet:** gemiddelde tijd per correcte selectie wordt nu berekend en bijgehouden (`avgMs`), naast de al bestaande fouten-telling die de ronde niet meer beëindigt.
