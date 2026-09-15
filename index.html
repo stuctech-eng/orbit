@@ -920,8 +920,8 @@
   let currentMode = 'classic'; // 'classic' | 'tracking'
 
   // ---------- Number Tracking Mode ----------
-  const TRACK_BALL_R_MAX = 36; // was 42 — user feedback: still a touch too big
-  const TRACK_BALL_R_MIN = 29; // was 34, scaled down proportionally
+  const TRACK_BALL_R_MAX = 48; // corrected — user wanted bigger, not smaller (misread earlier feedback)
+  const TRACK_BALL_R_MIN = 38;
   const TRACK_SPEED_MIN = 22;
   const TRACK_SPEED_MAX = 32;
   const TRACK_RESULT_PAUSE = 1600; // ms shown between rounds
@@ -931,7 +931,7 @@
   function computeTrackRadius(n) {
     const scale = Math.min(W, H);
     const factor = Math.sqrt(3 / n);
-    trackBallR = Math.max(TRACK_BALL_R_MIN, Math.min(TRACK_BALL_R_MAX, scale * 0.106 * factor));
+    trackBallR = Math.max(TRACK_BALL_R_MIN, Math.min(TRACK_BALL_R_MAX, scale * 0.143 * factor));
   }
 
   let trackingBalls = [];
