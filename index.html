@@ -99,8 +99,16 @@
     padding: 16px 40px;
     border-radius: 999px;
     min-height: 44px;
+    filter: grayscale(1); /* keeps emoji icons monochrome, consistent with the rest of ORBIT */
   }
   #welcome button:active { background: rgba(255,255,255,0.15); }
+  #welcome button.primary {
+    border-color: var(--accent);
+    background: rgba(77,163,255,0.1);
+    box-shadow: 0 0 22px var(--accent-dim);
+    filter: none;
+  }
+  #welcome button.primary:active { background: rgba(77,163,255,0.22); }
 
   /* Blue accent — approved for active/selected elements and highlights
      only (see ORBIT_DESIGN_BIBLE.md 6.x en de UI-overleg-beslissing).
@@ -735,17 +743,11 @@
 
 <div id="welcome" class="hidden">
   <div class="title">ORBIT</div>
-  <div class="stats">
-    <div class="stat"><div class="value" id="statLevel">–</div><div class="label">Level</div></div>
-    <div class="stat"><div class="value" id="statHighLevel">–</div><div class="label">Hoogste level</div></div>
-    <div class="stat"><div class="value" id="statScore">–</div><div class="label">Hoogste score</div></div>
-    <div class="stat"><div class="value" id="statRating">–</div><div class="label">Cognitive Rating</div></div>
-  </div>
   <div class="menuStack">
-    <button id="resumeBtn">▶ Verder spelen</button>
+    <button id="resumeBtn" class="primary">▶ Verder spelen</button>
     <button id="openModeSelectBtn">🎮 Spelmodus</button>
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
-    <button id="homeStatsBtn">Statistieken</button>
+    <button id="homeStatsBtn">📊 Statistieken</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
   </div>
 </div>
@@ -2619,12 +2621,6 @@
   let gameLaunched = false;
   let settingsReturnTo = 'pause'; // 'pause' | 'home' — which screen re-appears when Settings closes
 
-  function refreshHomeStats() {
-    document.getElementById('statLevel').textContent = String(save.ladderIndex + 1);
-    document.getElementById('statHighLevel').textContent = String(save.highestLadderIndex + 1);
-    document.getElementById('statScore').textContent = String(save.highestScore);
-    document.getElementById('statRating').textContent = String(cognitiveRating(save));
-  }
 
   // Minimalist duration formatting — "45m", "2u 15m", never raw ms.
   function formatPlayTime(ms) {
@@ -2696,7 +2692,6 @@
     statsOverlayEl.classList.remove('visible');
     modeSelectEl.classList.remove('visible');
     modeIntroEl.classList.remove('visible');
-    refreshHomeStats();
     welcomeEl.classList.remove('hidden');
     updateIndicatorVisibility();
   }

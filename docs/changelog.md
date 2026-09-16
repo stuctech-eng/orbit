@@ -19,6 +19,13 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Home-scherm herzien — stats weg, primaire actie uitgelicht
+
+- **Statistiekenblok verwijderd van Home.** Het toonde altijd Classic Mode's cijfers (Level/Cognitive Rating), ook wanneer je net Getallen volgen had gespeeld — inmiddels misleidend nu er twee modi met compleet verschillende statistieken bestaan. Het aparte Statistieken-scherm dekt dit al volledig.
+- **"Verder spelen" krijgt een blauwe gloed-rand** als duidelijke hoofdactie, losstaand van de overige knoppen.
+- **Iconen monochroom gemaakt** (`filter: grayscale(1)` op alle Home-knoppen behalve de uitgelichte) — consistent met ORBIT's kleurloze basisprincipe, het blauw blijft voorbehouden aan de hoofdactie.
+- `refreshHomeStats()` en de bijbehorende aanroep verwijderd — de elementen die deze functie vulde bestaan niet meer.
+
 ## Onderzoek "ik zie niets" + echte bug gevonden en gefixt
 
 - **Wat er waarschijnlijk gebeurde:** bij een verse installatie (of na het wissen van app-data) toont ORBIT eerst de First Launch Tutorial — dat is een compleet andere flow dan Home, en de nieuwe UI (Spelmodus-overzicht, intro-schermen) zit pas ná die tutorial. Bevestigd met Playwright-screenshots: de nieuwe UI werkt gewoon correct zodra Home daadwerkelijk bereikt wordt.
