@@ -19,6 +19,12 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Spelmodus-overzicht + intro — primaire stijl doorgetrokken
+
+- **Bug gevonden en gefixt:** `.ms-card.active` (blauwe gloed op de huidig gespeelde modus) had wel CSS maar werd nooit ergens in JS toegepast — de highlighting deed dus nooit iets. Nu wordt 'm bij het openen van het overzicht correct gezet op basis van `currentMode`.
+- Gloed-waarden van de "▶ Starten"-knop exact gelijkgetrokken met Home's nieuwe primaire knop (zelfde blauwtint, zelfde gloed-sterkte).
+- Iconen op de modus-kaarten en de kenmerken-lijst ook monochroom gemaakt (`grayscale`), consistent met Home — de actieve kaart behoudt wel zijn blauwe bol-gradient.
+
 ## Home-scherm herzien — stats weg, primaire actie uitgelicht
 
 - **Statistiekenblok verwijderd van Home.** Het toonde altijd Classic Mode's cijfers (Level/Cognitive Rating), ook wanneer je net Getallen volgen had gespeeld — inmiddels misleidend nu er twee modi met compleet verschillende statistieken bestaan. Het aparte Statistieken-scherm dekt dit al volledig.

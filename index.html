@@ -182,7 +182,9 @@
     font-size: 17px;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.18);
+    filter: grayscale(1);
   }
+  .ms-card.active .ms-icon { filter: none; }
   .ms-card.active .ms-icon {
     background: radial-gradient(circle at 35% 30%, #9cc9ff, var(--accent) 60%, #1c4f8c);
     border-color: var(--accent);
@@ -316,15 +318,15 @@
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.1);
   }
-  .mi-feature .mi-fico { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+  .mi-feature .mi-fico { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; filter: grayscale(1); }
   .mi-feature .mi-ftext { flex: 1; min-width: 0; }
   .mi-feature .mi-flabel { font-size: 13px; color: #fff; }
   .mi-feature .mi-fsub { font-size: 11px; color: rgba(255,255,255,0.4); }
   #modeIntroOverlay .mi-start {
     appearance: none;
     border: 1px solid var(--accent);
-    background: rgba(77,163,255,0.12);
-    box-shadow: 0 0 24px var(--accent-dim);
+    background: rgba(77,163,255,0.1);
+    box-shadow: 0 0 22px var(--accent-dim);
     color: #fff;
     font-family: inherit;
     font-size: 15px;
@@ -335,7 +337,7 @@
     border-radius: 999px;
     min-height: 44px;
   }
-  #modeIntroOverlay .mi-start:active { background: rgba(77,163,255,0.24); }
+  #modeIntroOverlay .mi-start:active { background: rgba(77,163,255,0.22); }
   #modeIntroOverlay .mi-start.classic {
     border-color: rgba(255,255,255,0.35);
     background: rgba(255,255,255,0.08);
@@ -2818,6 +2820,8 @@
 
   function openModeSelect() {
     welcomeEl.classList.add('hidden');
+    document.getElementById('msCardClassic').classList.toggle('active', currentMode === 'classic');
+    document.getElementById('msCardTracking').classList.toggle('active', currentMode === 'tracking');
     modeSelectEl.classList.add('visible');
   }
   function closeModeSelect() {
