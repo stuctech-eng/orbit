@@ -147,6 +147,8 @@
     gap: 10px;
   }
   .ms-card {
+    appearance: none;
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 14px;
@@ -155,7 +157,10 @@
     border: 1px solid rgba(255,255,255,0.14);
     background: rgba(255,255,255,0.04);
     text-align: left;
+    font-family: inherit;
+    cursor: pointer;
   }
+  .ms-card:active { background: rgba(255,255,255,0.1); }
   .ms-card.active {
     border-color: var(--accent);
     background: rgba(77,163,255,0.08);
@@ -237,6 +242,7 @@
   }
   #modeIntroOverlay.visible { opacity: 1; pointer-events: auto; }
   #modeIntroOverlay .mi-back {
+    appearance: none;
     position: absolute;
     top: max(18px, env(safe-area-inset-top));
     left: 12px;
@@ -303,6 +309,7 @@
     border: 1px solid rgba(255,255,255,0.1);
   }
   .mi-feature .mi-fico { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+  .mi-feature .mi-ftext { flex: 1; min-width: 0; }
   .mi-feature .mi-flabel { font-size: 13px; color: #fff; }
   .mi-feature .mi-fsub { font-size: 11px; color: rgba(255,255,255,0.4); }
   #modeIntroOverlay .mi-start {
@@ -2809,7 +2816,7 @@
     miTitleEl.textContent = info.title;
     miDescEl.textContent = info.desc;
     miFeaturesEl.innerHTML = info.features.map((f) =>
-      `<div class="mi-feature"><span class="mi-fico">${f.icon}</span><span><span class="mi-flabel">${f.label}</span><br><span class="mi-fsub">${f.sub}</span></span></div>`
+      `<div class="mi-feature"><span class="mi-fico">${f.icon}</span><span class="mi-ftext"><span class="mi-flabel">${f.label}</span><br><span class="mi-fsub">${f.sub}</span></span></div>`
     ).join('');
     miStartBtnEl.className = 'mi-start' + (modeKey === 'classic' ? ' classic' : '');
     miStartBtnEl.onclick = () => {

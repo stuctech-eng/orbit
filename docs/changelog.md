@@ -19,6 +19,13 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## UI-fix — ontbrekende knop-resets in het nieuwe spelmodus-overzicht
+
+- `.ms-card` (de modus-kaarten) miste `appearance: none`, `width: 100%` en een lettertype-reset — als natieve `<button>` kon dat op iOS native styling laten doorschemeren en de kaart laten krimpen naar zijn inhoud i.p.v. de volle breedte te vullen.
+- De tekstkolom in elke `.mi-feature`-rij (intro-scherm) had geen `flex: 1`, waardoor lange labels konden overlopen i.p.v. netjes af te breken.
+- `.mi-back`-knop kreeg dezelfde reset voor consistentie.
+- Proactief gevonden bij code-review, niet via een specifieke foutmelding — gebruiker meldde alleen "er ging iets mis" zonder details.
+
 ## UI-herziening — Spelmodus-overzicht + intro-schermen, blauw accent
 
 Per de eerder goedgekeurde UI-richting (blauw accent toegestaan voor actieve/geselecteerde elementen, gameplay zelf blijft monochroom; Memory/Reaction/Zen Mode blijven illustratief, niet gebouwd):
