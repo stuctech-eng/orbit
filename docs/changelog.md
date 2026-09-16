@@ -19,6 +19,16 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## UI-herziening — Spelmodus-overzicht + intro-schermen, blauw accent
+
+Per de eerder goedgekeurde UI-richting (blauw accent toegestaan voor actieve/geselecteerde elementen, gameplay zelf blijft monochroom; Memory/Reaction/Zen Mode blijven illustratief, niet gebouwd):
+
+- **Home vereenvoudigd**: de losse "Classic Mode"/"Getallen volgen"-knoppen zijn vervangen door één "🎮 Spelmodus"-knop die naar een nieuw overzicht leidt.
+- **Nieuw spelmodus-overzicht**: kaarten voor Classic Mode en Getallen volgen (met "Nieuw"-badge), geselecteerde/actieve kaart krijgt een blauwe gloed-rand.
+- **Nieuw intro-scherm per modus**: een pulserende bol (wit voor Classic, blauw gloeiend met "123" voor Getallen volgen), titel, korte uitleg, een lijst met kenmerken (bijv. "3+ ballen — Begin met 3 ballen"), en een "▶ Starten"-knop.
+- `launchClassicMode()`/`launchTrackingMode()` blijven de daadwerkelijke start-functies — de nieuwe schermen roepen ze alleen aan via een extra stap, geen dubbele logica.
+- `updateIndicatorVisibility()` en `showHome()` uitgebreid met de twee nieuwe overlays, om exact de "Classic Mode onbereikbaar"-fout van hiervoor niet opnieuw te introduceren.
+
 ## BUG: Classic Mode onbereikbaar (regressie, gevonden tijdens Fase 9-speeltest)
 
 - **Root cause:** `currentMode` was een eenrichtingsschakelaar. Zodra "Getallen volgen" één keer was aangetikt, stond `currentMode` op 'tracking' — en er bestond nergens een knop die 'm terugzette op 'classic'. "Verder spelen" en "Nieuwe sessie" op Home checken beide `currentMode` en bleven daardoor voorgoed naar Number Tracking wijzen.

@@ -101,6 +101,233 @@
     min-height: 44px;
   }
   #welcome button:active { background: rgba(255,255,255,0.15); }
+
+  /* Blue accent — approved for active/selected elements and highlights
+     only (see ORBIT_DESIGN_BIBLE.md 6.x en de UI-overleg-beslissing).
+     The gameplay canvas itself stays fully monochrome; this accent is
+     strictly for navigation chrome. */
+  :root { --accent: #4da3ff; --accent-dim: rgba(77,163,255,0.35); }
+
+  /* ---------- Spelmodus-overzicht ---------- */
+  #modeSelectOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 27;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+    padding: max(60px, env(safe-area-inset-top) + 40px) 24px max(30px, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    overflow-y: auto;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+  #modeSelectOverlay.visible { opacity: 1; pointer-events: auto; }
+  #modeSelectOverlay .ms-title {
+    font-size: 15px;
+    letter-spacing: 0.24em;
+    color: #ffffff;
+    margin-bottom: 4px;
+  }
+  #modeSelectOverlay .ms-sub {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 28px;
+  }
+  #modeSelectOverlay .ms-list {
+    width: 100%;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ms-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.04);
+    text-align: left;
+  }
+  .ms-card.active {
+    border-color: var(--accent);
+    background: rgba(77,163,255,0.08);
+    box-shadow: 0 0 22px var(--accent-dim);
+  }
+  .ms-card .ms-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  .ms-card.active .ms-icon {
+    background: radial-gradient(circle at 35% 30%, #9cc9ff, var(--accent) 60%, #1c4f8c);
+    border-color: var(--accent);
+    box-shadow: 0 0 14px var(--accent-dim);
+  }
+  .ms-card .ms-body { flex: 1; min-width: 0; }
+  .ms-card .ms-name {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ms-card .ms-badge {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+  .ms-card .ms-desc {
+    font-size: 12px;
+    color: rgba(255,255,255,0.45);
+    margin-top: 2px;
+  }
+  .ms-card .ms-chevron { color: rgba(255,255,255,0.3); font-size: 16px; flex-shrink: 0; }
+  #modeSelectOverlay .ms-footnote {
+    margin-top: 26px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    text-align: center;
+    max-width: 300px;
+  }
+  #modeSelectOverlay .ms-close {
+    margin-top: auto;
+    padding-top: 24px;
+    appearance: none;
+    border: none;
+    background: none;
+    color: rgba(255,255,255,0.4);
+    font-family: inherit;
+    font-size: 13px;
+    min-height: 44px;
+  }
+
+  /* ---------- Mode-intro-scherm ---------- */
+  #modeIntroOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 28;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+    padding: max(50px, env(safe-area-inset-top)) 28px max(40px, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    text-align: center;
+  }
+  #modeIntroOverlay.visible { opacity: 1; pointer-events: auto; }
+  #modeIntroOverlay .mi-back {
+    position: absolute;
+    top: max(18px, env(safe-area-inset-top));
+    left: 12px;
+    background: none; border: none;
+    color: rgba(255,255,255,0.5);
+    font-size: 20px;
+    padding: 14px;
+    min-height: 44px;
+  }
+  .mi-orb {
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    margin: 0 auto 22px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.02em;
+    animation: miOrbPulse 3.2s ease-in-out infinite;
+  }
+  .mi-orb.classic {
+    background: radial-gradient(circle at 35% 28%, #ffffff, #c9c9cf 55%, #63636b);
+    box-shadow: 0 0 46px rgba(255,255,255,0.25);
+  }
+  .mi-orb.tracking {
+    background: radial-gradient(circle at 35% 28%, #bcdcff, var(--accent) 55%, #163a66);
+    box-shadow: 0 0 46px var(--accent-dim);
+  }
+  @keyframes miOrbPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.035); }
+  }
+  #modeIntroOverlay .mi-title {
+    font-size: 13px;
+    letter-spacing: 0.26em;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 14px;
+  }
+  #modeIntroOverlay .mi-desc {
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.55);
+    max-width: 300px;
+    margin: 0 auto 30px;
+  }
+  #modeIntroOverlay .mi-features {
+    width: 100%;
+    max-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 34px;
+    text-align: left;
+  }
+  .mi-feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .mi-feature .mi-fico { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+  .mi-feature .mi-flabel { font-size: 13px; color: #fff; }
+  .mi-feature .mi-fsub { font-size: 11px; color: rgba(255,255,255,0.4); }
+  #modeIntroOverlay .mi-start {
+    appearance: none;
+    border: 1px solid var(--accent);
+    background: rgba(77,163,255,0.12);
+    box-shadow: 0 0 24px var(--accent-dim);
+    color: #fff;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 16px 0;
+    width: 100%;
+    max-width: 300px;
+    border-radius: 999px;
+    min-height: 44px;
+  }
+  #modeIntroOverlay .mi-start:active { background: rgba(77,163,255,0.24); }
+  #modeIntroOverlay .mi-start.classic {
+    border-color: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.08);
+    box-shadow: none;
+  }
+  #modeIntroOverlay .mi-start.classic:active { background: rgba(255,255,255,0.18); }
+
   #welcome .menuStack {
     display: flex;
     flex-direction: column;
@@ -509,12 +736,45 @@
   </div>
   <div class="menuStack">
     <button id="resumeBtn">▶ Verder spelen</button>
-    <button id="classicModeBtn">⚪ Classic Mode</button>
+    <button id="openModeSelectBtn">🎮 Spelmodus</button>
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
-    <button id="trackingModeBtn">🔢 Getallen volgen</button>
     <button id="homeStatsBtn">Statistieken</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
   </div>
+</div>
+
+<div id="modeSelectOverlay">
+  <div class="ms-title">ORBIT</div>
+  <div class="ms-sub">Kies een spelmodus</div>
+  <div class="ms-list">
+    <button class="ms-card" id="msCardClassic" data-mode="classic">
+      <span class="ms-icon">⚪</span>
+      <span class="ms-body">
+        <span class="ms-name">Classic Mode</span>
+        <span class="ms-desc">Tijd &amp; nauwkeurigheid</span>
+      </span>
+      <span class="ms-chevron">›</span>
+    </button>
+    <button class="ms-card" id="msCardTracking" data-mode="tracking">
+      <span class="ms-icon">🔢</span>
+      <span class="ms-body">
+        <span class="ms-name">Getallen volgen <span class="ms-badge">Nieuw</span></span>
+        <span class="ms-desc">Zoek en tik de juiste reeks</span>
+      </span>
+      <span class="ms-chevron">›</span>
+    </button>
+  </div>
+  <div class="ms-footnote">Elke modus traint andere cognitieve vaardigheden.</div>
+  <button class="ms-close" id="msCloseBtn">Terug</button>
+</div>
+
+<div id="modeIntroOverlay">
+  <button class="mi-back" id="miBackBtn" aria-label="Terug">←</button>
+  <div class="mi-orb" id="miOrb"></div>
+  <div class="mi-title" id="miTitle">–</div>
+  <div class="mi-desc" id="miDesc"></div>
+  <div class="mi-features" id="miFeatures"></div>
+  <button class="mi-start" id="miStartBtn">▶ Starten</button>
 </div>
 
 <div id="pauseOverlay">
@@ -2376,7 +2636,9 @@
       || pauseOverlayEl.classList.contains('visible')
       || settingsOverlayEl.classList.contains('visible')
       || statsOverlayEl.classList.contains('visible')
-      || trackingGameOverEl.classList.contains('visible');
+      || trackingGameOverEl.classList.contains('visible')
+      || modeSelectEl.classList.contains('visible')
+      || modeIntroEl.classList.contains('visible');
     scannerIndicatorEl.classList.toggle('hidden', anyOverlayOpen || !gameLaunched);
   }
 
@@ -2404,6 +2666,8 @@
     pauseOverlayEl.classList.remove('visible');
     settingsOverlayEl.classList.remove('visible');
     statsOverlayEl.classList.remove('visible');
+    modeSelectEl.classList.remove('visible');
+    modeIntroEl.classList.remove('visible');
     refreshHomeStats();
     welcomeEl.classList.remove('hidden');
     updateIndicatorVisibility();
@@ -2496,8 +2760,74 @@
     else { resumeGame(); startRound(); }
     updateIndicatorVisibility();
   });
-  document.getElementById('trackingModeBtn').addEventListener('click', launchTrackingMode);
-  document.getElementById('classicModeBtn').addEventListener('click', launchClassicMode);
+  // ---------- Spelmodus-overzicht + intro-scherm ----------
+  const modeSelectEl = document.getElementById('modeSelectOverlay');
+  const modeIntroEl = document.getElementById('modeIntroOverlay');
+  const miOrbEl = document.getElementById('miOrb');
+  const miTitleEl = document.getElementById('miTitle');
+  const miDescEl = document.getElementById('miDesc');
+  const miFeaturesEl = document.getElementById('miFeatures');
+  const miStartBtnEl = document.getElementById('miStartBtn');
+
+  const MODE_INFO = {
+    classic: {
+      title: 'CLASSIC MODE',
+      desc: 'Een scanner onthult kort een cel. Onthoud welke, en tik hem aan zodra de scanner weg is.',
+      features: [
+        { icon: '👁', label: 'Kijken', sub: 'De scanner toont je één cel per ronde' },
+        { icon: '🧠', label: 'Onthouden', sub: 'Tikken mag pas als de scanner weg is' },
+        { icon: '📈', label: 'Adaptief', sub: 'Past zich automatisch aan jouw niveau aan' }
+      ],
+      launch: launchClassicMode
+    },
+    tracking: {
+      title: 'GETALLEN VOLGEN',
+      desc: 'Vind en tik de nummers in oplopende volgorde. De ballen bewegen continu.',
+      features: [
+        { icon: '⚪', label: '3+ ballen', sub: 'Begin met 3 ballen' },
+        { icon: '🐢', label: 'Langzaam', sub: 'Eerst rustig' },
+        { icon: '👁', label: 'Nummers duidelijk', sub: 'Volledig zichtbaar, vervaagt later' },
+        { icon: '📈', label: 'Steeds moeilijker', sub: 'Meer ballen, sneller, dimmer' }
+      ],
+      launch: launchTrackingMode
+    }
+  };
+
+  function openModeSelect() {
+    welcomeEl.classList.add('hidden');
+    modeSelectEl.classList.add('visible');
+  }
+  function closeModeSelect() {
+    modeSelectEl.classList.remove('visible');
+    showHome();
+  }
+  function openModeIntro(modeKey) {
+    const info = MODE_INFO[modeKey];
+    modeSelectEl.classList.remove('visible');
+    miOrbEl.className = 'mi-orb ' + modeKey;
+    miOrbEl.textContent = modeKey === 'tracking' ? '123' : '';
+    miTitleEl.textContent = info.title;
+    miDescEl.textContent = info.desc;
+    miFeaturesEl.innerHTML = info.features.map((f) =>
+      `<div class="mi-feature"><span class="mi-fico">${f.icon}</span><span><span class="mi-flabel">${f.label}</span><br><span class="mi-fsub">${f.sub}</span></span></div>`
+    ).join('');
+    miStartBtnEl.className = 'mi-start' + (modeKey === 'classic' ? ' classic' : '');
+    miStartBtnEl.onclick = () => {
+      modeIntroEl.classList.remove('visible');
+      info.launch();
+    };
+    modeIntroEl.classList.add('visible');
+  }
+
+  document.getElementById('openModeSelectBtn').addEventListener('click', openModeSelect);
+  document.getElementById('msCloseBtn').addEventListener('click', closeModeSelect);
+  document.getElementById('msCardClassic').addEventListener('click', () => openModeIntro('classic'));
+  document.getElementById('msCardTracking').addEventListener('click', () => openModeIntro('tracking'));
+  document.getElementById('miBackBtn').addEventListener('click', () => {
+    modeIntroEl.classList.remove('visible');
+    openModeSelect();
+  });
+
   document.getElementById('homeSettingsBtn').addEventListener('click', () => openSettings('home'));
   document.getElementById('homeStatsBtn').addEventListener('click', openStats);
   document.getElementById('closeStatsOverlay').addEventListener('click', closeStats);
