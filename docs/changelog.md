@@ -19,6 +19,13 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## BUG: "BESTE SCORE: undefined" + beste score nu ook vóóraf zichtbaar
+
+- **Root cause:** oudere saves (van vóór de scoreformule) hadden `trackingBest`/`trackingLast` zonder `score`-veld. Bij het tonen van "BESTE SCORE: X" werd dat veld direct uitgelezen zonder terugval, dus `undefined`. Erger nog: de record-vergelijking (`result.score > save.trackingBest.score`) faalt stil bij een `undefined` rechterkant, dus oude spelers zouden ook nooit meer een nieuw record kunnen halen.
+- **Fix:** migratie bij het laden van de save — ontbrekend `score`-veld wordt met terugwerkende kracht berekend uit de bestaande `balls`/`errors`. Ook de save-race-merge-logica (`persistSave()`) kreeg dezelfde terugval.
+- **Extra, naar aanleiding van terechte vraag ("wil je niet weten wat de beste score is?"):** beste score staat nu ook zichtbaar op het Spelmodus-overzicht (onder elke kaart) én op het intro-scherm (onder de beschrijving) — niet meer alleen achteraf op het Game Over-scherm. Voor Classic Mode toont dit "Hoogste score", voor Getallen volgen "Beste score".
+- **Getest:** exact het scenario uit de bug-screenshot nagebouwd (`trackingBest` zonder score-veld, 11 ballen/3 fouten/69s) — na de fix toont dat correct `score: 1010`, en beide nieuwe schermen renderen de beste score zoals bedoeld.
+
 ## Number Tracking — scoreformule vastgesteld
 
 Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgangsmaat (geen apart levelsysteem), score is een aparte "kwaliteit van deze run"-maat — nooit samengevoegd, nooit opgeteld over sessies.

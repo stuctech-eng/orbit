@@ -212,6 +212,14 @@
     color: rgba(255,255,255,0.45);
     margin-top: 2px;
   }
+  .ms-card .ms-best {
+    display: block;
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .ms-card.active .ms-best { color: var(--accent); }
   .ms-card .ms-chevron { color: rgba(255,255,255,0.3); font-size: 16px; flex-shrink: 0; }
   #modeSelectOverlay .ms-footnote {
     margin-top: 26px;
@@ -300,6 +308,14 @@
     max-width: 300px;
     margin: 0 auto 30px;
   }
+  #modeIntroOverlay .mi-best {
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin: -18px auto 24px;
+    font-variant-numeric: tabular-nums;
+  }
+  #modeIntroOverlay .mi-best:empty { display: none; margin: 0; }
   #modeIntroOverlay .mi-features {
     width: 100%;
     max-width: 300px;
@@ -778,6 +794,7 @@
       <span class="ms-body">
         <span class="ms-name">Classic Mode</span>
         <span class="ms-desc">Tijd &amp; nauwkeurigheid</span>
+        <span class="ms-best" id="msBestClassic"></span>
       </span>
       <span class="ms-chevron">›</span>
     </button>
@@ -786,6 +803,7 @@
       <span class="ms-body">
         <span class="ms-name">Getallen volgen <span class="ms-badge">Nieuw</span></span>
         <span class="ms-desc">Zoek en tik de juiste reeks</span>
+        <span class="ms-best" id="msBestTracking"></span>
       </span>
       <span class="ms-chevron">›</span>
     </button>
@@ -799,6 +817,7 @@
   <div class="mi-orb" id="miOrb"></div>
   <div class="mi-title" id="miTitle">–</div>
   <div class="mi-desc" id="miDesc"></div>
+  <div class="mi-best" id="miBest"></div>
   <div class="mi-features" id="miFeatures"></div>
   <button class="mi-start" id="miStartBtn">▶ Starten</button>
 </div>
@@ -1095,6 +1114,15 @@
   if (typeof save.currentStreak !== 'number') save.currentStreak = 0;
   if (typeof save.currentErrorStreak !== 'number') save.currentErrorStreak = 0;
   if (typeof save.plateauRounds !== 'number') save.plateauRounds = 0;
+  // Migratie: oudere saves hadden trackingBest/trackingLast zonder score-veld.
+  // Backfill met de huidige formule zodat "BESTE SCORE: undefined" nooit
+  // meer kan gebeuren.
+  if (save.trackingBest && typeof save.trackingBest.score !== 'number') {
+    save.trackingBest.score = Math.max(0, save.trackingBest.balls * 100 - save.trackingBest.errors * 30);
+  }
+  if (save.trackingLast && typeof save.trackingLast.score !== 'number') {
+    save.trackingLast.score = Math.max(0, save.trackingLast.balls * 100 - save.trackingLast.errors * 30);
+  }
   save.sessions++; // one launch of the app = one session, counted immediately (not per round)
   let sessionStart = now();
   let continuousPlayStart = now(); // for the fatigue easing factor — resets on resume/new session, not on every save
@@ -1120,7 +1148,7 @@
         save.sessions = Math.max(save.sessions, onDisk.sessions || 0);
         save.tutorialCompleted = save.tutorialCompleted || !!onDisk.tutorialCompleted;
         if (onDisk.trackingBest) {
-          const onDiskScore = typeof onDisk.trackingBest.score === 'number' ? onDisk.trackingBest.score : onDisk.trackingBest.balls * 100;
+          const onDiskScore = typeof onDisk.trackingBest.score === 'number' ? onDisk.trackingBest.score : Math.max(0, onDisk.trackingBest.balls * 100 - (onDisk.trackingBest.errors || 0) * 30);
           const currentScore = save.trackingBest ? (typeof save.trackingBest.score === 'number' ? save.trackingBest.score : save.trackingBest.balls * 100) : -1;
           if (onDiskScore > currentScore) save.trackingBest = onDisk.trackingBest;
         }
@@ -2841,10 +2869,19 @@
     }
   };
 
+  function bestScoreText(modeKey) {
+    if (modeKey === 'classic') {
+      return save.highestScore > 0 ? `Hoogste score: ${save.highestScore}` : '';
+    }
+    return save.trackingBest ? `Beste score: ${save.trackingBest.score}` : '';
+  }
+
   function openModeSelect() {
     welcomeEl.classList.add('hidden');
     document.getElementById('msCardClassic').classList.toggle('active', currentMode === 'classic');
     document.getElementById('msCardTracking').classList.toggle('active', currentMode === 'tracking');
+    document.getElementById('msBestClassic').textContent = bestScoreText('classic');
+    document.getElementById('msBestTracking').textContent = bestScoreText('tracking');
     modeSelectEl.classList.add('visible');
   }
   function closeModeSelect() {
@@ -2858,6 +2895,7 @@
     miOrbEl.textContent = modeKey === 'tracking' ? '123' : '';
     miTitleEl.textContent = info.title;
     miDescEl.textContent = info.desc;
+    document.getElementById('miBest').textContent = bestScoreText(modeKey);
     miFeaturesEl.innerHTML = info.features.map((f) =>
       `<div class="mi-feature"><span class="mi-fico">${f.icon}</span><span class="mi-ftext"><span class="mi-flabel">${f.label}</span><br><span class="mi-fsub">${f.sub}</span></span></div>`
     ).join('');
