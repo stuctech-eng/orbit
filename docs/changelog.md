@@ -19,6 +19,13 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Onderzoek "ik zie niets" + echte bug gevonden en gefixt
+
+- **Wat er waarschijnlijk gebeurde:** bij een verse installatie (of na het wissen van app-data) toont ORBIT eerst de First Launch Tutorial — dat is een compleet andere flow dan Home, en de nieuwe UI (Spelmodus-overzicht, intro-schermen) zit pas ná die tutorial. Bevestigd met Playwright-screenshots: de nieuwe UI werkt gewoon correct zodra Home daadwerkelijk bereikt wordt.
+- **Wél een echte bug gevonden tijdens het uitzoeken:** `persistSave()` kon, bij een race tussen twee overlappende pagina-instanties (bijv. rond een herlaad-moment), de opgeslagen voortgang overschrijven met verouderde in-memory data — inclusief het terugzetten van `tutorialCompleted` naar `false`. Gereproduceerd met een Playwright-test die de exacte race naboot.
+- **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
+- **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
+
 ## UI-fix — ontbrekende knop-resets in het nieuwe spelmodus-overzicht
 
 - `.ms-card` (de modus-kaarten) miste `appearance: none`, `width: 100%` en een lettertype-reset — als natieve `<button>` kon dat op iOS native styling laten doorschemeren en de kaart laten krimpen naar zijn inhoud i.p.v. de volle breedte te vullen.

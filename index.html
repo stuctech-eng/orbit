@@ -1084,7 +1084,28 @@
     save.totalPlayTimeMs += now() - sessionStart;
     sessionStart = now();
     save.lastPlayed = new Date().toISOString();
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+    try {
+      // Guard against a stale in-memory `save` (e.g. an older page instance
+      // whose pagehide fires after a newer instance already wrote fresher
+      // data) ever regressing progress. Merge against whatever is
+      // currently on disk, keeping the better value per field, so a race
+      // between two instances can never lose progress or un-complete the
+      // tutorial.
+      const onDisk = loadSave();
+      if (onDisk) {
+        save.highestLadderIndex = Math.max(save.highestLadderIndex, onDisk.highestLadderIndex || 0);
+        save.highestScore = Math.max(save.highestScore, onDisk.highestScore || 0);
+        save.totalCorrect = Math.max(save.totalCorrect, onDisk.totalCorrect || 0);
+        save.totalRounds = Math.max(save.totalRounds, onDisk.totalRounds || 0);
+        save.totalPlayTimeMs = Math.max(save.totalPlayTimeMs, onDisk.totalPlayTimeMs || 0);
+        save.sessions = Math.max(save.sessions, onDisk.sessions || 0);
+        save.tutorialCompleted = save.tutorialCompleted || !!onDisk.tutorialCompleted;
+        if (onDisk.trackingBest && (!save.trackingBest || onDisk.trackingBest.balls > save.trackingBest.balls)) {
+          save.trackingBest = onDisk.trackingBest;
+        }
+      }
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+    } catch (e) {}
   }
 
   window.addEventListener('pagehide', persistSave);
