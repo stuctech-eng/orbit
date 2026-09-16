@@ -19,6 +19,15 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 - Level-wissel wordt nu visueel gesignaleerd: de eerstvolgende scan kleurt groen (omhoog) of rood (omlaag). Bewust géén extra scans — dat zou ~9s dode tijd per level-wissel toevoegen en botst met de "geen wachttijd"-regel
 - Tutorial-fixes: Home-scherm bleef zichtbaar onder de transparante tutorial-overlay (tekst en menuknoppen liepen door elkaar), tekst kreeg een donkere achtergrond-pil (witte tekst op witte ballen was onleesbaar), begeleiding toegevoegd bij elke stap inclusief het pauzemenu, en de tutorial-overlay opgehoogd naar z-index 30 zodat begeleiding boven het pauzemenu zichtbaar blijft
 
+## Number Tracking — scoreformule vastgesteld
+
+Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgangsmaat (geen apart levelsysteem), score is een aparte "kwaliteit van deze run"-maat — nooit samengevoegd, nooit opgeteld over sessies.
+
+- Game Over-scherm toont Score nu prominent bovenaan (grote cijfers), Ballen/Fouten/Tijd eronder zoals al bestond.
+- Record ("NIEUW RECORD" / "BESTE SCORE: X") vergelijkt nu op score, niet meer op kaal balaantal — zo telt een foutloze run zwaarder dan een even-ver-gekomen maar rommelige run.
+- `persistSave()`'s save-race-bescherming (zie eerdere fix) bijgewerkt om ook `trackingBest` op score te vergelijken, met een veilige terugval voor oudere saves die nog geen `score`-veld hadden.
+- **Getest:** de drie voorbeelden uit het overleg exact geverifieerd (8 ballen/0 fouten→800, /1 fout→770, /2 fouten→740), bevestigd dat de score nooit negatief kan worden, en de record-logica doorgerekend op een scenario waarbij een hogere score met meer fouten terecht boven een lagere score met minder fouten blijft staan.
+
 ## Spelmodus-overzicht + intro — primaire stijl doorgetrokken
 
 - **Bug gevonden en gefixt:** `.ms-card.active` (blauwe gloed op de huidig gespeelde modus) had wel CSS maar werd nooit ergens in JS toegepast — de highlighting deed dus nooit iets. Nu wordt 'm bij het openen van het overzicht correct gezet op basis van `currentMode`.

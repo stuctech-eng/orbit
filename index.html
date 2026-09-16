@@ -502,7 +502,20 @@
     font-size: 13px;
     letter-spacing: 0.28em;
     color: rgba(255,255,255,0.45);
-    margin-bottom: 36px;
+    margin-bottom: 20px;
+  }
+  .tgo-score {
+    font-size: 44px;
+    font-weight: 300;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .tgo-scorelabel {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 30px;
   }
   .tgo-stats { margin-bottom: 28px; }
   .tgo-row {
@@ -722,6 +735,8 @@
 <div id="trackingGameOver">
   <div class="tgo-panel">
     <div class="tgo-title">GAME OVER</div>
+    <div class="tgo-score" id="tgoScore">–</div>
+    <div class="tgo-scorelabel">SCORE</div>
     <div class="tgo-stats">
       <div class="tgo-row"><span class="tgo-label">Ballen</span><span class="tgo-value" id="tgoBalls">–</span></div>
       <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="tgoErrors">–</span></div>
@@ -1104,8 +1119,10 @@
         save.totalPlayTimeMs = Math.max(save.totalPlayTimeMs, onDisk.totalPlayTimeMs || 0);
         save.sessions = Math.max(save.sessions, onDisk.sessions || 0);
         save.tutorialCompleted = save.tutorialCompleted || !!onDisk.tutorialCompleted;
-        if (onDisk.trackingBest && (!save.trackingBest || onDisk.trackingBest.balls > save.trackingBest.balls)) {
-          save.trackingBest = onDisk.trackingBest;
+        if (onDisk.trackingBest) {
+          const onDiskScore = typeof onDisk.trackingBest.score === 'number' ? onDisk.trackingBest.score : onDisk.trackingBest.balls * 100;
+          const currentScore = save.trackingBest ? (typeof save.trackingBest.score === 'number' ? save.trackingBest.score : save.trackingBest.balls * 100) : -1;
+          if (onDiskScore > currentScore) save.trackingBest = onDisk.trackingBest;
         }
       }
       localStorage.setItem(SAVE_KEY, JSON.stringify(save));
@@ -1558,11 +1575,15 @@
   function endTrackingSession() {
     trackingActive = false;
     const elapsedMs = now() - trackingSessionStart;
-    // "Ballen bereikt" = het niveau waar de speler was toen de sessie
-    // eindigde — geen apart levelsysteem, exact zoals besloten.
-    const result = { balls: trackingBallCount, errors: trackingSessionErrors, timeMs: Math.round(elapsedMs) };
+    // Ballen = voortgang/level. Score = kwaliteit van déze run — een aparte
+    // as, nooit samengevoegd tot een tweede levelsysteem, nooit opgeteld
+    // over meerdere sessies. Fouten hebben al hun grote consequentie via
+    // de 3-fouten-regel; de score hoeft dat niet nog eens zwaar te
+    // bestraffen, vandaar een lichte aftrek in plaats van een harde straf.
+    const score = Math.max(0, trackingBallCount * 100 - trackingSessionErrors * 30);
+    const result = { balls: trackingBallCount, errors: trackingSessionErrors, timeMs: Math.round(elapsedMs), score };
 
-    const isNewBest = !save.trackingBest || result.balls > save.trackingBest.balls;
+    const isNewBest = !save.trackingBest || result.score > save.trackingBest.score;
     if (isNewBest) save.trackingBest = result;
     save.trackingLast = result;
     persistSave();
@@ -1571,16 +1592,18 @@
   }
 
   const trackingGameOverEl = document.getElementById('trackingGameOver');
+  const tgoScoreEl = document.getElementById('tgoScore');
   const tgoBallsEl = document.getElementById('tgoBalls');
   const tgoErrorsEl = document.getElementById('tgoErrors');
   const tgoTimeEl = document.getElementById('tgoTime');
   const tgoRecordEl = document.getElementById('tgoRecord');
 
   function showTrackingGameOver(result, best, isNewBest) {
+    tgoScoreEl.textContent = String(result.score);
     tgoBallsEl.textContent = String(result.balls);
     tgoErrorsEl.textContent = String(result.errors);
     tgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
-    tgoRecordEl.textContent = isNewBest ? 'NIEUW RECORD' : ('BESTE: ' + best.balls + ' ballen');
+    tgoRecordEl.textContent = isNewBest ? 'NIEUW RECORD' : ('BESTE SCORE: ' + best.score);
     tgoRecordEl.classList.toggle('new', isNewBest);
     trackingGameOverEl.classList.add('visible');
   }
