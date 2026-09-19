@@ -290,6 +290,10 @@
     background: radial-gradient(circle at 35% 28%, #bcdcff, var(--accent) 55%, #163a66);
     box-shadow: 0 0 46px var(--accent-dim);
   }
+  .mi-orb.pattern {
+    background: radial-gradient(circle at 35% 28%, #ffffff, #d5d5db 55%, #74747c);
+    box-shadow: 0 0 46px rgba(255,255,255,0.22);
+  }
   @keyframes miOrbPulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.035); }
@@ -513,6 +517,24 @@
     padding: 0 24px;
   }
   #trackingGameOver.visible { opacity: 1; pointer-events: auto; }
+
+  /* Patroon mode — own Game Over overlay element, shares only the generic
+     .tgo-* styling (no state binding to Tracking's own DOM/JS). */
+  #patternGameOver {
+    position: fixed;
+    inset: 0;
+    z-index: 24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.92);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    padding: 0 24px;
+  }
+  #patternGameOver.visible { opacity: 1; pointer-events: auto; }
   .tgo-panel { text-align: center; width: 100%; max-width: 280px; }
   .tgo-title {
     font-size: 13px;
@@ -764,6 +786,19 @@
   </div>
 </div>
 
+<div id="patternGameOver">
+  <div class="tgo-panel">
+    <div class="tgo-title">GAME OVER</div>
+    <div class="tgo-stats" style="margin-top:8px;">
+      <div class="tgo-row"><span class="tgo-label">Ronde bereikt</span><span class="tgo-value" id="pgoBalls">–</span></div>
+      <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="pgoErrors">–</span></div>
+      <div class="tgo-row"><span class="tgo-label">Tijd</span><span class="tgo-value" id="pgoTime">–</span></div>
+    </div>
+    <button class="tgo-retry" id="pgoRetryBtn" style="margin-top:28px;">↺ Opnieuw proberen</button>
+    <button class="tgo-home" id="pgoHomeBtn">🏠 Home</button>
+  </div>
+</div>
+
 <div id="tutorialOverlay">
   <div class="tut-brand" id="tutBrand">ORBIT</div>
   <div class="tut-text" id="tutText"></div>
@@ -804,6 +839,15 @@
         <span class="ms-name">Getallen volgen <span class="ms-badge">Nieuw</span></span>
         <span class="ms-desc">Zoek en tik de juiste reeks</span>
         <span class="ms-best" id="msBestTracking"></span>
+      </span>
+      <span class="ms-chevron">›</span>
+    </button>
+    <button class="ms-card" id="msCardPattern" data-mode="pattern">
+      <span class="ms-icon">◐</span>
+      <span class="ms-body">
+        <span class="ms-name">Patroon <span class="ms-badge">Nieuw</span></span>
+        <span class="ms-desc">Onthoud de volgorde, tik hem na</span>
+        <span class="ms-best" id="msBestPattern"></span>
       </span>
       <span class="ms-chevron">›</span>
     </button>
@@ -1680,6 +1724,224 @@
     updateIndicatorVisibility();
   }
 
+  // ---------- Patroon (Pattern) Mode ----------
+  // Volledig eigen state, eigen rondebeheer, eigen inputafhandeling, eigen
+  // renderlogica. Geen physics-loop (niets beweegt). Deelt uitsluitend
+  // TAP_HIT_TOLERANCE, rand(), haptic(), now(), GameEvents — generieke
+  // infrastructuur, geen spelmodus-specifieke state van Classic of
+  // Getallen volgen.
+  const PATTERN_BALL_R = 40;
+  const PATTERN_MARK_DURATION = 600; // ms — zelfde orde van grootte als Classic's onthulling
+  const PATTERN_MARK_GAP = 250;      // ms pauze tussen twee markeringen
+  const PATTERN_MAX_ERRORS = 3;
+  // Fase 2 — vaste opbouw, alleen aantal posities verandert, zichtbaarheidstijd blijft constant.
+  const PATTERN_ROUND_SCHEDULE = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6];
+
+  let patternBalls = [];          // {x, y, r, seq, marked, feedback, feedbackColor}
+  let patternBallCount = 3;
+  let patternTargetIndex = 0;     // 0-based: welke sequentiepositie nu verwacht wordt
+  let patternRoundNumber = 0;     // 0-based index in PATTERN_ROUND_SCHEDULE
+  let patternSessionErrors = 0;
+  let patternSessionStart = 0;
+  let patternActive = false;
+  let patternShowing = false;     // true tijdens de sequentiële onthulling, vóór de invoerfase
+  let patternShowStart = 0;
+
+  function startPatternSession() {
+    patternSessionErrors = 0;
+    patternSessionStart = now();
+    patternRoundNumber = 0;
+    startPatternRound(PATTERN_ROUND_SCHEDULE[0]);
+  }
+
+  function startPatternRound(count) {
+    patternBallCount = count;
+    patternTargetIndex = 0;
+    patternActive = true;
+    patternBalls = [];
+
+    const marginX = PATTERN_BALL_R + 16;
+    const marginTop = PATTERN_BALL_R + 70;
+    const marginBottom = PATTERN_BALL_R + 90;
+    const positions = [];
+    for (let i = 0; i < count; i++) {
+      let x, y, ok, attempts = 0;
+      do {
+        x = rand(marginX, W - marginX);
+        y = rand(marginTop, H - marginBottom);
+        ok = positions.every((p) => Math.hypot(x - p.x, y - p.y) > PATTERN_BALL_R * 2.4);
+        attempts++;
+      } while (!ok && attempts < 200);
+      positions.push({ x, y });
+    }
+
+    // Willekeurige volgorde: elke positie krijgt precies één sequentie-plek
+    // (Fisher-Yates) — een positie komt dus nooit dubbel voor in de reeks.
+    const seqOrder = [];
+    for (let i = 0; i < count; i++) seqOrder.push(i);
+    for (let i = seqOrder.length - 1; i > 0; i--) {
+      const j = Math.floor(rand(0, i + 1));
+      [seqOrder[i], seqOrder[j]] = [seqOrder[j], seqOrder[i]];
+    }
+
+    for (let i = 0; i < count; i++) {
+      patternBalls.push({
+        x: positions[i].x, y: positions[i].y, r: PATTERN_BALL_R,
+        seq: seqOrder[i],
+        marked: false,
+        feedback: 0, feedbackColor: null
+      });
+    }
+
+    patternShowing = true;
+    patternShowStart = now();
+  }
+
+  // Puur uit verstreken tijd afgeleid (geen handmatige stap-toestand) —
+  // altijd consistent, ook na een pauze die phaseStart-stijl meeschuift
+  // (zie resumeGame()).
+  function updatePatternShowSequence(t) {
+    const elapsed = t - patternShowStart;
+    const stepDuration = PATTERN_MARK_DURATION + PATTERN_MARK_GAP;
+    const currentStep = Math.floor(elapsed / stepDuration);
+    if (currentStep >= patternBallCount) {
+      patternShowing = false;
+      for (const b of patternBalls) b.marked = false;
+      return;
+    }
+    const stepElapsed = elapsed - currentStep * stepDuration;
+    for (const b of patternBalls) {
+      b.marked = (b.seq === currentStep) && (stepElapsed < PATTERN_MARK_DURATION);
+    }
+  }
+
+  function handlePatternTap(x, y) {
+    if (!patternActive || patternShowing) return; // geen invoer tijdens het tonen van de volgorde
+    let hit = null, best = Infinity;
+    for (const b of patternBalls) {
+      const d = Math.hypot(x - b.x, y - b.y);
+      if (d <= b.r * TAP_HIT_TOLERANCE && d < best) { best = d; hit = b; }
+    }
+    if (!hit) return;
+
+    if (hit.seq === patternTargetIndex) {
+      hit.feedback = 1; hit.feedbackColor = 'white';
+      haptic(12);
+      GameEvents.emit('correctAnswer');
+      patternTargetIndex++;
+      if (patternTargetIndex >= patternBallCount) finishPatternRound();
+    } else {
+      // Verkeerde positie ÓF juiste positie maar verkeerde volgorde — in
+      // beide gevallen simpelweg: niet gelijk aan het huidige doel. Target
+      // blijft exact hetzelfde, hetzelfde patroon blijft actief — geen
+      // nieuw patroon, geen herkijking.
+      hit.feedback = 1; hit.feedbackColor = 'red';
+      haptic([10, 40, 10]);
+      GameEvents.emit('wrongAnswer');
+      patternSessionErrors++;
+      if (patternSessionErrors >= PATTERN_MAX_ERRORS) endPatternSession();
+    }
+  }
+
+  function finishPatternRound() {
+    patternRoundNumber++;
+    const idx = Math.min(patternRoundNumber, PATTERN_ROUND_SCHEDULE.length - 1);
+    startPatternRound(PATTERN_ROUND_SCHEDULE[idx]);
+  }
+
+  function endPatternSession() {
+    patternActive = false;
+    const elapsedMs = now() - patternSessionStart;
+    // Bewust geen score/record in deze fase — dat wordt later apart
+    // ontworpen, geen verzonnen getal tonen.
+    showPatternGameOver({
+      balls: patternBallCount,
+      errors: patternSessionErrors,
+      timeMs: Math.round(elapsedMs)
+    });
+  }
+
+  function drawPatternBall(b, t) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    if (b.feedback > 0.01 && b.feedbackColor === 'red') {
+      ctx.translate(Math.sin(t * 0.09) * 2.2 * b.feedback, Math.cos(t * 0.11) * 1.3 * b.feedback);
+    }
+    let scale = 1;
+    if (b.feedback > 0.01 && b.feedbackColor === 'white') scale = 1 + 0.05 * b.feedback;
+    ctx.scale(scale, scale);
+
+    ctx.shadowColor = 'rgba(255,255,255,0.4)';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+    const material = ctx.createRadialGradient(-b.r * 0.15, -b.r * 0.2, b.r * 0.2, 0, 0, b.r * 1.05);
+    material.addColorStop(0, 'rgba(255,255,255,0.97)');
+    material.addColorStop(0.7, 'rgba(240,240,244,0.95)');
+    material.addColorStop(1, 'rgba(222,224,230,0.92)');
+    ctx.fillStyle = material;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Onthullings-markering — zelfde donkere behandeling als Classic Mode
+    // (bewust hergebruikt visueel principe, geen gedeelde code/state).
+    if (b.marked) {
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.82)';
+      ctx.fill();
+    }
+
+    if (b.feedback > 0.01) {
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r * (1 + (1 - b.feedback) * 0.5), 0, Math.PI * 2);
+      ctx.strokeStyle = b.feedbackColor === 'white' ? `rgba(255,255,255,${b.feedback * 0.9})` : `rgba(255,64,64,${b.feedback * 0.85})`;
+      ctx.lineWidth = b.feedbackColor === 'white' ? 3 : 2.5;
+      ctx.stroke();
+      b.feedback *= 0.9;
+    }
+    ctx.restore();
+  }
+
+  const patternGameOverEl = document.getElementById('patternGameOver');
+  const pgoBallsEl = document.getElementById('pgoBalls');
+  const pgoErrorsEl = document.getElementById('pgoErrors');
+  const pgoTimeEl = document.getElementById('pgoTime');
+  function showPatternGameOver(result) {
+    pgoBallsEl.textContent = String(result.balls);
+    pgoErrorsEl.textContent = String(result.errors);
+    pgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
+    patternGameOverEl.classList.add('visible');
+  }
+  function hidePatternGameOver() {
+    patternGameOverEl.classList.remove('visible');
+  }
+  document.getElementById('pgoRetryBtn').addEventListener('click', () => {
+    hidePatternGameOver();
+    startPatternSession();
+  });
+  document.getElementById('pgoHomeBtn').addEventListener('click', () => {
+    hidePatternGameOver();
+    showHome();
+  });
+
+  function framePattern(t, dt) {
+    drawBackground();
+    if (patternShowing) updatePatternShowSequence(t);
+    for (const b of patternBalls) drawPatternBall(b, t);
+  }
+
+  function launchPatternMode() {
+    currentMode = 'pattern';
+    welcomeEl.classList.add('hidden');
+    pauseOverlayEl.classList.remove('visible');
+    hidePatternGameOver();
+    if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
+    else { resumeGame(); }
+    startPatternSession();
+    updateIndicatorVisibility();
+  }
+
   // ---------- Cells ----------
   let cells = [];
   let baseRadius = 34;
@@ -2082,6 +2344,7 @@
   canvas.addEventListener('pointerdown', (e) => {
     AudioManager.ensureAudio(); // must unlock before handleTap can trigger any sound-emitting event
     if (currentMode === 'tracking') { handleTrackingTap(e.clientX, e.clientY); return; }
+    if (currentMode === 'pattern') { handlePatternTap(e.clientX, e.clientY); return; }
     handleTap(e.clientX, e.clientY);
   }, { passive: true });
 
@@ -2436,6 +2699,7 @@
     // jumping ahead (or the intro/feedback timers firing instantly).
     phaseStart += pausedMs;
     roundStartTime += pausedMs;
+    if (patternShowing) patternShowStart += pausedMs; // same principle, Patroon's own timeline
     paused = false;
     continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
     // A break also resets streak MOMENTUM (not confidence score, not ladder
@@ -2458,6 +2722,11 @@
 
     if (currentMode === 'tracking') {
       frameTracking(t, dt);
+      requestAnimationFrame(frame);
+      return;
+    }
+    if (currentMode === 'pattern') {
+      framePattern(t, dt);
       requestAnimationFrame(frame);
       return;
     }
@@ -2714,6 +2983,7 @@
       || settingsOverlayEl.classList.contains('visible')
       || statsOverlayEl.classList.contains('visible')
       || trackingGameOverEl.classList.contains('visible')
+      || patternGameOverEl.classList.contains('visible')
       || modeSelectEl.classList.contains('visible')
       || modeIntroEl.classList.contains('visible');
     scannerIndicatorEl.classList.toggle('hidden', anyOverlayOpen || !gameLaunched);
@@ -2812,6 +3082,13 @@
       updateIndicatorVisibility();
       return;
     }
+    if (currentMode === 'pattern') {
+      paused = false;
+      hidePatternGameOver();
+      startPatternSession();
+      updateIndicatorVisibility();
+      return;
+    }
     startNewSession();
     if (!gameLaunched) { gameLaunched = true; launchGame(); }
     else { resumeGame(); startRound(); }
@@ -2828,6 +3105,14 @@
       else { resumeGame(); }
       hideTrackingGameOver();
       startTrackingSession();
+      updateIndicatorVisibility();
+      return;
+    }
+    if (currentMode === 'pattern') {
+      if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
+      else { resumeGame(); }
+      hidePatternGameOver();
+      startPatternSession();
       updateIndicatorVisibility();
       return;
     }
@@ -2866,6 +3151,17 @@
         { icon: '📈', label: 'Steeds moeilijker', sub: 'Meer ballen, sneller, dimmer' }
       ],
       launch: launchTrackingMode
+    },
+    pattern: {
+      title: 'PATROON',
+      desc: 'Onthoud de volgorde waarin de bollen kort oplichten. Tik ze daarna in exact dezelfde volgorde aan.',
+      features: [
+        { icon: '◐', label: 'Vaste posities', sub: 'De bollen bewegen niet' },
+        { icon: '👁', label: 'Volgorde onthouden', sub: 'Elke bol licht kort na elkaar op' },
+        { icon: '🎯', label: 'Exacte volgorde', sub: 'Verkeerde volgorde telt als fout' },
+        { icon: '📈', label: 'Steeds meer', sub: 'Elke ronde één positie erbij' }
+      ],
+      launch: launchPatternMode
     }
   };
 
@@ -2873,15 +3169,20 @@
     if (modeKey === 'classic') {
       return save.highestScore > 0 ? `Hoogste score: ${save.highestScore}` : '';
     }
-    return save.trackingBest ? `Beste score: ${save.trackingBest.score}` : '';
+    if (modeKey === 'tracking') {
+      return save.trackingBest ? `Beste score: ${save.trackingBest.score}` : '';
+    }
+    return ''; // pattern: geen score-/recordsysteem in deze fase, bewust leeg
   }
 
   function openModeSelect() {
     welcomeEl.classList.add('hidden');
     document.getElementById('msCardClassic').classList.toggle('active', currentMode === 'classic');
     document.getElementById('msCardTracking').classList.toggle('active', currentMode === 'tracking');
+    document.getElementById('msCardPattern').classList.toggle('active', currentMode === 'pattern');
     document.getElementById('msBestClassic').textContent = bestScoreText('classic');
     document.getElementById('msBestTracking').textContent = bestScoreText('tracking');
+    document.getElementById('msBestPattern').textContent = bestScoreText('pattern');
     modeSelectEl.classList.add('visible');
   }
   function closeModeSelect() {
@@ -2911,6 +3212,7 @@
   document.getElementById('msCloseBtn').addEventListener('click', closeModeSelect);
   document.getElementById('msCardClassic').addEventListener('click', () => openModeIntro('classic'));
   document.getElementById('msCardTracking').addEventListener('click', () => openModeIntro('tracking'));
+  document.getElementById('msCardPattern').addEventListener('click', () => openModeIntro('pattern'));
   document.getElementById('miBackBtn').addEventListener('click', () => {
     modeIntroEl.classList.remove('visible');
     openModeSelect();

@@ -55,6 +55,42 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — Fase 2 basisversie (nieuwe, derde spelmodus)
+
+Volledig geïsoleerde implementatie volgens de vastgelegde specificatie:
+statische posities, sequentiële korte onthulling (zelfde donkere
+markering als Classic Mode), exacte reproductie van positie én
+volgorde, fout = fout zonder herkijking, 3 fouten = Game Over, eerste
+10 rondes vast schema (3,3,3,4,4,4,5,5,5,6 — alleen aantal posities
+varieert, zichtbaarheidstijd blijft constant).
+
+- **Eigen state**: `patternBalls`, `patternTargetIndex`, `patternSessionErrors`,
+  `patternRoundNumber` — geen enkele overlap met `cells` (Classic) of
+  `trackingBalls` (Getallen volgen), grep-bevestigd.
+- **Eigen Game Over-scherm** (`#patternGameOver`): Ronde bereikt / Fouten /
+  Tijd — bewust géén score-regel (dat wordt later apart ontworpen).
+  Hergebruikt alleen de generieke `.tgo-*`-CSS-classes, geen gedeelde
+  state met Tracking's Game Over.
+- **Derde kaart op het spelmodus-overzicht** ("Patroon", eigen icoon,
+  monochrome intro-bol — geen nieuwe kleur geïntroduceerd, blauw blijft
+  het enige gedeelde accent).
+- **Getest** (10 geautomatiseerde tests via een lokale server + Chromium,
+  canvas-tekenaanroepen onderschept voor precieze tik-detectie — geen
+  enkele wijziging aan het spel zelf): sequentiële onthulling (exact 3
+  aparte posities), correcte volgorde-reproductie, verkeerde volgorde
+  correct als fout herkend, patroon blijft staan na 1 fout en is alsnog
+  af te maken, foutlimiet triggert Game Over binnen 3 pogingen, Game
+  Over toont alle velden correct (geen "undefined"), 6x achtereen wisselen
+  tussen Classic/Tracking/Patroon zonder enige JS-fout, posities variëren
+  over 3 verse sessies (echte randomisatie bevestigd), Classic en
+  Getallen volgen draaien ongewijzigd door (regressie-smoketest).
+- **Opgemerkt, niet gewijzigd**: de laatste correcte tik van een ronde
+  toont zijn eigen witte feedback-pulsje niet zichtbaar (de ronde wisselt
+  synchroon voordat die pulse kan renderen) — dit bleek al exact zo in
+  Getallen volgen's bestaande, goedgekeurde code te zitten
+  (`finishTrackingRound()` heeft hetzelfde patroon). Bewust getrouw
+  overgenomen, niet als "kleine verbetering" aangepast.
+
 ## UI-fix — ontbrekende knop-resets in het nieuwe spelmodus-overzicht
 
 - `.ms-card` (de modus-kaarten) miste `appearance: none`, `width: 100%` en een lettertype-reset — als natieve `<button>` kon dat op iOS native styling laten doorschemeren en de kaart laten krimpen naar zijn inhoud i.p.v. de volle breedte te vullen.
