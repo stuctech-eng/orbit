@@ -55,6 +55,13 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — rustmoment tussen rondes + sprankelende feedback
+
+- **Rustmoment toegevoegd** (1,1s) na een voltooide ronde, vóór de volgende begint. Lost meteen ook het eerder gemelde punt op: de laatste correcte tik van een ronde toont nu wél zijn eigen witte pulse (die kreeg eerder geen tijd om te renderen doordat de ronde synchroon doorschakelde).
+- **Sprankelende feedback** toegevoegd bij elke tik (correct én fout) — dezelfde zes-stralen-techniek als bij Getallen volgen, met Patroon's eigen rode tint voor consistentie. Materiaal licht ook op richting puur wit bij een correcte tik.
+- Pauze-timer is pauze-bestendig gemaakt (`resumeGame()` schuift 'm mee, net als bij de onthullings-tijdlijn) en invoer wordt genegeerd tijdens het rustmoment.
+- **Getest**: bevestigd dat de laatste tik nu wél een zichtbare witte pulse toont, dat er geen nieuwe onthulling verschijnt binnen 400ms na voltooiing (echte pauze), en dat de volgende ronde pas ná de volledige 1,1s begint.
+
 ## Patroon — Fase 2 basisversie (nieuwe, derde spelmodus)
 
 Volledig geïsoleerde implementatie volgens de vastgelegde specificatie:

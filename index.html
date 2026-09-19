@@ -1734,6 +1734,7 @@
   const PATTERN_MARK_DURATION = 600; // ms — zelfde orde van grootte als Classic's onthulling
   const PATTERN_MARK_GAP = 250;      // ms pauze tussen twee markeringen
   const PATTERN_MAX_ERRORS = 3;
+  const PATTERN_ROUND_PAUSE = 1100; // ms rustmoment na een voltooide ronde, vóór de volgende begint
   // Fase 2 — vaste opbouw, alleen aantal posities verandert, zichtbaarheidstijd blijft constant.
   const PATTERN_ROUND_SCHEDULE = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6];
 
@@ -1746,11 +1747,15 @@
   let patternActive = false;
   let patternShowing = false;     // true tijdens de sequentiële onthulling, vóór de invoerfase
   let patternShowStart = 0;
+  let patternAwaitingNextRound = false; // true tijdens het rustmoment ná een voltooide ronde
+  let patternRoundNextAt = -1;
 
   function startPatternSession() {
     patternSessionErrors = 0;
     patternSessionStart = now();
     patternRoundNumber = 0;
+    patternAwaitingNextRound = false;
+    patternRoundNextAt = -1;
     startPatternRound(PATTERN_ROUND_SCHEDULE[0]);
   }
 
@@ -1816,7 +1821,7 @@
   }
 
   function handlePatternTap(x, y) {
-    if (!patternActive || patternShowing) return; // geen invoer tijdens het tonen van de volgorde
+    if (!patternActive || patternShowing || patternAwaitingNextRound) return; // geen invoer tijdens tonen of het rustmoment
     let hit = null, best = Infinity;
     for (const b of patternBalls) {
       const d = Math.hypot(x - b.x, y - b.y);
@@ -1829,7 +1834,14 @@
       haptic(12);
       GameEvents.emit('correctAnswer');
       patternTargetIndex++;
-      if (patternTargetIndex >= patternBallCount) finishPatternRound();
+      if (patternTargetIndex >= patternBallCount) {
+        // Ronde voltooid — niet meteen doorschakelen. Eerst een rustmoment
+        // zodat de laatste correcte pulse ook echt te zien is en de
+        // speler even kan "settelen" op het voltooide patroon voordat het
+        // volgende begint.
+        patternAwaitingNextRound = true;
+        patternRoundNextAt = now() + PATTERN_ROUND_PAUSE;
+      }
     } else {
       // Verkeerde positie ÓF juiste positie maar verkeerde volgorde — in
       // beide gevallen simpelweg: niet gelijk aan het huidige doel. Target
@@ -1869,16 +1881,38 @@
     }
     let scale = 1;
     if (b.feedback > 0.01 && b.feedbackColor === 'white') scale = 1 + 0.05 * b.feedback;
+
+    // Sprankelende flits bij elke tik-feedback — zelfde principe als
+    // Getallen volgen: een paar korte stralen, kleur volgt correct/fout.
+    if (b.feedback > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = b.feedback * 0.8;
+      ctx.strokeStyle = b.feedbackColor === 'white' ? '#ffffff' : 'rgb(255,64,64)';
+      ctx.lineWidth = 2;
+      const rayCount = 6;
+      const rayLen = b.r * (0.5 + (1 - b.feedback) * 0.6);
+      for (let i = 0; i < rayCount; i++) {
+        const a = (i / rayCount) * Math.PI * 2 + t * 0.002;
+        const r0 = b.r * 1.08, r1 = r0 + rayLen;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0);
+        ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     ctx.scale(scale, scale);
 
     ctx.shadowColor = 'rgba(255,255,255,0.4)';
     ctx.shadowBlur = 20;
     ctx.beginPath();
     ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+    const lift = (b.feedback > 0.01 && b.feedbackColor === 'white') ? b.feedback : 0;
     const material = ctx.createRadialGradient(-b.r * 0.15, -b.r * 0.2, b.r * 0.2, 0, 0, b.r * 1.05);
-    material.addColorStop(0, 'rgba(255,255,255,0.97)');
-    material.addColorStop(0.7, 'rgba(240,240,244,0.95)');
-    material.addColorStop(1, 'rgba(222,224,230,0.92)');
+    material.addColorStop(0, `rgba(255,255,255,${0.97 + lift * 0.03})`);
+    material.addColorStop(0.7, `rgba(${240 + lift * 15},${240 + lift * 15},${244 + lift * 11},0.95)`);
+    material.addColorStop(1, `rgba(${222 + lift * 33},${224 + lift * 31},${230 + lift * 25},${0.92 + lift * 0.06})`);
     ctx.fillStyle = material;
     ctx.fill();
     ctx.shadowBlur = 0;
@@ -1929,6 +1963,10 @@
     drawBackground();
     if (patternShowing) updatePatternShowSequence(t);
     for (const b of patternBalls) drawPatternBall(b, t);
+    if (patternAwaitingNextRound && t >= patternRoundNextAt) {
+      patternAwaitingNextRound = false;
+      finishPatternRound();
+    }
   }
 
   function launchPatternMode() {
@@ -2700,6 +2738,7 @@
     phaseStart += pausedMs;
     roundStartTime += pausedMs;
     if (patternShowing) patternShowStart += pausedMs; // same principle, Patroon's own timeline
+    if (patternAwaitingNextRound) patternRoundNextAt += pausedMs;
     paused = false;
     continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
     // A break also resets streak MOMENTUM (not confidence score, not ladder
