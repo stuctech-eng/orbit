@@ -1401,6 +1401,11 @@
   }
 
   const TRACK_MAX_ERRORS = 3; // "maximaal 3 fouten per volledige game" — the 3rd ends the session
+  const TRACK_ROUND_PAUSE = 1100; // ms rustmoment bij sessiestart en na elke level-up, op verzoek
+
+  let trackingAwaitingNextRound = false;
+  let trackingRoundNextAt = -1;
+  let trackingPendingCount = TRACK_START_COUNT;
 
   let trackingBalls = [];
   let trackingBallCount = TRACK_START_COUNT;
@@ -1415,7 +1420,11 @@
     trackingSessionStart = now();
     trackingCycleStep = 0;
     trackingSpeedLevel = 0;
-    startTrackingRound(TRACK_START_COUNT);
+    trackingActive = false;
+    trackingBalls = [];
+    trackingAwaitingNextRound = true;
+    trackingPendingCount = TRACK_START_COUNT;
+    trackingRoundNextAt = now() + TRACK_ROUND_PAUSE;
   }
 
   function startTrackingRound(count) {
@@ -1641,7 +1650,12 @@
       trackingNextCount = trackingBallCount;
     }
     trackingCycleStep = (trackingCycleStep + 1) % TRACK_CYCLE_LENGTH;
-    startTrackingRound(trackingNextCount);
+    // Rustmoment vóór de volgende ronde — even laten settelen op het
+    // voltooide level, zelfde principe als Patroon.
+    trackingActive = false;
+    trackingAwaitingNextRound = true;
+    trackingPendingCount = trackingNextCount;
+    trackingRoundNextAt = now() + TRACK_ROUND_PAUSE;
   }
 
   function endTrackingSession() {
@@ -1693,6 +1707,14 @@
 
   function frameTracking(t, dt) {
     drawBackground();
+    if (trackingAwaitingNextRound) {
+      for (const b of trackingBalls) drawTrackingBall(b, t); // bevroren bord blijft zichtbaar tijdens het rustmoment
+      if (t >= trackingRoundNextAt) {
+        trackingAwaitingNextRound = false;
+        startTrackingRound(trackingPendingCount);
+      }
+      return;
+    }
     if (!trackingActive) return; // frozen on the Game Over screen — no physics, no drawing changes
     stepTrackingPhysics(dt);
     for (const b of trackingBalls) drawTrackingBall(b, t);
@@ -1730,7 +1752,16 @@
   // TAP_HIT_TOLERANCE, rand(), haptic(), now(), GameEvents — generieke
   // infrastructuur, geen spelmodus-specifieke state van Classic of
   // Getallen volgen.
-  const PATTERN_BALL_R = 40;
+  // Zelfde grootte-formule als Getallen volgen — op verzoek gelijkgetrokken,
+  // geen eigen afwijkende maat.
+  const PATTERN_BALL_R_MAX = 48;
+  const PATTERN_BALL_R_MIN = 43;
+  let patternBallR = PATTERN_BALL_R_MAX;
+  function computePatternRadius(n) {
+    const scale = Math.min(W, H);
+    const factor = Math.sqrt(3 / n);
+    patternBallR = Math.max(PATTERN_BALL_R_MIN, Math.min(PATTERN_BALL_R_MAX, scale * 0.143 * factor));
+  }
   const PATTERN_MARK_DURATION = 600; // ms — zelfde orde van grootte als Classic's onthulling
   const PATTERN_MARK_GAP = 250;      // ms pauze tussen twee markeringen
   const PATTERN_MAX_ERRORS = 3;
@@ -1753,10 +1784,12 @@
   function startPatternSession() {
     patternSessionErrors = 0;
     patternSessionStart = now();
-    patternRoundNumber = 0;
-    patternAwaitingNextRound = false;
-    patternRoundNextAt = -1;
-    startPatternRound(PATTERN_ROUND_SCHEDULE[0]);
+    patternRoundNumber = -1; // finishPatternRound() increments this to 0 when the pause below ends
+    patternActive = true;
+    patternBalls = [];
+    patternShowing = false;
+    patternAwaitingNextRound = true;
+    patternRoundNextAt = now() + PATTERN_ROUND_PAUSE;
   }
 
   function startPatternRound(count) {
@@ -1765,16 +1798,17 @@
     patternActive = true;
     patternBalls = [];
 
-    const marginX = PATTERN_BALL_R + 16;
-    const marginTop = PATTERN_BALL_R + 70;
-    const marginBottom = PATTERN_BALL_R + 90;
+    computePatternRadius(count);
+    const marginX = patternBallR + 16;
+    const marginTop = patternBallR + 70;
+    const marginBottom = patternBallR + 90;
     const positions = [];
     for (let i = 0; i < count; i++) {
       let x, y, ok, attempts = 0;
       do {
         x = rand(marginX, W - marginX);
         y = rand(marginTop, H - marginBottom);
-        ok = positions.every((p) => Math.hypot(x - p.x, y - p.y) > PATTERN_BALL_R * 2.4);
+        ok = positions.every((p) => Math.hypot(x - p.x, y - p.y) > patternBallR * 2.4);
         attempts++;
       } while (!ok && attempts < 200);
       positions.push({ x, y });
@@ -1791,7 +1825,7 @@
 
     for (let i = 0; i < count; i++) {
       patternBalls.push({
-        x: positions[i].x, y: positions[i].y, r: PATTERN_BALL_R,
+        x: positions[i].x, y: positions[i].y, r: patternBallR,
         seq: seqOrder[i],
         marked: false,
         feedback: 0, feedbackColor: null
@@ -2739,6 +2773,7 @@
     roundStartTime += pausedMs;
     if (patternShowing) patternShowStart += pausedMs; // same principle, Patroon's own timeline
     if (patternAwaitingNextRound) patternRoundNextAt += pausedMs;
+    if (trackingAwaitingNextRound) trackingRoundNextAt += pausedMs;
     paused = false;
     continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
     // A break also resets streak MOMENTUM (not confidence score, not ladder

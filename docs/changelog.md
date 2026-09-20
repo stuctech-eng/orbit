@@ -55,6 +55,15 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Rustmomenten bij start + level-up (Patroon én Getallen volgen), bal-grootte gelijkgetrokken
+
+Op verzoek: beide modi beginnen nu iets later na het indrukken van "Starten", en pauzeren opnieuw even na elke voltooide ronde ("level up") — tijd om te settelen/genieten, voordat het volgende begint.
+
+- **Getallen volgen**: `TRACK_ROUND_PAUSE` (1,1s) toegevoegd bij sessiestart én na elke ronde. Tijdens de pauze blijft het bevroren, voltooide bord zichtbaar (inclusief de laatste sprankel-feedback), fysica staat stil, invoer wordt genegeerd. Dit was eerder bewust verwijderd (geen tussenscherm), nu op expliciet verzoek opnieuw toegevoegd — ditmaal puur als rustmoment, zonder scorepaneel.
+- **Patroon**: dezelfde pauze nu ook vóór de allereerste ronde van een sessie (niet alleen tussen rondes, wat er al was). Loste als bijeffect meteen op waarom eerdere feedback soms te snel leek te verdwijnen.
+- **Bal-grootte gelijkgetrokken**: Patroon gebruikte een vaste 40px-straal, Getallen volgen een dynamische 43–48px. Patroon gebruikt nu exact dezelfde schaalformule als Getallen volgen — beide modi tonen nu identiek grote ballen bij hetzelfde aantal.
+- **Getest**: bevestigd dat het NIEUWE cijfer/de nieuwe onthulling niet binnen 400ms na een voltooiing verschijnt (pauze werkt), en wel binnen 1,4s (pauze eindigt op tijd) — voor zowel sessiestart als ronde-overgang, in beide modi. Classic Mode (bewust ongewijzigd) getest en nog steeds foutloos.
+
 ## Patroon — rustmoment tussen rondes + sprankelende feedback
 
 - **Rustmoment toegevoegd** (1,1s) na een voltooide ronde, vóór de volgende begint. Lost meteen ook het eerder gemelde punt op: de laatste correcte tik van een ronde toont nu wél zijn eigen witte pulse (die kreeg eerder geen tijd om te renderen doordat de ronde synchroon doorschakelde).
