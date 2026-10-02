@@ -55,6 +55,13 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Sequence Memory — correct getikte ballen blijven wit
+
+- Elke correct getikte bal blijft nu wit staan (was: alleen een korte sprankel-pulse die weer wegdooft) — zelfde mechanisme als Patroon.
+- Werkt ook correct samen met herhaling: als een positie later in de reeks nogmaals nodig is, is die bal dan al wit en blijft dat gewoon.
+- **Getest**: bevestigd dat een correct getikte bal nog steeds wit is, ruim nadat de feedback-pulse is weggeëbd (900ms later).
+- Classic en Patroon apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Sequence Memory — vierde ORBIT-modus (nieuwe implementatie)
 
 Hergebruikt Patroon's speelveld, plaatsingslogica en rendering volledig ongewijzigd (zoals gevraagd), met eigen sequence-specifieke state/logica erbovenop.

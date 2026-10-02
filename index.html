@@ -2196,7 +2196,7 @@
     for (let i = 0; i < total; i++) {
       sequenceBalls.push({
         x: positions[i].x, y: positions[i].y, r: sequenceBallR,
-        marked: false,
+        marked: false, selected: false,
         feedback: 0, feedbackColor: null
       });
     }
@@ -2251,6 +2251,7 @@
 
     const ball = sequenceBalls[hit];
     if (hit === sequenceOrder[sequenceInputIndex]) {
+      ball.selected = true; // blijft wit, ook als deze positie later in de reeks herhaalt
       ball.feedback = 1; ball.feedbackColor = 'white';
       haptic(12);
       GameEvents.emit('correctAnswer');
