@@ -1747,13 +1747,15 @@
   }
 
   // ---------- Patroon (Pattern) Mode ----------
+  // Herziene mechaniek: visueel/ruimtelijk geheugen, geen volgorde.
   // Volledig eigen state, eigen rondebeheer, eigen inputafhandeling, eigen
   // renderlogica. Geen physics-loop (niets beweegt). Deelt uitsluitend
   // TAP_HIT_TOLERANCE, rand(), haptic(), now(), GameEvents — generieke
   // infrastructuur, geen spelmodus-specifieke state van Classic of
   // Getallen volgen.
   // Zelfde grootte-formule als Getallen volgen — op verzoek gelijkgetrokken,
-  // geen eigen afwijkende maat.
+  // geen eigen afwijkende maat. Nu gebaseerd op het TOTALE aantal ballen
+  // in het memory field (achtergrond + doelen), niet alleen de doelen.
   const PATTERN_BALL_R_MAX = 48;
   const PATTERN_BALL_R_MIN = 43;
   let patternBallR = PATTERN_BALL_R_MAX;
@@ -1762,21 +1764,22 @@
     const factor = Math.sqrt(3 / n);
     patternBallR = Math.max(PATTERN_BALL_R_MIN, Math.min(PATTERN_BALL_R_MAX, scale * 0.143 * factor));
   }
-  const PATTERN_MARK_DURATION = 600; // ms — zelfde orde van grootte als Classic's onthulling
-  const PATTERN_MARK_GAP = 250;      // ms pauze tussen twee markeringen
+  const PATTERN_BG_COUNT = 9;            // achtergrondballen — blijft constant in Fase 2
+  const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
+  const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
   const PATTERN_MAX_ERRORS = 3;
   const PATTERN_ROUND_PAUSE = 1100; // ms rustmoment na een voltooide ronde, vóór de volgende begint
-  // Fase 2 — vaste opbouw, alleen aantal posities verandert, zichtbaarheidstijd blijft constant.
+  // Fase 2 — vaste opbouw, alleen aantal DOELballen verandert, kijktijd blijft constant.
   const PATTERN_ROUND_SCHEDULE = [3, 3, 3, 4, 4, 4, 5, 5, 5, 6];
 
-  let patternBalls = [];          // {x, y, r, seq, marked, feedback, feedbackColor}
-  let patternBallCount = 3;
-  let patternTargetIndex = 0;     // 0-based: welke sequentiepositie nu verwacht wordt
+  let patternBalls = [];          // {x, y, r, isTarget, selected, marked, feedback, feedbackColor}
+  let patternTargetCount = 3;     // aantal doelballen deze ronde
+  let patternSelectedCount = 0;   // hoeveel doelballen al correct geselecteerd deze ronde
   let patternRoundNumber = 0;     // 0-based index in PATTERN_ROUND_SCHEDULE
   let patternSessionErrors = 0;
   let patternSessionStart = 0;
   let patternActive = false;
-  let patternShowing = false;     // true tijdens de sequentiële onthulling, vóór de invoerfase
+  let patternShowing = false;     // true tijdens de gelijktijdige flits, vóór de invoerfase
   let patternShowStart = 0;
   let patternAwaitingNextRound = false; // true tijdens het rustmoment ná een voltooide ronde
   let patternRoundNextAt = -1;
@@ -1792,18 +1795,19 @@
     patternRoundNextAt = now() + PATTERN_ROUND_PAUSE;
   }
 
-  function startPatternRound(count) {
-    patternBallCount = count;
-    patternTargetIndex = 0;
+  function startPatternRound(targetCount) {
+    patternTargetCount = targetCount;
+    patternSelectedCount = 0;
     patternActive = true;
     patternBalls = [];
 
-    computePatternRadius(count);
+    const total = PATTERN_BG_COUNT + targetCount;
+    computePatternRadius(total);
     const marginX = patternBallR + 16;
     const marginTop = patternBallR + 70;
     const marginBottom = patternBallR + 90;
     const positions = [];
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < total; i++) {
       let x, y, ok, attempts = 0;
       do {
         x = rand(marginX, W - marginX);
@@ -1814,19 +1818,22 @@
       positions.push({ x, y });
     }
 
-    // Willekeurige volgorde: elke positie krijgt precies één sequentie-plek
-    // (Fisher-Yates) — een positie komt dus nooit dubbel voor in de reeks.
-    const seqOrder = [];
-    for (let i = 0; i < count; i++) seqOrder.push(i);
-    for (let i = seqOrder.length - 1; i > 0; i--) {
+    // Willekeurig precies targetCount van de `total` posities als doel
+    // aanwijzen (Fisher-Yates op de index-lijst) — geen voorspelbaar
+    // patroon, geen vaste volgorde-betekenis meer.
+    const indices = [];
+    for (let i = 0; i < total; i++) indices.push(i);
+    for (let i = indices.length - 1; i > 0; i--) {
       const j = Math.floor(rand(0, i + 1));
-      [seqOrder[i], seqOrder[j]] = [seqOrder[j], seqOrder[i]];
+      [indices[i], indices[j]] = [indices[j], indices[i]];
     }
+    const targetSet = new Set(indices.slice(0, targetCount));
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < total; i++) {
       patternBalls.push({
         x: positions[i].x, y: positions[i].y, r: patternBallR,
-        seq: seqOrder[i],
+        isTarget: targetSet.has(i),
+        selected: false,
         marked: false,
         feedback: 0, feedbackColor: null
       });
@@ -1838,20 +1845,18 @@
 
   // Puur uit verstreken tijd afgeleid (geen handmatige stap-toestand) —
   // altijd consistent, ook na een pauze die phaseStart-stijl meeschuift
-  // (zie resumeGame()).
+  // (zie resumeGame()). Alle doelballen lichten nu TEGELIJK op, na een
+  // korte rust zodat het veld eerst even "landt" vóór de flits.
   function updatePatternShowSequence(t) {
     const elapsed = t - patternShowStart;
-    const stepDuration = PATTERN_MARK_DURATION + PATTERN_MARK_GAP;
-    const currentStep = Math.floor(elapsed / stepDuration);
-    if (currentStep >= patternBallCount) {
+    const flashEnd = PATTERN_PRE_FLASH_DELAY + PATTERN_MEMORY_DURATION;
+    if (elapsed >= flashEnd) {
       patternShowing = false;
       for (const b of patternBalls) b.marked = false;
       return;
     }
-    const stepElapsed = elapsed - currentStep * stepDuration;
-    for (const b of patternBalls) {
-      b.marked = (b.seq === currentStep) && (stepElapsed < PATTERN_MARK_DURATION);
-    }
+    const flashing = elapsed >= PATTERN_PRE_FLASH_DELAY;
+    for (const b of patternBalls) b.marked = b.isTarget && flashing;
   }
 
   function handlePatternTap(x, y) {
@@ -1863,24 +1868,22 @@
     }
     if (!hit) return;
 
-    if (hit.seq === patternTargetIndex) {
+    if (hit.isTarget) {
+      if (hit.selected) return; // al eerder correct geselecteerd — neutraal, geen fout, geen dubbele telling
+      hit.selected = true;
       hit.feedback = 1; hit.feedbackColor = 'white';
       haptic(12);
       GameEvents.emit('correctAnswer');
-      patternTargetIndex++;
-      if (patternTargetIndex >= patternBallCount) {
-        // Ronde voltooid — niet meteen doorschakelen. Eerst een rustmoment
-        // zodat de laatste correcte pulse ook echt te zien is en de
-        // speler even kan "settelen" op het voltooide patroon voordat het
-        // volgende begint.
+      patternSelectedCount++;
+      if (patternSelectedCount >= patternTargetCount) {
+        // Alle doelposities gevonden — rustmoment vóór de volgende ronde.
         patternAwaitingNextRound = true;
         patternRoundNextAt = now() + PATTERN_ROUND_PAUSE;
       }
     } else {
-      // Verkeerde positie ÓF juiste positie maar verkeerde volgorde — in
-      // beide gevallen simpelweg: niet gelijk aan het huidige doel. Target
-      // blijft exact hetzelfde, hetzelfde patroon blijft actief — geen
-      // nieuw patroon, geen herkijking.
+      // Niet-doelbal, ongeacht hoe vaak al eerder getikt — telt altijd als
+      // fout. Dezelfde verzameling doelen blijft actief, geen nieuw
+      // patroon, geen herkijking.
       hit.feedback = 1; hit.feedbackColor = 'red';
       haptic([10, 40, 10]);
       GameEvents.emit('wrongAnswer');
@@ -1901,7 +1904,7 @@
     // Bewust geen score/record in deze fase — dat wordt later apart
     // ontworpen, geen verzonnen getal tonen.
     showPatternGameOver({
-      balls: patternBallCount,
+      balls: patternTargetCount,
       errors: patternSessionErrors,
       timeMs: Math.round(elapsedMs)
     });
@@ -1938,26 +1941,48 @@
 
     ctx.scale(scale, scale);
 
-    ctx.shadowColor = 'rgba(255,255,255,0.4)';
-    ctx.shadowBlur = 20;
-    ctx.beginPath();
-    ctx.arc(0, 0, b.r, 0, Math.PI * 2);
-    const lift = (b.feedback > 0.01 && b.feedbackColor === 'white') ? b.feedback : 0;
-    const material = ctx.createRadialGradient(-b.r * 0.15, -b.r * 0.2, b.r * 0.2, 0, 0, b.r * 1.05);
-    material.addColorStop(0, `rgba(255,255,255,${0.97 + lift * 0.03})`);
-    material.addColorStop(0.7, `rgba(${240 + lift * 15},${240 + lift * 15},${244 + lift * 11},0.95)`);
-    material.addColorStop(1, `rgba(${222 + lift * 33},${224 + lift * 31},${230 + lift * 25},${0.92 + lift * 0.06})`);
-    ctx.fillStyle = material;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Onthullings-markering — zelfde donkere behandeling als Classic Mode
-    // (bewust hergebruikt visueel principe, geen gedeelde code/state).
-    if (b.marked) {
+    // Het heldere-wit geheugenmoment: hergebruikt exact het bestaande Soft
+    // Pearl materiaal dat elders in ORBIT al gebruikt wordt.
+    const isWhiteNow = b.marked;
+    if (isWhiteNow) {
+      ctx.shadowColor = 'rgba(255,255,255,0.4)';
+      ctx.shadowBlur = 20;
       ctx.beginPath();
       ctx.arc(0, 0, b.r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(0,0,0,0.82)';
+      const lift = (b.feedback > 0.01 && b.feedbackColor === 'white') ? b.feedback : 0;
+      const material = ctx.createRadialGradient(-b.r * 0.15, -b.r * 0.2, b.r * 0.2, 0, 0, b.r * 1.05);
+      material.addColorStop(0, `rgba(255,255,255,${0.97 + lift * 0.03})`);
+      material.addColorStop(0.7, `rgba(${240 + lift * 15},${240 + lift * 15},${244 + lift * 11},0.95)`);
+      material.addColorStop(1, `rgba(${222 + lift * 33},${224 + lift * 31},${230 + lift * 25},${0.92 + lift * 0.06})`);
+      ctx.fillStyle = material;
       ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      // Rust-staat: donker, licht gearceerd — duidelijk zichtbaar, niet fel.
+      // Dit is nu de norm (het hele memory field), wit is de uitzondering.
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(50,50,56,0.92)';
+      ctx.fill();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1.5;
+      const step = b.r * 0.55;
+      for (let o = -b.r * 1.6; o < b.r * 1.6; o += step) {
+        ctx.beginPath();
+        ctx.moveTo(o - b.r, -b.r);
+        ctx.lineTo(o + b.r, b.r);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
     }
 
     if (b.feedback > 0.01) {
@@ -3228,12 +3253,12 @@
     },
     pattern: {
       title: 'PATROON',
-      desc: 'Onthoud de volgorde waarin de bollen kort oplichten. Tik ze daarna in exact dezelfde volgorde aan.',
+      desc: 'Onthoud welke bollen even wit oplichten. Vind ze daarna terug — de volgorde maakt niet uit.',
       features: [
         { icon: '◐', label: 'Vaste posities', sub: 'De bollen bewegen niet' },
-        { icon: '👁', label: 'Volgorde onthouden', sub: 'Elke bol licht kort na elkaar op' },
-        { icon: '🎯', label: 'Exacte volgorde', sub: 'Verkeerde volgorde telt als fout' },
-        { icon: '📈', label: 'Steeds meer', sub: 'Elke ronde één positie erbij' }
+        { icon: '👁', label: 'Gelijktijdig oplichten', sub: 'Een paar bollen worden samen even wit' },
+        { icon: '🎯', label: 'Volgorde maakt niet uit', sub: 'Vind gewoon de juiste bollen terug' },
+        { icon: '📈', label: 'Steeds meer', sub: 'Elke paar rondes één doelbal erbij' }
       ],
       launch: launchPatternMode
     }

@@ -55,6 +55,18 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — herziening naar visueel/ruimtelijk geheugen (geen volgorde meer)
+
+Fundamentele mechaniekwijziging, niet een uitbreiding van de vorige versie:
+
+- **Oud**: sequentiële onthulling (positie 1→2→3 na elkaar), speler moest exacte volgorde onthouden en navolgen.
+- **Nieuw**: een "memory field" van 9 constante achtergrondballen (donker, licht gearceerd) plus N doelballen die ALLEMAAL TEGELIJK kort wit oplichten. Speler moet onthouden *welke* posities wit waren en ze daarna in willekeurige volgorde terugvinden. Volgorde is nu irrelevant.
+- **State herzien**: `seq`/`patternTargetIndex` (sequentieel) volledig vervangen door `isTarget`/`selected` (Set-gebaseerd) + `patternSelectedCount`/`patternTargetCount`.
+- **Nieuwe rust-rendering**: donkere ballen met subtiele diagonale arcering (eigen nieuwe visuele staat) — dit is nu de norm voor het hele veld; wit is de tijdelijke uitzondering tijdens het geheugenmoment (voorheen precies andersom).
+- Foutafhandeling, 3-fouten-limiet, rondepauzes, sprankel-feedback en Game Over-scherm ongewijzigd qua principe, aangepast waar nodig aan de nieuwe state.
+- **Getest**: alle 13 scenario's uit de opdracht (P1 t/m P13) — memory field correct getekend, rustballen zichtbaar/donker, exact N doelballen tegelijk wit, doelballen onherkenbaar na de kijktijd, willekeurige volgorde geaccepteerd, niet-doelbal = fout, geen herkijking na fout, dezelfde doelverzameling blijft actief, 3 fouten → Game Over, volledige 10-ronde-progressie (3,3,3,4,4,4,5,5,5,6) exact bevestigd, 3 verse sessies met verschillende doelposities, Classic→Patroon→Getallen volgen→Patroon zonder cross-talk.
+- **Regressie**: Classic Mode en Getallen volgen ongewijzigd en apart getest — beide foutloos.
+
 ## Rustmomenten bij start + level-up (Patroon én Getallen volgen), bal-grootte gelijkgetrokken
 
 Op verzoek: beide modi beginnen nu iets later na het indrukken van "Starten", en pauzeren opnieuw even na elke voltooide ronde ("level up") — tijd om te settelen/genieten, voordat het volgende begint.
