@@ -55,6 +55,16 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — vast 4×8-rooster, volledig schermvullend
+
+Op specifiek verzoek: niet langer een automatisch bepaald aantal kolommen/rijen, maar een vast rooster van 4×8 (32 ballen), met marges geminimaliseerd tot het strikt noodzakelijke (pauze-indicator/duim-bereik).
+
+- `PATTERN_COLS = 4`, `PATTERN_ROWS = 8` — vast, in plaats van automatisch berekend uit een referentie-straal.
+- Marges fors verkleind: zijkant naar 6px, boven naar 26px, onder naar 36px (was bal-afhankelijk en veel ruimer).
+- Bal-straal = de helft van de krapste richting minus 3px — vult de cel zo vol mogelijk.
+- **Getest**: precies 32 ballen bevestigd, straal 44,2px, marge links/rechts nog maar 9px, 0 overlap.
+- Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — ballen groter, marges verder verkleind
 
 - Vaste marges verder verkleind: boven bal+56→bal+36, onder bal+70→bal+50, zijkant bal+10→bal+6.

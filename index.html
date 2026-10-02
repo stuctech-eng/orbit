@@ -1758,7 +1758,7 @@
   // Vaste, kleine maat — maximale dichtheid, elke ronde gelijk. Het veld
   // vult zichzelf nu volledig (elk roostervakje krijgt een bal), dus er is
   // geen "gewenst aantal" of dynamische formule meer nodig.
-  const PATTERN_BALL_R_MIN = 40; // was 34 — stuurt naar minder, grotere cellen
+  const PATTERN_BALL_R_MIN = 48; // was 40 — stuurt naar nog minder, nog grotere cellen
   let patternBallR = PATTERN_BALL_R_MIN;
   const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
   const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
@@ -1806,24 +1806,28 @@
   // deelbaar is. De bal-straal wordt vervolgens van de krapste richting
   // afgeleid (nooit groter dan wat nog comfortabel is), in plaats van een
   // vaste straal te kiezen en de rest als dode ruimte te laten staan.
+  // Vast rooster: 4 kolommen × 8 rijen, op verzoek — het hele scherm
+  // vullend. Marges geminimaliseerd tot wat écht nodig is (pauze-indicator
+  // bovenaan, duim-bereik onderaan); de celgrootte (en dus de bal-straal)
+  // wordt uitgerekend om dat exacte rooster precies te laten passen.
+  const PATTERN_COLS = 4;
+  const PATTERN_ROWS = 8;
   function placePatternPositions(baseR) {
-    const marginX = baseR + 6;
-    const marginTop = baseR + 36;
-    const marginBottom = baseR + 50;
+    const marginX = 6;
+    const marginTop = 26;
+    const marginBottom = 36;
     const playW = W - marginX * 2;
     const playH = H - marginTop - marginBottom;
-    const baseCell = baseR * 2.2;
-    const cols = Math.max(1, Math.round(playW / baseCell));
-    const rows = Math.max(1, Math.round(playH / baseCell));
+    const cols = PATTERN_COLS;
+    const rows = PATTERN_ROWS;
     // Cellen uitrekken tot ze precies playW/playH vullen (cols*cellX===playW
     // exact) — geen overgebleven marge meer, ongeacht of playW/playH
     // deelbaar is door de basis-celgrootte.
     const cellX = playW / cols;
     const cellY = playH / rows;
-    // Straal afgeleid van de krapste richting, geclamped op een
-    // comfortabel tik-bereik — in plaats van een vaste straal die
-    // restruimte laat staan.
-    const r = Math.max(28, Math.min(50, Math.min(cellX, cellY) / 2.2));
+    // Straal = de helft van de krapste richting, minus een kleine marge
+    // zodat ballen elkaar nooit raken — vult de cel zo vol mogelijk.
+    const r = Math.min(cellX, cellY) / 2 - 3;
     patternBallR = r;
 
     const slots = [];
