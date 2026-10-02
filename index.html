@@ -1800,23 +1800,32 @@
   // overslaan) — het veld is daarmee altijd daadwerkelijk vol, ongeacht
   // schermformaat, in plaats van een vast aantal na te streven dat op een
   // kleiner toestel zichtbare gaten kon achterlaten.
-  function placePatternPositions(r) {
-    const marginX = r + 16;
-    const marginTop = r + 70;
-    const marginBottom = r + 90;
+  // Bepaalt eerst hoeveel kolommen/rijen er bij de basismaat passen, en
+  // rekt de cellen daarna uit tot ze de volledige breedte/hoogte precies
+  // vullen — geen overgebleven marge meer, ongeacht of playW/playH exact
+  // deelbaar is. De bal-straal wordt vervolgens van de krapste richting
+  // afgeleid (nooit groter dan wat nog comfortabel is), in plaats van een
+  // vaste straal te kiezen en de rest als dode ruimte te laten staan.
+  function placePatternPositions(baseR) {
+    const marginX = baseR + 10;
+    const marginTop = baseR + 56;
+    const marginBottom = baseR + 70;
     const playW = W - marginX * 2;
     const playH = H - marginTop - marginBottom;
-    const cell = r * 2.3; // iets ruimer dan voorheen — genoeg marge tussen balranden om precies te kunnen tikken
-    const cols = Math.max(1, Math.floor(playW / cell));
-    const rows = Math.max(1, Math.floor(playH / cell));
-    // playW/playH zijn zelden exact deelbaar door cell — zonder correctie
-    // bleef die rest-ruimte altijd als een onbalans aan de rechter-/
-    // onderkant hangen (het rooster begon steeds linksboven). Nu het hele
-    // blok centreren: rest-ruimte gelijk verdeeld over beide kanten.
-    const usedW = cols * cell;
-    const usedH = rows * cell;
-    const offsetX = marginX + (playW - usedW) / 2;
-    const offsetY = marginTop + (playH - usedH) / 2;
+    const baseCell = baseR * 2.3;
+    const cols = Math.max(1, Math.round(playW / baseCell));
+    const rows = Math.max(1, Math.round(playH / baseCell));
+    // Cellen uitrekken tot ze precies playW/playH vullen (cols*cellX===playW
+    // exact) — geen overgebleven marge meer, ongeacht of playW/playH
+    // deelbaar is door de basis-celgrootte.
+    const cellX = playW / cols;
+    const cellY = playH / rows;
+    // Straal afgeleid van de krapste richting, geclamped op een
+    // comfortabel tik-bereik — in plaats van een vaste straal die
+    // restruimte laat staan.
+    const r = Math.max(28, Math.min(44, Math.min(cellX, cellY) / 2.3));
+    patternBallR = r;
+
     const slots = [];
     for (let cy = 0; cy < rows; cy++) {
       for (let cx = 0; cx < cols; cx++) {
@@ -1829,11 +1838,11 @@
       const j = Math.floor(rand(0, i + 1));
       [slots[i], slots[j]] = [slots[j], slots[i]];
     }
-    const jitter = Math.max(0, cell / 2 - r - r * 0.06);
+    const jitter = Math.max(0, Math.min(cellX, cellY) / 2 - r - r * 0.06);
     const positions = [];
     for (const s of slots) {
-      const centerX = offsetX + s.cx * cell + cell / 2;
-      const centerY = offsetY + s.cy * cell + cell / 2;
+      const centerX = marginX + s.cx * cellX + cellX / 2;
+      const centerY = marginTop + s.cy * cellY + cellY / 2;
       positions.push({
         x: centerX + rand(-jitter, jitter),
         y: centerY + rand(-jitter, jitter)
@@ -1850,9 +1859,11 @@
     patternBalls = [];
     patternResizeW = W; patternResizeH = H; // referentiemaat bijwerken — zie de resize-hook verderop
 
-
-    patternBallR = PATTERN_BALL_R_MIN; // vaste maat — gebalanceerd tussen "vol scherm" en "precies aan te tikken"
-    const positions = placePatternPositions(patternBallR);
+    // placePatternPositions bepaalt de uiteindelijke straal zelf (afgeleid
+    // van hoe de roosterindeling daadwerkelijk past) en zet patternBallR —
+    // PATTERN_BALL_R_MIN dient hier alleen als uitgangspunt voor hoeveel
+    // kolommen/rijen er ongeveer passen.
+    const positions = placePatternPositions(PATTERN_BALL_R_MIN);
     const total = positions.length; // het hele rooster, zoveel als er op dit scherm past
 
     // Willekeurig precies targetCount van de `total` posities als doel

@@ -55,6 +55,14 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — herontwerp: rooster bepaalt bal-grootte (i.p.v. andersom)
+
+**Ander idee, zoals gevraagd**, in plaats van nog een losse aanpassing: de volgorde omgedraaid. Eerder werd eerst een vaste bal-grootte gekozen en de restruimte geaccepteerd als marge (dat bleef, ondanks eerdere fixes, een herkenbaar "niet-helemaal-vol"-gevoel geven). Nu wordt eerst het aantal kolommen/rijen bepaald, waarna de cellen wiskundig worden uitgerekt tot ze precies de volledige breedte/hoogte vullen — en de bal-straal wordt daarvan afgeleid (geclamped tussen 28-44px).
+
+- Vaste marges ook verkleind (boven: bal+70→bal+56, onder: bal+90→bal+70) — die waren ruimer dan nodig.
+- **Getest**: marge boven/onder nu nog maar ~95-111px (was ~280px elk) en komt overeen met de bedoelde vaste marge, niet met verspilde restruimte. Links/rechts blijft exact gecentreerd (1px verschil). 32 ballen op 32,8px, 0 overlap.
+- Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — rooster gecentreerd, ballen groter
 
 - **Root cause "niet mooi verdeeld":** het rooster begon altijd linksboven; omdat de beschikbare breedte/hoogte zelden exact deelbaar is door de celgrootte, bleef de overgebleven ruimte structureel aan de rechter-/onderkant hangen — een scheve indruk, geen toeval.
