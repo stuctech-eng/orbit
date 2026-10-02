@@ -1758,7 +1758,7 @@
   // Vaste, kleine maat — maximale dichtheid, elke ronde gelijk. Het veld
   // vult zichzelf nu volledig (elk roostervakje krijgt een bal), dus er is
   // geen "gewenst aantal" of dynamische formule meer nodig.
-  const PATTERN_BALL_R_MIN = 30; // was 24 — te klein om precies aan te tikken bij deze dichtheid
+  const PATTERN_BALL_R_MIN = 34; // was 30 — nog iets groter op verzoek
   let patternBallR = PATTERN_BALL_R_MIN;
   const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
   const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
@@ -1809,6 +1809,14 @@
     const cell = r * 2.3; // iets ruimer dan voorheen — genoeg marge tussen balranden om precies te kunnen tikken
     const cols = Math.max(1, Math.floor(playW / cell));
     const rows = Math.max(1, Math.floor(playH / cell));
+    // playW/playH zijn zelden exact deelbaar door cell — zonder correctie
+    // bleef die rest-ruimte altijd als een onbalans aan de rechter-/
+    // onderkant hangen (het rooster begon steeds linksboven). Nu het hele
+    // blok centreren: rest-ruimte gelijk verdeeld over beide kanten.
+    const usedW = cols * cell;
+    const usedH = rows * cell;
+    const offsetX = marginX + (playW - usedW) / 2;
+    const offsetY = marginTop + (playH - usedH) / 2;
     const slots = [];
     for (let cy = 0; cy < rows; cy++) {
       for (let cx = 0; cx < cols; cx++) {
@@ -1824,8 +1832,8 @@
     const jitter = Math.max(0, cell / 2 - r - r * 0.06);
     const positions = [];
     for (const s of slots) {
-      const centerX = marginX + s.cx * cell + cell / 2;
-      const centerY = marginTop + s.cy * cell + cell / 2;
+      const centerX = offsetX + s.cx * cell + cell / 2;
+      const centerY = offsetY + s.cy * cell + cell / 2;
       positions.push({
         x: centerX + rand(-jitter, jitter),
         y: centerY + rand(-jitter, jitter)

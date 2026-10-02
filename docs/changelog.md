@@ -55,6 +55,14 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — rooster gecentreerd, ballen groter
+
+- **Root cause "niet mooi verdeeld":** het rooster begon altijd linksboven; omdat de beschikbare breedte/hoogte zelden exact deelbaar is door de celgrootte, bleef de overgebleven ruimte structureel aan de rechter-/onderkant hangen — een scheve indruk, geen toeval.
+- **Fix:** het hele roosterblok wordt nu gecentreerd binnen het speelbare gebied — restruimte gelijk verdeeld over beide kanten.
+- Bal-grootte verder vergroot: 30px → 34px.
+- **Getest**: linker- en rechtermarge bevestigd exact gelijk (0px verschil), 0 overlap, straal bevestigd op 34px.
+- Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## BUG: lege ruimte rechts op het toestel (Patroon) — gevonden en gefixt
 
 **Root cause:** Patroon's ballen zijn statisch (geen physics zoals Classic/Tracking, die sowieso elk frame herberekenen en zich dus vanzelf aan een gewijzigd scherm aanpassen). Als de viewport kort na het starten van een ronde nog wordt bijgesteld (bijv. iOS-browserchrome die instelt), bleven Patroon's ballen voorgoed op hun oude, te smalle posities staan — vandaar de lege ruimte rechts in de meegestuurde screenshot.
