@@ -55,6 +55,18 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Sequence Memory — vierde ORBIT-modus (nieuwe implementatie)
+
+Hergebruikt Patroon's speelveld, plaatsingslogica en rendering volledig ongewijzigd (zoals gevraagd), met eigen sequence-specifieke state/logica erbovenop.
+
+- **Mechaniek**: ballen lichten één voor één (sequentieel) op in een willekeurige volgorde — herhaling van een positie binnen dezelfde reeks is expliciet toegestaan. Speler reproduceert daarna exact die volgorde.
+- **Kernregel** (vastgelegd vooraf, geen giswerk): een foute tik verhoogt de foutenteller, maar de huidige sequencepositie blijft actief — geen reset naar stap 1, geen herkijking.
+- **Moeilijkheid**: sequentie-lengte als enige as (3→4→5→...→12), geen snelheid.
+- **Open parameter**: reveal-duur per bal (500ms) vastgelegd als centrale constante, bewust nog niet definitief.
+- **Audit-bevinding gerapporteerd**: `placePatternPositions()` zet als neveneffect `patternBallR` — bewust hergebruikt (exact dezelfde plaatsingslogica), resultaat overgenomen in eigen `sequenceBallR`. Geen risico: modi draaien nooit gelijktijdig.
+- **Kleine correctie meegenomen**: Patroon's kaart-tekst op het spelmodus-overzicht was nog de oude (sequentiële) omschrijving van vóór de herziening — nu actief misleidend naast de nieuwe Sequence Memory-kaart, dus gecorrigeerd.
+- **Getest** (13 scenario's): sequentiële reveal, correcte invoer, kernregel (fout zonder reset, expliciet geverifieerd), herhaling binnen een reeks (al vanaf ronde 1 waargenomen), rondeprogressie, Game Over, 8x wisselen tussen alle vier de modi zonder cross-talk, regressie op Classic/Getallen volgen/Patroon afzonderlijk.
+
 ## Patroon — vast 4×8-rooster, volledig schermvullend
 
 Op specifiek verzoek: niet langer een automatisch bepaald aantal kolommen/rijen, maar een vast rooster van 4×8 (32 ballen), met marges geminimaliseerd tot het strikt noodzakelijke (pauze-indicator/duim-bereik).

@@ -294,6 +294,10 @@
     background: radial-gradient(circle at 35% 28%, #ffffff, #d5d5db 55%, #74747c);
     box-shadow: 0 0 46px rgba(255,255,255,0.22);
   }
+  .mi-orb.sequence {
+    background: radial-gradient(circle at 35% 28%, #ffffff, #d5d5db 55%, #74747c);
+    box-shadow: 0 0 46px rgba(255,255,255,0.22);
+  }
   @keyframes miOrbPulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.035); }
@@ -535,6 +539,24 @@
     padding: 0 24px;
   }
   #patternGameOver.visible { opacity: 1; pointer-events: auto; }
+
+  /* Sequence Memory — eigen Game Over-overlay, deelt alleen de generieke
+     .tgo-*-CSS (geen state-binding met Patroon of Tracking). */
+  #sequenceGameOver {
+    position: fixed;
+    inset: 0;
+    z-index: 24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.92);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    padding: 0 24px;
+  }
+  #sequenceGameOver.visible { opacity: 1; pointer-events: auto; }
   .tgo-panel { text-align: center; width: 100%; max-width: 280px; }
   .tgo-title {
     font-size: 13px;
@@ -799,6 +821,19 @@
   </div>
 </div>
 
+<div id="sequenceGameOver">
+  <div class="tgo-panel">
+    <div class="tgo-title">GAME OVER</div>
+    <div class="tgo-stats" style="margin-top:8px;">
+      <div class="tgo-row"><span class="tgo-label">Reeks bereikt</span><span class="tgo-value" id="sgoLength">–</span></div>
+      <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="sgoErrors">–</span></div>
+      <div class="tgo-row"><span class="tgo-label">Tijd</span><span class="tgo-value" id="sgoTime">–</span></div>
+    </div>
+    <button class="tgo-retry" id="sgoRetryBtn" style="margin-top:28px;">↺ Opnieuw proberen</button>
+    <button class="tgo-home" id="sgoHomeBtn">🏠 Home</button>
+  </div>
+</div>
+
 <div id="tutorialOverlay">
   <div class="tut-brand" id="tutBrand">ORBIT</div>
   <div class="tut-text" id="tutText"></div>
@@ -845,9 +880,18 @@
     <button class="ms-card" id="msCardPattern" data-mode="pattern">
       <span class="ms-icon">◐</span>
       <span class="ms-body">
-        <span class="ms-name">Patroon <span class="ms-badge">Nieuw</span></span>
-        <span class="ms-desc">Onthoud de volgorde, tik hem na</span>
+        <span class="ms-name">Patroon</span>
+        <span class="ms-desc">Onthoud welke bollen oplichtten</span>
         <span class="ms-best" id="msBestPattern"></span>
+      </span>
+      <span class="ms-chevron">›</span>
+    </button>
+    <button class="ms-card" id="msCardSequence" data-mode="sequence">
+      <span class="ms-icon">◍</span>
+      <span class="ms-body">
+        <span class="ms-name">Sequence Memory <span class="ms-badge">Nieuw</span></span>
+        <span class="ms-desc">Onthoud de volgorde, tik hem na</span>
+        <span class="ms-best" id="msBestSequence"></span>
       </span>
       <span class="ms-chevron">›</span>
     </button>
@@ -2088,6 +2132,210 @@
     updateIndicatorVisibility();
   }
 
+  // ---------- Sequence Memory Mode ----------
+  // Vierde ORBIT-modus. Hergebruikt Patroon's speelveld, plaatsingslogica,
+  // bal-grootte, veiligheidsafstanden en rendering VOLLEDIG ongewijzigd
+  // (placePatternPositions, drawPatternBall) — exact zoals de opdracht
+  // vraagt. Alleen de sequence-specifieke state/logica is nieuw: eigen
+  // volgorde-generator, sequentiële onthulling (één bal tegelijk, niet
+  // gelijktijdig zoals Patroon), input-index-tracking, eigen Game Over.
+  //
+  // Audit-opmerking: placePatternPositions(baseR) heeft als neveneffect
+  // dat het patternBallR zet. Hier bewust hergebruikt (exact dezelfde
+  // plaatsingslogica, zoals gevraagd) en het resultaat meteen overgenomen
+  // in een eigen sequenceBallR — geen cross-talk in de praktijk, want
+  // Patroon en Sequence Memory zijn nooit tegelijk actief (currentMode is
+  // altijd precies één modus).
+  const SEQUENCE_REVEAL_DURATION = 500; // ms — OPEN PARAMETER, hier als duidelijke centrale constante
+  const SEQUENCE_REVEAL_GAP = 250;      // ms pauze tussen twee stappen in de reveal
+  const SEQUENCE_PRE_SHOW_DELAY = 400;  // ms rust vóór de reveal begint — zelfde principe als Patroon
+  const SEQUENCE_MAX_ERRORS = 3;
+  const SEQUENCE_ROUND_PAUSE = 1100;
+  // Sequentie-lengte is de primaire moeilijkheidsas — geen snelheid.
+  const SEQUENCE_LENGTH_SCHEDULE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+  let sequenceBalls = [];          // {x, y, r, marked, feedback, feedbackColor} — zelfde vorm als patternBalls
+  let sequenceBallR = PATTERN_BALL_R_MIN;
+  let sequenceOrder = [];          // array van bal-indices, lengte = sequenceLength, herhaling toegestaan
+  let sequenceInputIndex = 0;      // 0-based: hoeveel stappen van de sequence al correct ingevoerd
+  let sequenceLength = 3;
+  let sequenceRoundNumber = 0;
+  let sequenceSessionErrors = 0;
+  let sequenceSessionStart = 0;
+  let sequenceActive = false;
+  let sequenceShowing = false;
+  let sequenceShowStart = 0;
+  let sequenceAwaitingNextRound = false;
+  let sequenceRoundNextAt = -1;
+  let sequenceResizeW = 0, sequenceResizeH = 0;
+
+  function startSequenceSession() {
+    sequenceSessionErrors = 0;
+    sequenceSessionStart = now();
+    sequenceRoundNumber = -1; // finishSequenceRound() increments dit naar 0 zodra de pauze hieronder eindigt
+    sequenceActive = true;
+    sequenceBalls = [];
+    sequenceShowing = false;
+    sequenceAwaitingNextRound = true;
+    sequenceRoundNextAt = now() + SEQUENCE_ROUND_PAUSE;
+  }
+
+  function startSequenceRound(idx) {
+    const length = SEQUENCE_LENGTH_SCHEDULE[Math.min(idx, SEQUENCE_LENGTH_SCHEDULE.length - 1)];
+    sequenceLength = length;
+    sequenceInputIndex = 0;
+    sequenceActive = true;
+    sequenceBalls = [];
+    sequenceResizeW = W; sequenceResizeH = H;
+
+    // Exact hetzelfde speelveld en dezelfde plaatsingslogica als Patroon.
+    const positions = placePatternPositions(PATTERN_BALL_R_MIN);
+    sequenceBallR = patternBallR; // zie audit-opmerking hierboven
+    const total = positions.length;
+
+    for (let i = 0; i < total; i++) {
+      sequenceBalls.push({
+        x: positions[i].x, y: positions[i].y, r: sequenceBallR,
+        marked: false,
+        feedback: 0, feedbackColor: null
+      });
+    }
+
+    // Willekeurige sequence van `length` bal-indices. Herhaling
+    // uitdrukkelijk toegestaan — een positie mag meerdere keren
+    // voorkomen, dat is bewust onderdeel van de opdracht.
+    sequenceOrder = [];
+    for (let i = 0; i < length; i++) {
+      sequenceOrder.push(Math.floor(rand(0, total)));
+    }
+
+    sequenceShowing = true;
+    sequenceShowStart = now();
+  }
+
+  // Puur uit verstreken tijd afgeleid, zelfde robuuste patroon als
+  // Patroon's updatePatternShowSequence — maar toont nu ÉÉN bal per stap
+  // (sequentieel) in plaats van alle doelballen tegelijk.
+  function updateSequenceShow(t) {
+    const elapsed = t - sequenceShowStart;
+    const stepDuration = SEQUENCE_REVEAL_DURATION + SEQUENCE_REVEAL_GAP;
+    const totalShowDuration = SEQUENCE_PRE_SHOW_DELAY + sequenceLength * stepDuration;
+    if (elapsed >= totalShowDuration) {
+      sequenceShowing = false;
+      for (const b of sequenceBalls) b.marked = false;
+      return;
+    }
+    const afterDelay = elapsed - SEQUENCE_PRE_SHOW_DELAY;
+    if (afterDelay < 0) {
+      for (const b of sequenceBalls) b.marked = false;
+      return;
+    }
+    const currentStep = Math.min(sequenceLength - 1, Math.floor(afterDelay / stepDuration));
+    const stepElapsed = afterDelay - currentStep * stepDuration;
+    const activeIndex = sequenceOrder[currentStep];
+    const isOn = stepElapsed < SEQUENCE_REVEAL_DURATION;
+    for (let i = 0; i < sequenceBalls.length; i++) {
+      sequenceBalls[i].marked = (i === activeIndex) && isOn;
+    }
+  }
+
+  function handleSequenceTap(x, y) {
+    if (!sequenceActive || sequenceShowing || sequenceAwaitingNextRound) return;
+    let hit = -1, best = Infinity;
+    for (let i = 0; i < sequenceBalls.length; i++) {
+      const b = sequenceBalls[i];
+      const d = Math.hypot(x - b.x, y - b.y);
+      if (d <= b.r * TAP_HIT_TOLERANCE && d < best) { best = d; hit = i; }
+    }
+    if (hit === -1) return;
+
+    const ball = sequenceBalls[hit];
+    if (hit === sequenceOrder[sequenceInputIndex]) {
+      ball.feedback = 1; ball.feedbackColor = 'white';
+      haptic(12);
+      GameEvents.emit('correctAnswer');
+      sequenceInputIndex++;
+      if (sequenceInputIndex >= sequenceOrder.length) {
+        sequenceAwaitingNextRound = true;
+        sequenceRoundNextAt = now() + SEQUENCE_ROUND_PAUSE;
+      }
+    } else {
+      // Kernregel (vastgelegd, geen giswerk): fout +1, maar de huidige
+      // sequencepositie blijft actief — NIET terug naar stap 1, NIET
+      // opnieuw tonen. sequenceInputIndex verandert hier bewust niet.
+      ball.feedback = 1; ball.feedbackColor = 'red';
+      haptic([10, 40, 10]);
+      GameEvents.emit('wrongAnswer');
+      sequenceSessionErrors++;
+      if (sequenceSessionErrors >= SEQUENCE_MAX_ERRORS) endSequenceSession();
+    }
+  }
+
+  function finishSequenceRound() {
+    sequenceRoundNumber++;
+    const idx = Math.min(sequenceRoundNumber, SEQUENCE_LENGTH_SCHEDULE.length - 1);
+    startSequenceRound(idx);
+  }
+
+  function endSequenceSession() {
+    sequenceActive = false;
+    const elapsedMs = now() - sequenceSessionStart;
+    showSequenceGameOver({
+      length: sequenceLength,
+      errors: sequenceSessionErrors,
+      timeMs: Math.round(elapsedMs)
+    });
+  }
+
+  const sequenceGameOverEl = document.getElementById('sequenceGameOver');
+  const sgoLengthEl = document.getElementById('sgoLength');
+  const sgoErrorsEl = document.getElementById('sgoErrors');
+  const sgoTimeEl = document.getElementById('sgoTime');
+  function showSequenceGameOver(result) {
+    sgoLengthEl.textContent = String(result.length);
+    sgoErrorsEl.textContent = String(result.errors);
+    sgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
+    sequenceGameOverEl.classList.add('visible');
+  }
+  function hideSequenceGameOver() {
+    sequenceGameOverEl.classList.remove('visible');
+  }
+  document.getElementById('sgoRetryBtn').addEventListener('click', () => {
+    hideSequenceGameOver();
+    startSequenceSession();
+  });
+  document.getElementById('sgoHomeBtn').addEventListener('click', () => {
+    hideSequenceGameOver();
+    showHome();
+  });
+
+  function frameSequence(t, dt) {
+    drawBackground();
+    // Zelfde zelfherstellende resize-check als Patroon — zie framePattern()
+    // voor de volledige toelichting.
+    if (sequenceActive && !sequenceShowing && !sequenceAwaitingNextRound
+      && (Math.abs(W - sequenceResizeW) > 8 || Math.abs(H - sequenceResizeH) > 8)) {
+      startSequenceRound(Math.max(0, sequenceRoundNumber));
+    }
+    if (sequenceShowing) updateSequenceShow(t);
+    for (const b of sequenceBalls) drawPatternBall(b, t); // hergebruikt Patroon's rendering ongewijzigd
+    if (sequenceAwaitingNextRound && t >= sequenceRoundNextAt) {
+      sequenceAwaitingNextRound = false;
+      finishSequenceRound();
+    }
+  }
+
+  function launchSequenceMode() {
+    currentMode = 'sequence';
+    welcomeEl.classList.add('hidden');
+    pauseOverlayEl.classList.remove('visible');
+    hideSequenceGameOver();
+    if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
+    else { resumeGame(); }
+    startSequenceSession();
+    updateIndicatorVisibility();
+  }
+
   // ---------- Cells ----------
   let cells = [];
   let baseRadius = 34;
@@ -2491,6 +2739,7 @@
     AudioManager.ensureAudio(); // must unlock before handleTap can trigger any sound-emitting event
     if (currentMode === 'tracking') { handleTrackingTap(e.clientX, e.clientY); return; }
     if (currentMode === 'pattern') { handlePatternTap(e.clientX, e.clientY); return; }
+    if (currentMode === 'sequence') { handleSequenceTap(e.clientX, e.clientY); return; }
     handleTap(e.clientX, e.clientY);
   }, { passive: true });
 
@@ -2848,6 +3097,8 @@
     if (patternShowing) patternShowStart += pausedMs; // same principle, Patroon's own timeline
     if (patternAwaitingNextRound) patternRoundNextAt += pausedMs;
     if (trackingAwaitingNextRound) trackingRoundNextAt += pausedMs;
+    if (sequenceShowing) sequenceShowStart += pausedMs; // same principle, Sequence Memory's own timeline
+    if (sequenceAwaitingNextRound) sequenceRoundNextAt += pausedMs;
     paused = false;
     continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
     // A break also resets streak MOMENTUM (not confidence score, not ladder
@@ -2875,6 +3126,11 @@
     }
     if (currentMode === 'pattern') {
       framePattern(t, dt);
+      requestAnimationFrame(frame);
+      return;
+    }
+    if (currentMode === 'sequence') {
+      frameSequence(t, dt);
       requestAnimationFrame(frame);
       return;
     }
@@ -3132,6 +3388,7 @@
       || statsOverlayEl.classList.contains('visible')
       || trackingGameOverEl.classList.contains('visible')
       || patternGameOverEl.classList.contains('visible')
+      || sequenceGameOverEl.classList.contains('visible')
       || modeSelectEl.classList.contains('visible')
       || modeIntroEl.classList.contains('visible');
     scannerIndicatorEl.classList.toggle('hidden', anyOverlayOpen || !gameLaunched);
@@ -3237,6 +3494,13 @@
       updateIndicatorVisibility();
       return;
     }
+    if (currentMode === 'sequence') {
+      paused = false;
+      hideSequenceGameOver();
+      startSequenceSession();
+      updateIndicatorVisibility();
+      return;
+    }
     startNewSession();
     if (!gameLaunched) { gameLaunched = true; launchGame(); }
     else { resumeGame(); startRound(); }
@@ -3261,6 +3525,14 @@
       else { resumeGame(); }
       hidePatternGameOver();
       startPatternSession();
+      updateIndicatorVisibility();
+      return;
+    }
+    if (currentMode === 'sequence') {
+      if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
+      else { resumeGame(); }
+      hideSequenceGameOver();
+      startSequenceSession();
       updateIndicatorVisibility();
       return;
     }
@@ -3310,6 +3582,17 @@
         { icon: '📈', label: 'Steeds meer', sub: 'Elke paar rondes één doelbal erbij' }
       ],
       launch: launchPatternMode
+    },
+    sequence: {
+      title: 'SEQUENCE MEMORY',
+      desc: 'Onthoud de volgorde waarin de bollen één voor één oplichten. Tik ze daarna in exact dezelfde volgorde aan.',
+      features: [
+        { icon: '◐', label: 'Vaste posities', sub: 'De bollen bewegen niet' },
+        { icon: '👁', label: 'Eén voor één', sub: 'Elke bol licht apart na elkaar op' },
+        { icon: '🎯', label: 'Exacte volgorde', sub: 'Verkeerde volgorde telt als fout' },
+        { icon: '📈', label: 'Steeds langer', sub: 'Elke ronde één stap erbij' }
+      ],
+      launch: launchSequenceMode
     }
   };
 
@@ -3328,9 +3611,11 @@
     document.getElementById('msCardClassic').classList.toggle('active', currentMode === 'classic');
     document.getElementById('msCardTracking').classList.toggle('active', currentMode === 'tracking');
     document.getElementById('msCardPattern').classList.toggle('active', currentMode === 'pattern');
+    document.getElementById('msCardSequence').classList.toggle('active', currentMode === 'sequence');
     document.getElementById('msBestClassic').textContent = bestScoreText('classic');
     document.getElementById('msBestTracking').textContent = bestScoreText('tracking');
     document.getElementById('msBestPattern').textContent = bestScoreText('pattern');
+    document.getElementById('msBestSequence').textContent = bestScoreText('sequence');
     modeSelectEl.classList.add('visible');
   }
   function closeModeSelect() {
@@ -3361,6 +3646,7 @@
   document.getElementById('msCardClassic').addEventListener('click', () => openModeIntro('classic'));
   document.getElementById('msCardTracking').addEventListener('click', () => openModeIntro('tracking'));
   document.getElementById('msCardPattern').addEventListener('click', () => openModeIntro('pattern'));
+  document.getElementById('msCardSequence').addEventListener('click', () => openModeIntro('sequence'));
   document.getElementById('miBackBtn').addEventListener('click', () => {
     modeIntroEl.classList.remove('visible');
     openModeSelect();
