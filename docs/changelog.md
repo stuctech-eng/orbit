@@ -55,6 +55,13 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — arcering teruggezet, dichtheid naar 40 ballen
+
+- Correctie op mijn vorige interpretatie: arcering was abusievelijk verwijderd, nu teruggezet (diagonale lijntjes op de donkere rustballen).
+- Achtergrond-schema verder opgevoerd (`[1,3,5,8,11,14,18,22,27,34]`) zodat ronde 10 nu exact 40 ballen op het scherm heeft (was 36), bij een straal van 24px.
+- Bevestigd: het volledige veld staat vanaf het eerste frame al klaar (donker/gearceerd) — geen opbouw-animatie, het enige wat gebeurt is dat de doelballen daarna oplichten.
+- **Getest**: volledige 10-ronde-doorloop, ronde 10 bevestigd op exact 40 ballen, 0 overlap over 780 gecontroleerde paren. Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — effen ballen, écht vol scherm, groot-naar-klein over de sessie
 
 - **Arcering verwijderd**: ruststaat is nu een mooi egaal, vlak donker oppervlak — geen diagonale lijntjes meer.
