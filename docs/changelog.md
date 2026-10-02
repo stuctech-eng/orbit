@@ -55,6 +55,13 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — grotere ballen voor betrouwbaar tikken
+
+- Bal-grootte van 24px naar 30px, roosterafstand iets ruimer (2.18x → 2.3x) — bij de vorige, kleinste maat lag het middelpunt tussen twee buren maar 26px van elk balcentrum, te weinig marge voor een vinger.
+- Resultaat: 36 ballen op het scherm (was 60) — minder dicht, maar betrouwbaar aan te tikken. Nog steeds het hele scherm vullend, geen gaten.
+- **Getest**: 0 overlap, en een steekproef van 15 tikken — precies op elk balcentrum, inclusief dicht-op-elkaar liggende buren — landde elke keer op de juiste bal (15/15).
+- Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — écht elk roostervakje gevuld (geen gaten meer)
 
 Root cause van "geen 40 ballen, niet helemaal vol": de plaatsing streefde een vast aantal na en sloeg daarbij willekeurig een deel van de beschikbare roostervakken over — dat liet zichtbare gaten achteren, en op een kleiner scherm dan waarop getest was, kwam het bovendien onder de 40 uit.

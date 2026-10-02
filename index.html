@@ -1758,7 +1758,7 @@
   // Vaste, kleine maat — maximale dichtheid, elke ronde gelijk. Het veld
   // vult zichzelf nu volledig (elk roostervakje krijgt een bal), dus er is
   // geen "gewenst aantal" of dynamische formule meer nodig.
-  const PATTERN_BALL_R_MIN = 24;
+  const PATTERN_BALL_R_MIN = 30; // was 24 — te klein om precies aan te tikken bij deze dichtheid
   let patternBallR = PATTERN_BALL_R_MIN;
   const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
   const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
@@ -1805,7 +1805,7 @@
     const marginBottom = r + 90;
     const playW = W - marginX * 2;
     const playH = H - marginTop - marginBottom;
-    const cell = r * 2.18; // strak genoeg voor maximale dichtheid, laat nog net jitter-ruimte over
+    const cell = r * 2.3; // iets ruimer dan voorheen — genoeg marge tussen balranden om precies te kunnen tikken
     const cols = Math.max(1, Math.floor(playW / cell));
     const rows = Math.max(1, Math.floor(playH / cell));
     const slots = [];
@@ -1840,7 +1840,7 @@
     patternActive = true;
     patternBalls = [];
 
-    patternBallR = PATTERN_BALL_R_MIN; // vaste, kleine maat — maximale dichtheid, elke ronde
+    patternBallR = PATTERN_BALL_R_MIN; // vaste maat — gebalanceerd tussen "vol scherm" en "precies aan te tikken"
     const positions = placePatternPositions(patternBallR);
     const total = positions.length; // het hele rooster, zoveel als er op dit scherm past
 
