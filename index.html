@@ -1758,7 +1758,7 @@
   // Vaste, kleine maat — maximale dichtheid, elke ronde gelijk. Het veld
   // vult zichzelf nu volledig (elk roostervakje krijgt een bal), dus er is
   // geen "gewenst aantal" of dynamische formule meer nodig.
-  const PATTERN_BALL_R_MIN = 34; // was 30 — nog iets groter op verzoek
+  const PATTERN_BALL_R_MIN = 40; // was 34 — stuurt naar minder, grotere cellen
   let patternBallR = PATTERN_BALL_R_MIN;
   const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
   const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
@@ -1807,12 +1807,12 @@
   // afgeleid (nooit groter dan wat nog comfortabel is), in plaats van een
   // vaste straal te kiezen en de rest als dode ruimte te laten staan.
   function placePatternPositions(baseR) {
-    const marginX = baseR + 10;
-    const marginTop = baseR + 56;
-    const marginBottom = baseR + 70;
+    const marginX = baseR + 6;
+    const marginTop = baseR + 36;
+    const marginBottom = baseR + 50;
     const playW = W - marginX * 2;
     const playH = H - marginTop - marginBottom;
-    const baseCell = baseR * 2.3;
+    const baseCell = baseR * 2.2;
     const cols = Math.max(1, Math.round(playW / baseCell));
     const rows = Math.max(1, Math.round(playH / baseCell));
     // Cellen uitrekken tot ze precies playW/playH vullen (cols*cellX===playW
@@ -1823,7 +1823,7 @@
     // Straal afgeleid van de krapste richting, geclamped op een
     // comfortabel tik-bereik — in plaats van een vaste straal die
     // restruimte laat staan.
-    const r = Math.max(28, Math.min(44, Math.min(cellX, cellY) / 2.3));
+    const r = Math.max(28, Math.min(50, Math.min(cellX, cellY) / 2.2));
     patternBallR = r;
 
     const slots = [];

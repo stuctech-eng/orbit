@@ -55,6 +55,14 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — ballen groter, marges verder verkleind
+
+- Vaste marges verder verkleind: boven bal+56→bal+36, onder bal+70→bal+50, zijkant bal+10→bal+6.
+- Referentiewaarde voor het bepalen van kolommen/rijen verhoogd (34→40), zodat het systeem naar minder, grotere cellen stuurt in plaats van veel kleine.
+- Straal-maximum verhoogd van 44px naar 50px.
+- **Getest**: straal nu 38,5px (was 32,8px), marges verder verkleind (boven 80px, onder 92px — was 95/111px), nog steeds perfect gecentreerd (1px verschil links/rechts), 0 overlap.
+- Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — herontwerp: rooster bepaalt bal-grootte (i.p.v. andersom)
 
 **Ander idee, zoals gevraagd**, in plaats van nog een losse aanpassing: de volgorde omgedraaid. Eerder werd eerst een vaste bal-grootte gekozen en de restruimte geaccepteerd als marge (dat bleef, ondanks eerdere fixes, een herkenbaar "niet-helemaal-vol"-gevoel geven). Nu wordt eerst het aantal kolommen/rijen bepaald, waarna de cellen wiskundig worden uitgerekt tot ze precies de volledige breedte/hoogte vullen — en de bal-straal wordt daarvan afgeleid (geclamped tussen 28-44px).
