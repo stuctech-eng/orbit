@@ -55,6 +55,15 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — écht elk roostervakje gevuld (geen gaten meer)
+
+Root cause van "geen 40 ballen, niet helemaal vol": de plaatsing streefde een vast aantal na en sloeg daarbij willekeurig een deel van de beschikbare roostervakken over — dat liet zichtbare gaten achteren, en op een kleiner scherm dan waarop getest was, kwam het bovendien onder de 40 uit.
+
+- **Herontwerp**: geen "gewenst aantal" meer. Het rooster wordt nu volledig gevuld — elk vakje krijgt een bal, zonder uitzondering.
+- Past zich vanzelf aan het daadwerkelijke scherm aan: geen vaste 40 meer, maar zoveel als er op dát scherm past (bijv. 60 op een iPhone 14-formaat, 40 op kleiner iPhone SE-formaat) — nooit meer gaten, nooit meer te weinig.
+- Dode code opgeruimd (het oude dynamische grootte-schema, dat niet meer nodig is nu de grootte vast staat op de kleinste maat voor maximale dichtheid).
+- **Getest** op twee schermformaten: geen enkele overlap op beide, bevestigd dat alle vakjes daadwerkelijk bezet zijn (geen gaten). Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — correctie: geen arcering, 40 ballen vanaf ronde 1
 
 Verduidelijking na eerdere heen-en-weer: géén arcering (effen/vlak), en

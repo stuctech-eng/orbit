@@ -1755,25 +1755,11 @@
   // Getallen volgen.
   // Zelfde grootte-formule als Getallen volgen — op verzoek gelijkgetrokken,
   // geen eigen afwijkende maat. Nu gebaseerd op het TOTALE aantal ballen
-  // in het memory field (achtergrond + doelen), niet alleen de doelen.
-  // Was 43-48 (gelijk aan Getallen volgen) toen Patroon nog maar een
-  // handvol ballen had. Nu het een gevuld memory field moet zijn, past
-  // die maat niet meer — op 390px breed passen er dan maar 2-3 per rij.
-  // Bewust kleiner gemaakt zodat "heel scherm gevuld" ook echt kan.
-  const PATTERN_BALL_R_MAX = 50;
+  // Vaste, kleine maat — maximale dichtheid, elke ronde gelijk. Het veld
+  // vult zichzelf nu volledig (elk roostervakje krijgt een bal), dus er is
+  // geen "gewenst aantal" of dynamische formule meer nodig.
   const PATTERN_BALL_R_MIN = 24;
-  let patternBallR = PATTERN_BALL_R_MAX;
-  function computePatternRadius(n) {
-    const scale = Math.min(W, H);
-    const factor = Math.sqrt(3 / n);
-    patternBallR = Math.max(PATTERN_BALL_R_MIN, Math.min(PATTERN_BALL_R_MAX, scale * 0.143 * factor));
-  }
-  // Achtergrondballen groeien nu MEE met de ronde: eerst weinig (grote
-  // ballen), later veel (klein, scherm echt vol) — op verzoek, in plaats
-  // van een vast aantal.
-  // Constant vanaf ronde 1 — 40 ballen zichtbaar vanaf het begin, niet pas
-  // opgebouwd tegen het einde van de sessie.
-  const PATTERN_BG_COUNT = 37; // + 3-6 doelballen = 40-43 totaal, elke ronde
+  let patternBallR = PATTERN_BALL_R_MIN;
   const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
   const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
   const PATTERN_MAX_ERRORS = 3;
@@ -1809,13 +1795,17 @@
   // verschuiving. Sluit overlap AF (wiskundig, niet alleen "geprobeerd") —
   // de oudere aanpak (200x gokken en anders toch maar plaatsen) kon zichtbaar
   // overlappende ballen opleveren bij een vol veld.
-  function placePatternPositions(count, r) {
+  // Vult ALLE beschikbare roostervakken (geen willekeurige subset meer
+  // overslaan) — het veld is daarmee altijd daadwerkelijk vol, ongeacht
+  // schermformaat, in plaats van een vast aantal na te streven dat op een
+  // kleiner toestel zichtbare gaten kon achterlaten.
+  function placePatternPositions(r) {
     const marginX = r + 16;
     const marginTop = r + 70;
     const marginBottom = r + 90;
     const playW = W - marginX * 2;
     const playH = H - marginTop - marginBottom;
-    const cell = r * 2.25; // ruim boven de bal-diameter, laat nog jitter-ruimte over
+    const cell = r * 2.18; // strak genoeg voor maximale dichtheid, laat nog net jitter-ruimte over
     const cols = Math.max(1, Math.floor(playW / cell));
     const rows = Math.max(1, Math.floor(playH / cell));
     const slots = [];
@@ -1824,17 +1814,15 @@
         slots.push({ cx, cy });
       }
     }
-    // Door elkaar husselen en de eerste N nemen — willekeurige selectie van
-    // cellen, nooit een voorspelbaar vast raster voor de speler zichtbaar.
+    // Husselen — puur voor een willekeurige tekenvolgorde, niet om vakjes
+    // over te slaan: ELK vakje wordt gebruikt.
     for (let i = slots.length - 1; i > 0; i--) {
       const j = Math.floor(rand(0, i + 1));
       [slots[i], slots[j]] = [slots[j], slots[i]];
     }
-    const n = Math.min(count, slots.length); // bij een heel klein scherm: liever minder ballen dan overlap
-    const jitter = Math.max(0, cell / 2 - r - r * 0.08);
+    const jitter = Math.max(0, cell / 2 - r - r * 0.06);
     const positions = [];
-    for (let i = 0; i < n; i++) {
-      const s = slots[i];
+    for (const s of slots) {
       const centerX = marginX + s.cx * cell + cell / 2;
       const centerY = marginTop + s.cy * cell + cell / 2;
       positions.push({
@@ -1847,16 +1835,14 @@
 
   function startPatternRound(idx) {
     const targetCount = PATTERN_ROUND_SCHEDULE[idx];
-    const bgCount = PATTERN_BG_COUNT;
     patternTargetCount = targetCount;
     patternSelectedCount = 0;
     patternActive = true;
     patternBalls = [];
 
-    const desiredTotal = bgCount + targetCount;
-    computePatternRadius(desiredTotal);
-    const positions = placePatternPositions(desiredTotal, patternBallR);
-    const total = positions.length; // kan iets lager zijn dan gewenst op een heel klein scherm — nooit overlap als trade-off
+    patternBallR = PATTERN_BALL_R_MIN; // vaste, kleine maat — maximale dichtheid, elke ronde
+    const positions = placePatternPositions(patternBallR);
+    const total = positions.length; // het hele rooster, zoveel als er op dit scherm past
 
     // Willekeurig precies targetCount van de `total` posities als doel
     // aanwijzen (Fisher-Yates op de index-lijst) — geen voorspelbaar
