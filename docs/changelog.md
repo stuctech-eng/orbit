@@ -55,6 +55,15 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — overlap-bug, gevuld scherm, blijvend wit na tik
+
+Drie punten uit een echte iPhone-speeltest, alle drie verholpen:
+
+- **Overlap-bug ("ruitjes") opgelost**: de plaatsing gebruikte willekeurige pogingen (200x proberen, anders toch maar plaatsen) — bij een voller veld kon dat zichtbaar overlappende ballen opleveren, precies zoals in de screenshot. Vervangen door een rooster-met-jitter-plaatsing die overlap wiskundig uitsluit in plaats van 'm alleen te proberen te vermijden. Geverifieerd: 0 overlappende paren over 210 gecontroleerde balcombinaties.
+- **Scherm echt gevuld**: achtergrondballen van 9 naar 18 verhoogd. Bal-grootte bewust verkleind (was 43-48px, gelijk aan Getallen volgen; nu 32-38px) — bij de oude maat pasten er fysiek maar 2-3 ballen per rij op een telefoonscherm, dus "heel scherm vullen" was met die maat niet haalbaar. Nu 21+ ballen gelijktijdig zichtbaar, willekeurige celselectie voorkomt een voorspelbaar vast raster.
+- **Blijvend wit na een juiste tik**: een correct geselecteerde doelbal blijft nu wit voor de rest van de ronde (was: alleen een kort sprankel-pulsje dat weer wegdooft), zodat de speler zijn eigen voortgang kan zien. Reset netjes bij elke nieuwe ronde.
+- **Getest**: geen enkele overlap (210 paren gecontroleerd), scherm daadwerkelijk gevuld (21 ballen bevestigd), bal blijft aantoonbaar wit 900ms na de tik (ruim voorbij de pulse-vervaging). Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — herziening naar visueel/ruimtelijk geheugen (geen volgorde meer)
 
 Fundamentele mechaniekwijziging, niet een uitbreiding van de vorige versie:

@@ -1756,15 +1756,19 @@
   // Zelfde grootte-formule als Getallen volgen — op verzoek gelijkgetrokken,
   // geen eigen afwijkende maat. Nu gebaseerd op het TOTALE aantal ballen
   // in het memory field (achtergrond + doelen), niet alleen de doelen.
-  const PATTERN_BALL_R_MAX = 48;
-  const PATTERN_BALL_R_MIN = 43;
+  // Was 43-48 (gelijk aan Getallen volgen) toen Patroon nog maar een
+  // handvol ballen had. Nu het een gevuld memory field moet zijn, past
+  // die maat niet meer — op 390px breed passen er dan maar 2-3 per rij.
+  // Bewust kleiner gemaakt zodat "heel scherm gevuld" ook echt kan.
+  const PATTERN_BALL_R_MAX = 38;
+  const PATTERN_BALL_R_MIN = 32;
   let patternBallR = PATTERN_BALL_R_MAX;
   function computePatternRadius(n) {
     const scale = Math.min(W, H);
     const factor = Math.sqrt(3 / n);
     patternBallR = Math.max(PATTERN_BALL_R_MIN, Math.min(PATTERN_BALL_R_MAX, scale * 0.143 * factor));
   }
-  const PATTERN_BG_COUNT = 9;            // achtergrondballen — blijft constant in Fase 2
+  const PATTERN_BG_COUNT = 18;           // achtergrondballen — blijft constant in Fase 2, flink verhoogd om het scherm echt te vullen
   const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
   const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
   const PATTERN_MAX_ERRORS = 3;
@@ -1795,28 +1799,57 @@
     patternRoundNextAt = now() + PATTERN_ROUND_PAUSE;
   }
 
+  // Rooster-met-jitter: verdeelt het speelveld in cellen die elk gegarandeerd
+  // groot genoeg zijn voor één bal, plaatst per cel een kleine willekeurige
+  // verschuiving. Sluit overlap AF (wiskundig, niet alleen "geprobeerd") —
+  // de oudere aanpak (200x gokken en anders toch maar plaatsen) kon zichtbaar
+  // overlappende ballen opleveren bij een vol veld.
+  function placePatternPositions(count, r) {
+    const marginX = r + 16;
+    const marginTop = r + 70;
+    const marginBottom = r + 90;
+    const playW = W - marginX * 2;
+    const playH = H - marginTop - marginBottom;
+    const cell = r * 2.25; // ruim boven de bal-diameter, laat nog jitter-ruimte over
+    const cols = Math.max(1, Math.floor(playW / cell));
+    const rows = Math.max(1, Math.floor(playH / cell));
+    const slots = [];
+    for (let cy = 0; cy < rows; cy++) {
+      for (let cx = 0; cx < cols; cx++) {
+        slots.push({ cx, cy });
+      }
+    }
+    // Door elkaar husselen en de eerste N nemen — willekeurige selectie van
+    // cellen, nooit een voorspelbaar vast raster voor de speler zichtbaar.
+    for (let i = slots.length - 1; i > 0; i--) {
+      const j = Math.floor(rand(0, i + 1));
+      [slots[i], slots[j]] = [slots[j], slots[i]];
+    }
+    const n = Math.min(count, slots.length); // bij een heel klein scherm: liever minder ballen dan overlap
+    const jitter = Math.max(0, cell / 2 - r - r * 0.08);
+    const positions = [];
+    for (let i = 0; i < n; i++) {
+      const s = slots[i];
+      const centerX = marginX + s.cx * cell + cell / 2;
+      const centerY = marginTop + s.cy * cell + cell / 2;
+      positions.push({
+        x: centerX + rand(-jitter, jitter),
+        y: centerY + rand(-jitter, jitter)
+      });
+    }
+    return positions;
+  }
+
   function startPatternRound(targetCount) {
     patternTargetCount = targetCount;
     patternSelectedCount = 0;
     patternActive = true;
     patternBalls = [];
 
-    const total = PATTERN_BG_COUNT + targetCount;
-    computePatternRadius(total);
-    const marginX = patternBallR + 16;
-    const marginTop = patternBallR + 70;
-    const marginBottom = patternBallR + 90;
-    const positions = [];
-    for (let i = 0; i < total; i++) {
-      let x, y, ok, attempts = 0;
-      do {
-        x = rand(marginX, W - marginX);
-        y = rand(marginTop, H - marginBottom);
-        ok = positions.every((p) => Math.hypot(x - p.x, y - p.y) > patternBallR * 2.4);
-        attempts++;
-      } while (!ok && attempts < 200);
-      positions.push({ x, y });
-    }
+    const desiredTotal = PATTERN_BG_COUNT + targetCount;
+    computePatternRadius(desiredTotal);
+    const positions = placePatternPositions(desiredTotal, patternBallR);
+    const total = positions.length; // kan iets lager zijn dan gewenst op een heel klein scherm — nooit overlap als trade-off
 
     // Willekeurig precies targetCount van de `total` posities als doel
     // aanwijzen (Fisher-Yates op de index-lijst) — geen voorspelbaar
@@ -1827,7 +1860,7 @@
       const j = Math.floor(rand(0, i + 1));
       [indices[i], indices[j]] = [indices[j], indices[i]];
     }
-    const targetSet = new Set(indices.slice(0, targetCount));
+    const targetSet = new Set(indices.slice(0, Math.min(targetCount, total)));
 
     for (let i = 0; i < total; i++) {
       patternBalls.push({
@@ -1943,7 +1976,7 @@
 
     // Het heldere-wit geheugenmoment: hergebruikt exact het bestaande Soft
     // Pearl materiaal dat elders in ORBIT al gebruikt wordt.
-    const isWhiteNow = b.marked;
+    const isWhiteNow = b.marked || b.selected; // eenmaal correct getikt: blijft wit, zodat voortgang zichtbaar is
     if (isWhiteNow) {
       ctx.shadowColor = 'rgba(255,255,255,0.4)';
       ctx.shadowBlur = 20;
