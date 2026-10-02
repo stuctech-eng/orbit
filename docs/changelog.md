@@ -55,6 +55,14 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## BUG: lege ruimte rechts op het toestel (Patroon) — gevonden en gefixt
+
+**Root cause:** Patroon's ballen zijn statisch (geen physics zoals Classic/Tracking, die sowieso elk frame herberekenen en zich dus vanzelf aan een gewijzigd scherm aanpassen). Als de viewport kort na het starten van een ronde nog wordt bijgesteld (bijv. iOS-browserchrome die instelt), bleven Patroon's ballen voorgoed op hun oude, te smalle posities staan — vandaar de lege ruimte rechts in de meegestuurde screenshot.
+
+**Fix:** een zelfherstellende check in de render-lus zelf (niet alleen reactief op een resize-event, wat te onbetrouwbaar bleek — als de wijziging toevallig tijdens de flits viel, werd die bewust geblokkeerd om de geheugentaak niet te verstoren, en kwam er daarna nooit meer een kans). Nu wordt elk frame gecontroleerd of de huidige schermafmetingen nog overeenkomen met waarmee de actieve ronde geplaatst is; zodra dat niet meer klopt én de speler niet middenin de flits of de ronde-pauze zit, worden de posities opnieuw berekend voor de actuele maat.
+
+**Getest:** scenario nagebouwd waarbij de viewport van 320px naar 390px breed verandert tijdens de invoerfase — bevestigd dat de ballen zich herpositioneren (27→36 ballen, meest-rechtse positie verschoof van 221px naar 290px, volledig schermvullend) zonder overlap. Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — grotere ballen voor betrouwbaar tikken
 
 - Bal-grootte van 24px naar 30px, roosterafstand iets ruimer (2.18x → 2.3x) — bij de vorige, kleinste maat lag het middelpunt tussen twee buren maar 26px van elk balcentrum, te weinig marge voor een vinger.

@@ -1778,6 +1778,7 @@
   let patternShowStart = 0;
   let patternAwaitingNextRound = false; // true tijdens het rustmoment ná een voltooide ronde
   let patternRoundNextAt = -1;
+  let patternResizeW = 0, patternResizeH = 0; // afmetingen waarmee de huidige posities berekend zijn — zie framePattern()
 
   function startPatternSession() {
     patternSessionErrors = 0;
@@ -1839,6 +1840,8 @@
     patternSelectedCount = 0;
     patternActive = true;
     patternBalls = [];
+    patternResizeW = W; patternResizeH = H; // referentiemaat bijwerken — zie de resize-hook verderop
+
 
     patternBallR = PATTERN_BALL_R_MIN; // vaste maat — gebalanceerd tussen "vol scherm" en "precies aan te tikken"
     const positions = placePatternPositions(patternBallR);
@@ -2033,6 +2036,16 @@
 
   function framePattern(t, dt) {
     drawBackground();
+    // Zelfherstellend: als de viewport is veranderd sinds de huidige
+    // posities berekend zijn (bijv. iOS die de browserchrome kort na
+    // start nog bijstelt) en we zitten niet midden in de flits of de
+    // ronde-pauze, herbereken dan nu — in plaats van alleen te reageren
+    // op een toevallig resize-event dat precies op het verkeerde moment
+    // (tijdens de flits) kan vallen en zo nooit een kans krijgt.
+    if (patternActive && !patternShowing && !patternAwaitingNextRound
+      && (Math.abs(W - patternResizeW) > 8 || Math.abs(H - patternResizeH) > 8)) {
+      startPatternRound(Math.max(0, patternRoundNumber));
+    }
     if (patternShowing) updatePatternShowSequence(t);
     for (const b of patternBalls) drawPatternBall(b, t);
     if (patternAwaitingNextRound && t >= patternRoundNextAt) {
