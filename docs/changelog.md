@@ -55,6 +55,13 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — effen ballen, écht vol scherm, groot-naar-klein over de sessie
+
+- **Arcering verwijderd**: ruststaat is nu een mooi egaal, vlak donker oppervlak — geen diagonale lijntjes meer.
+- **Achtergrondballen groeien nu mee met de ronde** (was: vast op 18). Nieuw schema `[1,3,5,8,11,14,17,21,25,30]` naast het bestaande doelen-schema. Ronde 1 begint met 4 ballen in totaal (groot, ~48px); ronde 10 heeft 36 ballen (klein, ~24px, scherm écht vol).
+- Bal-groottebereik verbreed (24-50px, was 32-38px) zodat dit verloop ook daadwerkelijk zichtbaar is.
+- **Getest**: ronde 1 bevestigd groot (48px, 4 ballen, 0 overlap), volledige 10-ronde-doorloop tot ronde 10 bevestigd klein+vol (36 ballen, 24px, 0 overlap over 630 gecontroleerde paren). Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — overlap-bug, gevuld scherm, blijvend wit na tik
 
 Drie punten uit een echte iPhone-speeltest, alle drie verholpen:
