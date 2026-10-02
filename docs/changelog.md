@@ -55,6 +55,15 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — correctie: geen arcering, 40 ballen vanaf ronde 1
+
+Verduidelijking na eerdere heen-en-weer: géén arcering (effen/vlak), en
+40 ballen moeten meteen zichtbaar zijn — niet pas opgebouwd tegen ronde 10.
+
+- Achtergrond-schema (dat per ronde opliep) teruggebracht naar een vaste constante (37, + 3-6 doelen = 40-43 totaal, elke ronde gelijk).
+- Arcering definitief verwijderd — effen, vlakke donkere ballen.
+- **Getest**: ronde 1 bevestigd op 40 ballen (niet pas later), 0 hatch-lijnen getekend, 0 overlap over 780 gecontroleerde paren. Classic en Getallen volgen apart geregressietest — beide ongewijzigd en foutloos.
+
 ## Patroon — arcering teruggezet, dichtheid naar 40 ballen
 
 - Correctie op mijn vorige interpretatie: arcering was abusievelijk verwijderd, nu teruggezet (diagonale lijntjes op de donkere rustballen).

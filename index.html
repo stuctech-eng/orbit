@@ -1771,7 +1771,9 @@
   // Achtergrondballen groeien nu MEE met de ronde: eerst weinig (grote
   // ballen), later veel (klein, scherm echt vol) — op verzoek, in plaats
   // van een vast aantal.
-  const PATTERN_BG_SCHEDULE = [1, 3, 5, 8, 11, 14, 18, 22, 27, 34]; // ronde 10 totaal = 34+6 = 40 ballen
+  // Constant vanaf ronde 1 — 40 ballen zichtbaar vanaf het begin, niet pas
+  // opgebouwd tegen het einde van de sessie.
+  const PATTERN_BG_COUNT = 37; // + 3-6 doelballen = 40-43 totaal, elke ronde
   const PATTERN_PRE_FLASH_DELAY = 400;   // ms rust vóór de doelballen oplichten, zodat het veld eerst even "landt"
   const PATTERN_MEMORY_DURATION = 1500;  // ms dat de doelballen gelijktijdig wit zijn
   const PATTERN_MAX_ERRORS = 3;
@@ -1845,7 +1847,7 @@
 
   function startPatternRound(idx) {
     const targetCount = PATTERN_ROUND_SCHEDULE[idx];
-    const bgCount = PATTERN_BG_SCHEDULE[idx];
+    const bgCount = PATTERN_BG_COUNT;
     patternTargetCount = targetCount;
     patternSelectedCount = 0;
     patternActive = true;
@@ -1996,26 +1998,13 @@
       ctx.fill();
       ctx.shadowBlur = 0;
     } else {
-      // Rust-staat: donker, licht gearceerd — duidelijk zichtbaar, niet fel.
+      // Rust-staat: donker, effen/vlak — duidelijk zichtbaar, niet fel.
       // Dit is nu de norm (het hele memory field), wit is de uitzondering.
+      // Geen arcering — bevestigd, expliciet niet gewenst.
       ctx.beginPath();
       ctx.arc(0, 0, b.r, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(50,50,56,0.92)';
       ctx.fill();
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-      ctx.lineWidth = 1.5;
-      const step = b.r * 0.55;
-      for (let o = -b.r * 1.6; o < b.r * 1.6; o += step) {
-        ctx.beginPath();
-        ctx.moveTo(o - b.r, -b.r);
-        ctx.lineTo(o + b.r, b.r);
-        ctx.stroke();
-      }
-      ctx.restore();
       ctx.beginPath();
       ctx.arc(0, 0, b.r, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
