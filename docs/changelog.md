@@ -62,6 +62,19 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Getest**: marge onderaan nu bevestigd op 58px (ruim boven de 50px-ondergrens), nog steeds 0 overlap bij 32 ballen.
 - Classic, Getallen volgen en Sequence Memory apart geregressietest — alle drie ongewijzigd en foutloos.
 
+## ORBIT — "Score" geschrapt als universeel concept, record = natuurlijke voortgangsmaat
+
+Implementatie van het vastgelegde ontwerpbesluit, na audit (zie SCORE_AUDIT_RAPPORT.md).
+
+- **Getallen volgen**: scoreformule (`ballen×100−fouten×30`) volledig verwijderd uit spelervaring én recordbepaling. Game Over toont nu "NIEUW RECORD"/"BESTE" + het aantal ballen als kop, Fouten/Tijd blijven informatief eronder. Record-vergelijking nu op `.balls`, niet meer op een berekende score.
+- **Patroon**: kreeg een eigen recordsysteem (`save.patternBest`, vergeleken op ballen) — bestond nog niet. Game Over toont nu ook "NIEUW RECORD"/"BESTE" + ballen.
+- **Sequence Memory**: zelfde nieuwe recordsysteem (`save.sequenceBest`, vergeleken op reeks-lengte). Game Over toont "NIEUW RECORD"/"BESTE" + een kaal getal, geen eenheid — exact zoals het eigen voorbeeld in het besluit.
+- **Classic**: interne `save.score`/`save.highestScore`-mechanica bewust ongemoeid gelaten (voorkomt onnodig risico, is technisch nergens meer relevant), maar nergens meer aan de speler getoond. Spelmodus-kaart toont nu "Beste level: X" i.p.v. "Hoogste score: X".
+- **Statistieken-overlay volledig herzien**: toont nu één sectie per modus (Classic/Getallen volgen/Patroon/Sequence Memory) met hun eigen natuurlijke record, plus "Totaal gespeeld". De oude losse velden (Hoogste score, Cognitive Rating, Correcte antwoorden, Speeltijd, Sessies, Laatste keer gespeeld) zijn vervallen — geen verzonnen ORBIT-score, geen ratio's.
+- Opgeruimd: drie nu dode functies (`cognitiveRating`, `formatPlayTime`, `formatLastPlayed`) en de bijbehorende legacy score-backfill-migratiecode.
+- Save-race-bescherming (`persistSave()`) uitgebreid met dezelfde merge-logica voor `patternBest`/`sequenceBest` als al bestond voor `trackingBest`.
+- **Getest**: alle drie Game Over-schermen bevestigd met screenshots (NIEUW RECORD-format correct, geen score-element meer in Getallen volgen), Statistieken-overlay met alle vier modi correct gevuld, Classic Mode apart geregressietest (foutloos) en kaart-tekst bevestigd bijgewerkt.
+
 ## Sequence Memory — correct getikte ballen blijven wit
 
 - Elke correct getikte bal blijft nu wit staan (was: alleen een korte sprankel-pulse die weer wegdooft) — zelfde mechanisme als Patroon.

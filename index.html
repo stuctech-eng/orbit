@@ -564,6 +564,13 @@
     color: rgba(255,255,255,0.45);
     margin-bottom: 20px;
   }
+  .tgo-recordlabel {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 10px;
+  }
+  .tgo-recordlabel.new { color: #ffffff; font-weight: 500; }
   .tgo-score {
     font-size: 44px;
     font-weight: 300;
@@ -577,6 +584,7 @@
     color: rgba(255,255,255,0.35);
     margin-bottom: 30px;
   }
+  .tgo-scorelabel:empty { margin-bottom: 0; }
   .tgo-stats { margin-bottom: 28px; }
   .tgo-row {
     display: flex;
@@ -755,6 +763,15 @@
     text-transform: uppercase;
     margin-bottom: 32px;
   }
+  #statsOverlay .statGroupLabel {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    margin-top: 18px;
+    margin-bottom: 4px;
+  }
+  #statsOverlay .statGroupLabel:first-of-type { margin-top: 0; }
   #statsOverlay .statRow {
     display: flex;
     align-items: baseline;
@@ -795,14 +812,13 @@
 <div id="trackingGameOver">
   <div class="tgo-panel">
     <div class="tgo-title">GAME OVER</div>
-    <div class="tgo-score" id="tgoScore">–</div>
-    <div class="tgo-scorelabel">SCORE</div>
+    <div class="tgo-recordlabel" id="tgoRecordLabel">–</div>
+    <div class="tgo-score" id="tgoBig">–</div>
+    <div class="tgo-scorelabel" id="tgoUnit">BALLEN</div>
     <div class="tgo-stats">
-      <div class="tgo-row"><span class="tgo-label">Ballen</span><span class="tgo-value" id="tgoBalls">–</span></div>
       <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="tgoErrors">–</span></div>
       <div class="tgo-row"><span class="tgo-label">Tijd</span><span class="tgo-value" id="tgoTime">–</span></div>
     </div>
-    <div class="tgo-record" id="tgoRecord">–</div>
     <button class="tgo-retry" id="tgoRetryBtn">↺ Opnieuw proberen</button>
     <button class="tgo-home" id="tgoHomeBtn">🏠 Home</button>
   </div>
@@ -811,12 +827,14 @@
 <div id="patternGameOver">
   <div class="tgo-panel">
     <div class="tgo-title">GAME OVER</div>
-    <div class="tgo-stats" style="margin-top:8px;">
-      <div class="tgo-row"><span class="tgo-label">Ronde bereikt</span><span class="tgo-value" id="pgoBalls">–</span></div>
+    <div class="tgo-recordlabel" id="pgoRecordLabel">–</div>
+    <div class="tgo-score" id="pgoBig">–</div>
+    <div class="tgo-scorelabel" id="pgoUnit">BALLEN</div>
+    <div class="tgo-stats">
       <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="pgoErrors">–</span></div>
       <div class="tgo-row"><span class="tgo-label">Tijd</span><span class="tgo-value" id="pgoTime">–</span></div>
     </div>
-    <button class="tgo-retry" id="pgoRetryBtn" style="margin-top:28px;">↺ Opnieuw proberen</button>
+    <button class="tgo-retry" id="pgoRetryBtn">↺ Opnieuw proberen</button>
     <button class="tgo-home" id="pgoHomeBtn">🏠 Home</button>
   </div>
 </div>
@@ -824,12 +842,14 @@
 <div id="sequenceGameOver">
   <div class="tgo-panel">
     <div class="tgo-title">GAME OVER</div>
-    <div class="tgo-stats" style="margin-top:8px;">
-      <div class="tgo-row"><span class="tgo-label">Reeks bereikt</span><span class="tgo-value" id="sgoLength">–</span></div>
+    <div class="tgo-recordlabel" id="sgoRecordLabel">–</div>
+    <div class="tgo-score" id="sgoBig">–</div>
+    <div class="tgo-scorelabel" id="sgoUnit"></div>
+    <div class="tgo-stats">
       <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="sgoErrors">–</span></div>
       <div class="tgo-row"><span class="tgo-label">Tijd</span><span class="tgo-value" id="sgoTime">–</span></div>
     </div>
-    <button class="tgo-retry" id="sgoRetryBtn" style="margin-top:28px;">↺ Opnieuw proberen</button>
+    <button class="tgo-retry" id="sgoRetryBtn">↺ Opnieuw proberen</button>
     <button class="tgo-home" id="sgoHomeBtn">🏠 Home</button>
   </div>
 </div>
@@ -920,14 +940,16 @@
 </div>
 
 <div id="statsOverlay">
-  <div class="title">Statistieken</div>
-  <div class="statRow"><span class="label">Hoogste level</span><span class="value" id="statsHighLevel">–</span></div>
-  <div class="statRow"><span class="label">Hoogste score</span><span class="value" id="statsHighScore">–</span></div>
-  <div class="statRow"><span class="label">Cognitive Rating</span><span class="value" id="statsRating">–</span></div>
-  <div class="statRow"><span class="label">Correcte antwoorden</span><span class="value" id="statsCorrect">–</span></div>
-  <div class="statRow"><span class="label">Speeltijd</span><span class="value" id="statsPlayTime">–</span></div>
-  <div class="statRow"><span class="label">Sessies</span><span class="value" id="statsSessions">–</span></div>
-  <div class="statRow"><span class="label">Laatste keer gespeeld</span><span class="value" id="statsLastPlayed">–</span></div>
+  <div class="title">Mijn statistieken</div>
+  <div class="statGroupLabel">Classic</div>
+  <div class="statRow"><span class="label">Beste level</span><span class="value" id="statsClassic">–</span></div>
+  <div class="statGroupLabel">Getallen volgen</div>
+  <div class="statRow"><span class="label">Beste</span><span class="value" id="statsTracking">–</span></div>
+  <div class="statGroupLabel">Patroon</div>
+  <div class="statRow"><span class="label">Beste</span><span class="value" id="statsPattern">–</span></div>
+  <div class="statGroupLabel">Sequence Memory</div>
+  <div class="statRow"><span class="label">Beste</span><span class="value" id="statsSequence">–</span></div>
+  <div class="statRow" style="margin-top:14px;"><span class="label">Totaal gespeeld</span><span class="value" id="statsSessions">–</span></div>
   <button class="close" id="closeStatsOverlay">Sluiten</button>
 </div>
 
@@ -1202,15 +1224,6 @@
   if (typeof save.currentStreak !== 'number') save.currentStreak = 0;
   if (typeof save.currentErrorStreak !== 'number') save.currentErrorStreak = 0;
   if (typeof save.plateauRounds !== 'number') save.plateauRounds = 0;
-  // Migratie: oudere saves hadden trackingBest/trackingLast zonder score-veld.
-  // Backfill met de huidige formule zodat "BESTE SCORE: undefined" nooit
-  // meer kan gebeuren.
-  if (save.trackingBest && typeof save.trackingBest.score !== 'number') {
-    save.trackingBest.score = Math.max(0, save.trackingBest.balls * 100 - save.trackingBest.errors * 30);
-  }
-  if (save.trackingLast && typeof save.trackingLast.score !== 'number') {
-    save.trackingLast.score = Math.max(0, save.trackingLast.balls * 100 - save.trackingLast.errors * 30);
-  }
   save.sessions++; // one launch of the app = one session, counted immediately (not per round)
   let sessionStart = now();
   let continuousPlayStart = now(); // for the fatigue easing factor — resets on resume/new session, not on every save
@@ -1236,9 +1249,19 @@
         save.sessions = Math.max(save.sessions, onDisk.sessions || 0);
         save.tutorialCompleted = save.tutorialCompleted || !!onDisk.tutorialCompleted;
         if (onDisk.trackingBest) {
-          const onDiskScore = typeof onDisk.trackingBest.score === 'number' ? onDisk.trackingBest.score : Math.max(0, onDisk.trackingBest.balls * 100 - (onDisk.trackingBest.errors || 0) * 30);
-          const currentScore = save.trackingBest ? (typeof save.trackingBest.score === 'number' ? save.trackingBest.score : save.trackingBest.balls * 100) : -1;
-          if (onDiskScore > currentScore) save.trackingBest = onDisk.trackingBest;
+          const onDiskBalls = onDisk.trackingBest.balls || 0;
+          const currentBalls = save.trackingBest ? (save.trackingBest.balls || 0) : -1;
+          if (onDiskBalls > currentBalls) save.trackingBest = onDisk.trackingBest;
+        }
+        if (onDisk.patternBest) {
+          const onDiskBalls = onDisk.patternBest.balls || 0;
+          const currentBalls = save.patternBest ? (save.patternBest.balls || 0) : -1;
+          if (onDiskBalls > currentBalls) save.patternBest = onDisk.patternBest;
+        }
+        if (onDisk.sequenceBest) {
+          const onDiskLength = onDisk.sequenceBest.length || 0;
+          const currentLength = save.sequenceBest ? (save.sequenceBest.length || 0) : -1;
+          if (onDiskLength > currentLength) save.sequenceBest = onDisk.sequenceBest;
         }
       }
       localStorage.setItem(SAVE_KEY, JSON.stringify(save));
@@ -1252,13 +1275,6 @@
 
   // Simple, transparent formula: mostly accuracy, with a smaller boost for
   // how far up the ladder the player has reached. 0-100 scale.
-  function cognitiveRating(s) {
-    if (s.totalRounds === 0) return 0;
-    const accuracy = s.totalCorrect / s.totalRounds;
-    const levelFactor = Math.min(1, s.highestLadderIndex / LADDER.length);
-    return Math.round((accuracy * 0.7 + levelFactor * 0.3) * 100);
-  }
-
   // ---------- Utility ----------
   function rand(min, max) { return Math.random() * (max - min) + min; }
   function now() { return performance.now(); }
@@ -1705,15 +1721,11 @@
   function endTrackingSession() {
     trackingActive = false;
     const elapsedMs = now() - trackingSessionStart;
-    // Ballen = voortgang/level. Score = kwaliteit van déze run — een aparte
-    // as, nooit samengevoegd tot een tweede levelsysteem, nooit opgeteld
-    // over meerdere sessies. Fouten hebben al hun grote consequentie via
-    // de 3-fouten-regel; de score hoeft dat niet nog eens zwaar te
-    // bestraffen, vandaar een lichte aftrek in plaats van een harde straf.
-    const score = Math.max(0, trackingBallCount * 100 - trackingSessionErrors * 30);
-    const result = { balls: trackingBallCount, errors: trackingSessionErrors, timeMs: Math.round(elapsedMs), score };
+    // Geen score meer — record is simpelweg het hoogste aantal behaalde
+    // ballen, de natuurlijke voortgangsmaat van deze modus.
+    const result = { balls: trackingBallCount, errors: trackingSessionErrors, timeMs: Math.round(elapsedMs) };
 
-    const isNewBest = !save.trackingBest || result.score > save.trackingBest.score;
+    const isNewBest = !save.trackingBest || result.balls > save.trackingBest.balls;
     if (isNewBest) save.trackingBest = result;
     save.trackingLast = result;
     persistSave();
@@ -1722,19 +1734,17 @@
   }
 
   const trackingGameOverEl = document.getElementById('trackingGameOver');
-  const tgoScoreEl = document.getElementById('tgoScore');
-  const tgoBallsEl = document.getElementById('tgoBalls');
+  const tgoRecordLabelEl = document.getElementById('tgoRecordLabel');
+  const tgoBigEl = document.getElementById('tgoBig');
   const tgoErrorsEl = document.getElementById('tgoErrors');
   const tgoTimeEl = document.getElementById('tgoTime');
-  const tgoRecordEl = document.getElementById('tgoRecord');
 
   function showTrackingGameOver(result, best, isNewBest) {
-    tgoScoreEl.textContent = String(result.score);
-    tgoBallsEl.textContent = String(result.balls);
+    tgoRecordLabelEl.textContent = isNewBest ? 'NIEUW RECORD' : 'BESTE';
+    tgoRecordLabelEl.classList.toggle('new', isNewBest);
+    tgoBigEl.textContent = String(isNewBest ? result.balls : best.balls);
     tgoErrorsEl.textContent = String(result.errors);
     tgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
-    tgoRecordEl.textContent = isNewBest ? 'NIEUW RECORD' : ('BESTE SCORE: ' + best.score);
-    tgoRecordEl.classList.toggle('new', isNewBest);
     trackingGameOverEl.classList.add('visible');
   }
   function hideTrackingGameOver() {
@@ -1997,13 +2007,13 @@
   function endPatternSession() {
     patternActive = false;
     const elapsedMs = now() - patternSessionStart;
-    // Bewust geen score/record in deze fase — dat wordt later apart
-    // ontworpen, geen verzonnen getal tonen.
-    showPatternGameOver({
-      balls: patternTargetCount,
-      errors: patternSessionErrors,
-      timeMs: Math.round(elapsedMs)
-    });
+    const result = { balls: patternTargetCount, errors: patternSessionErrors, timeMs: Math.round(elapsedMs) };
+
+    const isNewBest = !save.patternBest || result.balls > save.patternBest.balls;
+    if (isNewBest) save.patternBest = result;
+    persistSave();
+
+    showPatternGameOver(result, save.patternBest, isNewBest);
   }
 
   function drawPatternBall(b, t) {
@@ -2080,11 +2090,14 @@
   }
 
   const patternGameOverEl = document.getElementById('patternGameOver');
-  const pgoBallsEl = document.getElementById('pgoBalls');
+  const pgoRecordLabelEl = document.getElementById('pgoRecordLabel');
+  const pgoBigEl = document.getElementById('pgoBig');
   const pgoErrorsEl = document.getElementById('pgoErrors');
   const pgoTimeEl = document.getElementById('pgoTime');
-  function showPatternGameOver(result) {
-    pgoBallsEl.textContent = String(result.balls);
+  function showPatternGameOver(result, best, isNewBest) {
+    pgoRecordLabelEl.textContent = isNewBest ? 'NIEUW RECORD' : 'BESTE';
+    pgoRecordLabelEl.classList.toggle('new', isNewBest);
+    pgoBigEl.textContent = String(isNewBest ? result.balls : best.balls);
     pgoErrorsEl.textContent = String(result.errors);
     pgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
     patternGameOverEl.classList.add('visible');
@@ -2281,19 +2294,24 @@
   function endSequenceSession() {
     sequenceActive = false;
     const elapsedMs = now() - sequenceSessionStart;
-    showSequenceGameOver({
-      length: sequenceLength,
-      errors: sequenceSessionErrors,
-      timeMs: Math.round(elapsedMs)
-    });
+    const result = { length: sequenceLength, errors: sequenceSessionErrors, timeMs: Math.round(elapsedMs) };
+
+    const isNewBest = !save.sequenceBest || result.length > save.sequenceBest.length;
+    if (isNewBest) save.sequenceBest = result;
+    persistSave();
+
+    showSequenceGameOver(result, save.sequenceBest, isNewBest);
   }
 
   const sequenceGameOverEl = document.getElementById('sequenceGameOver');
-  const sgoLengthEl = document.getElementById('sgoLength');
+  const sgoRecordLabelEl = document.getElementById('sgoRecordLabel');
+  const sgoBigEl = document.getElementById('sgoBig');
   const sgoErrorsEl = document.getElementById('sgoErrors');
   const sgoTimeEl = document.getElementById('sgoTime');
-  function showSequenceGameOver(result) {
-    sgoLengthEl.textContent = String(result.length);
+  function showSequenceGameOver(result, best, isNewBest) {
+    sgoRecordLabelEl.textContent = isNewBest ? 'NIEUW RECORD' : 'BESTE';
+    sgoRecordLabelEl.classList.toggle('new', isNewBest);
+    sgoBigEl.textContent = String(isNewBest ? result.length : best.length);
     sgoErrorsEl.textContent = String(result.errors);
     sgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
     sequenceGameOverEl.classList.add('visible');
@@ -3350,36 +3368,12 @@
 
 
   // Minimalist duration formatting — "45m", "2u 15m", never raw ms.
-  function formatPlayTime(ms) {
-    const totalMinutes = Math.floor(ms / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours > 0) return `${hours}u ${minutes}m`;
-    return `${minutes}m`;
-  }
-
-  function formatLastPlayed(iso) {
-    if (!iso) return 'Nu (eerste keer)';
-    const d = new Date(iso);
-    const today = new Date();
-    const sameDay = d.toDateString() === today.toDateString();
-    if (sameDay) {
-      return `Vandaag, ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-    }
-    return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
-  }
-
   function refreshStatsOverlay() {
-    // Includes the current, not-yet-persisted portion of this session so
-    // the number feels alive rather than stuck at the last save point.
-    const liveMs = save.totalPlayTimeMs + (now() - sessionStart);
-    document.getElementById('statsHighLevel').textContent = String(save.highestLadderIndex + 1);
-    document.getElementById('statsHighScore').textContent = String(save.highestScore);
-    document.getElementById('statsRating').textContent = String(cognitiveRating(save));
-    document.getElementById('statsCorrect').textContent = String(save.totalCorrect);
-    document.getElementById('statsPlayTime').textContent = formatPlayTime(liveMs);
+    document.getElementById('statsClassic').textContent = save.highestLadderIndex > 0 ? String(save.highestLadderIndex + 1) : '–';
+    document.getElementById('statsTracking').textContent = save.trackingBest ? `${save.trackingBest.balls} ballen` : '–';
+    document.getElementById('statsPattern').textContent = save.patternBest ? `${save.patternBest.balls} ballen` : '–';
+    document.getElementById('statsSequence').textContent = save.sequenceBest ? String(save.sequenceBest.length) : '–';
     document.getElementById('statsSessions').textContent = String(save.sessions);
-    document.getElementById('statsLastPlayed').textContent = formatLastPlayed(save.lastPlayed);
   }
 
   function updateIndicatorVisibility() {
@@ -3599,12 +3593,18 @@
 
   function bestScoreText(modeKey) {
     if (modeKey === 'classic') {
-      return save.highestScore > 0 ? `Hoogste score: ${save.highestScore}` : '';
+      return save.highestLadderIndex > 0 ? `Beste level: ${save.highestLadderIndex + 1}` : '';
     }
     if (modeKey === 'tracking') {
-      return save.trackingBest ? `Beste score: ${save.trackingBest.score}` : '';
+      return save.trackingBest ? `Beste: ${save.trackingBest.balls} ballen` : '';
     }
-    return ''; // pattern: geen score-/recordsysteem in deze fase, bewust leeg
+    if (modeKey === 'pattern') {
+      return save.patternBest ? `Beste: ${save.patternBest.balls} ballen` : '';
+    }
+    if (modeKey === 'sequence') {
+      return save.sequenceBest ? `Beste: ${save.sequenceBest.length}` : '';
+    }
+    return '';
   }
 
   function openModeSelect() {
