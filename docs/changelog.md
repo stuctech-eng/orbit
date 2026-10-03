@@ -55,6 +55,13 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## BUG: onderste rij ballen te krap tegen schermrand (Patroon + Sequence Memory)
+
+- **Root cause:** marge onderaan stond op 36px — nauwelijks meer dan de duim-indicator-ruimte zelf, waardoor de onderste rij tegen de rand aan oogde en op een echt toestel (met home-indicator) deels afgesneden leek.
+- **Fix:** marge onderaan naar 55px. Geldt automatisch voor zowel Patroon als Sequence Memory, want beide delen dezelfde plaatsingsfunctie.
+- **Getest**: marge onderaan nu bevestigd op 58px (ruim boven de 50px-ondergrens), nog steeds 0 overlap bij 32 ballen.
+- Classic, Getallen volgen en Sequence Memory apart geregressietest — alle drie ongewijzigd en foutloos.
+
 ## Sequence Memory — correct getikte ballen blijven wit
 
 - Elke correct getikte bal blijft nu wit staan (was: alleen een korte sprankel-pulse die weer wegdooft) — zelfde mechanisme als Patroon.
