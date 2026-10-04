@@ -55,6 +55,19 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Sequence Memory — correctie: échte Simon-mechaniek (cumulatief + exacte herhaling)
+
+Terechte correctie: mijn eerdere implementatie genereerde bij elke ronde een volledig nieuwe, losse reeks — dat is geen Simon. Echte Simon bouwt de reeks cumulatief op (elke level = vorige reeks + 1 nieuwe stap, alle eerdere stappen ongewijzigd) en herhaalt bij een fout exact diezelfde reeks.
+
+- **Balposities nu stabiel binnen een sessie**: plaatsing (`placePatternPositions()`) gebeurt voortaan maar op twee momenten — bij sessiestart en ná een rij-vrijgave — niet meer elke ronde. Dit was noodzakelijk: de plaatsingsfunctie hustelt de index→positie-toewijzing bij elke aanroep, dus zonder deze wijziging zou "stap 2" na een reshuffle ineens ergens anders op het scherm staan.
+- **Succes**: reeks groeit met exact één nieuwe stap (`sequenceOrder.push(...)`), alle eerdere stappen blijven letterlijk ongewijzigd.
+- **Fout**: reeks blijft volledig ongewijzigd — exacte herhaling, geen nieuwe generatie.
+- **Overgang naar Fase 3**: hier wél een volledig verse reeks (nieuwe cyclus, geen voortzetting) — zoals al vastgelegd.
+- `startSequenceRound()` doet nu alleen nog een lichte invoer-/weergave-reset; veldopbouw is losgekoppeld naar een nieuwe `setupSequenceField()`.
+- Resize-safety-mechanisme aangepast: een echte viewport-wijziging regenereert noodgedwongen het veld (oude posities passen niet meer), dus daar blijft de lengte behouden maar schuiven posities mee — een zeldzame edge case, geen manier om dat te vermijden.
+- **Getest** (via directe state-inspectie): ronde 2's reeks bevestigd als ronde 1's reeks + precies 1 nieuwe stap; ná een fout bevestigd dat de reeks letterlijk identiek blijft (zelfde array); balposities bevestigd 0 verschillen tussen rondes; Game Over bij 3 fouten blijft werken.
+- Classic, Getallen volgen, Patroon: apart geregressietest, alle drie ongewijzigd en foutloos.
+
 ## Sequence Memory — Simon-fase gebouwd (Fase 1 + overgang, exact binnen scope)
 
 Precies binnen de vastgelegde, aangescherpte scope: Fase 1 volledig, de overgang naar Fase 3 volledig, Fase 3's inhoud bewust NIET gebouwd (geen placeholder-randomizer).

@@ -2302,26 +2302,31 @@
     sequencePhase = 'simon';
     sequenceLength = SEQUENCE_SIMON_START;
     sequenceRoundOutcome = null;
+
+    // Veld één keer opbouwen, en de allereerste reeks genereren — die
+    // groeit vanaf nu cumulatief verder (zie finishSequenceRound).
+    setupSequenceField();
+    sequenceOrder = [];
+    for (let i = 0; i < SEQUENCE_SIMON_START; i++) {
+      sequenceOrder.push(sequenceVisibleIndices[Math.floor(rand(0, sequenceVisibleIndices.length))]);
+    }
   }
 
-  function startSequenceRound() {
-    // sequenceLength wordt door de aanroeper al op de juiste waarde gezet
-    // (finishSequenceRound() voor de Simon-progressie/overgang, of de
-    // resize-safety-check hieronder, die 'm ongemoeid laat).
-    sequenceInputIndex = 0;
-    sequenceActive = true;
+  // Bal-posities/veld worden maar op twee momenten (her)opgebouwd: bij
+  // sessiestart, en na een rij-vrijgave. NIET elke ronde — anders zouden
+  // de indices in sequenceOrder (die cumulatief over rondes heen blijven
+  // bestaan, zie finishSequenceRound) bij elke ronde naar een andere
+  // willekeurige plek op het scherm wijzen, wat een Simon-achtige
+  // "dezelfde plek, groeiende reeks"-ervaring onmogelijk zou maken.
+  let sequenceVisibleIndices = [];
+  function setupSequenceField() {
     sequenceBalls = [];
-    sequenceResizeW = W; sequenceResizeH = H;
-
-    // Exact hetzelfde speelveld en dezelfde plaatsingslogica als Patroon.
     const positions = placePatternPositions(PATTERN_BALL_R_MIN);
     sequenceBallR = patternBallR; // zie audit-opmerking hierboven
-    const total = positions.length;
-
-    const visibleIndices = [];
-    for (let i = 0; i < total; i++) {
+    sequenceVisibleIndices = [];
+    for (let i = 0; i < positions.length; i++) {
       const hidden = positions[i].cy < sequenceTopRow || positions[i].cy > sequenceBottomRow;
-      if (!hidden) visibleIndices.push(i);
+      if (!hidden) sequenceVisibleIndices.push(i);
       sequenceBalls.push({
         x: positions[i].x, y: positions[i].y, r: sequenceBallR, cy: positions[i].cy,
         hidden,
@@ -2330,16 +2335,15 @@
         revealFade: 1
       });
     }
+  }
 
-    // Willekeurige sequence van `length` bal-indices, uitsluitend uit de
-    // ZICHTBARE posities — een verborgen bal kan nooit in de reeks zitten.
-    // Herhaling blijft uitdrukkelijk toegestaan — een zichtbare positie
-    // mag meerdere keren voorkomen.
-    sequenceOrder = [];
-    for (let i = 0; i < sequenceLength; i++) {
-      sequenceOrder.push(visibleIndices[Math.floor(rand(0, visibleIndices.length))]);
-    }
-
+  function startSequenceRound() {
+    // Posities/sequenceOrder zijn door de aanroeper al klaargezet —
+    // hier alleen de invoer-/weergavestate voor DEZE ronde resetten.
+    sequenceInputIndex = 0;
+    sequenceActive = true;
+    sequenceResizeW = W; sequenceResizeH = H;
+    for (const b of sequenceBalls) { b.selected = false; b.feedback = 0; b.feedbackColor = null; }
     sequenceShowing = true;
     sequenceShowStart = now();
   }
@@ -2420,24 +2424,33 @@
     sequenceRoundNumber++;
 
     if (sequenceRoundOutcome === null) {
-      // Sessie-start-overgang (naar ronde 1) — geen eerdere poging om te
-      // beoordelen, dus de lengte blijft exact SEQUENCE_SIMON_START.
+      // Sessie-start-overgang (naar ronde 1) — sequenceOrder is al door
+      // startSequenceSession() gezet, hier niets aan doen.
     } else if (sequenceRoundOutcome === 'success') {
       if (sequencePhase === 'simon') {
-        sequenceLength++;
+        // Echte Simon-opbouw: de reeks GROEIT — exact één nieuwe stap
+        // erbij, alle vorige stappen blijven ongewijzigd staan (zelfde
+        // posities, zelfde volgorde).
+        sequenceOrder.push(sequenceVisibleIndices[Math.floor(rand(0, sequenceVisibleIndices.length))]);
+        sequenceLength = sequenceOrder.length;
         if (sequenceLength > SEQUENCE_SIMON_MAX) {
-          // De overgang — gebeurt precies één keer, op dit exacte moment.
+          // De overgang — gebeurt precies één keer. Nieuwe cyclus, dus
+          // hier WEL een geheel verse reeks (geen voortzetting).
           sequencePhase = 'adaptive';
           sequenceLength = SEQUENCE_RESET_LENGTH;
+          sequenceOrder = [];
+          for (let i = 0; i < SEQUENCE_RESET_LENGTH; i++) {
+            sequenceOrder.push(sequenceVisibleIndices[Math.floor(rand(0, sequenceVisibleIndices.length))]);
+          }
         }
       }
       // Fase 'adaptive': bewust nog GEEN inhoudelijke berekening — de
-      // lengte blijft op SEQUENCE_RESET_LENGTH staan totdat de
-      // random/adaptieve regels zijn ontworpen (zie SEQUENCE_SIMON_BOUWPLAN.md).
-      // Geen placeholder-randomizer, zoals afgesproken.
+      // reeks blijft exact zoals hij nu is totdat de random/adaptieve
+      // regels zijn ontworpen (zie SEQUENCE_SIMON_BOUWPLAN.md). Geen
+      // placeholder-randomizer, zoals afgesproken.
     }
-    // Bij 'fail': sequenceLength blijft bewust ongewijzigd — dezelfde
-    // lengte wordt hieronder opnieuw aangeboden.
+    // Bij 'fail': sequenceOrder blijft LETTERLIJK ongewijzigd — exacte
+    // herhaling van dezelfde reeks, zoals bij echte Simon.
 
     // Geen aparte moeilijkheidsstap — onderdeel van deze level-up, exact
     // zoals bij Patroon.
@@ -2459,10 +2472,12 @@
       sequenceTopRow--;
       sequenceNextRevealSide = 'bottom';
     }
-    for (const b of sequenceBalls) {
+    for (let i = 0; i < sequenceBalls.length; i++) {
+      const b = sequenceBalls[i];
       if (b.cy >= sequenceTopRow && b.cy <= sequenceBottomRow && b.hidden) {
         b.hidden = false;
         b.revealFade = 0;
+        sequenceVisibleIndices.push(i); // nieuw-zichtbaar: vanaf nu ook bruikbaar voor de reeks
       }
     }
     sequenceRevealing = true;
@@ -2524,6 +2539,16 @@
     // voor de volledige toelichting.
     if (sequenceActive && !sequenceShowing && !sequenceAwaitingNextRound && !sequenceRevealing
       && (Math.abs(W - sequenceResizeW) > 8 || Math.abs(H - sequenceResizeH) > 8)) {
+      // Een echte viewport-wijziging vereist verse posities (de oude
+      // passen niet meer) — het veld wordt dan opnieuw opgebouwd, dus de
+      // balindices verschuiven sowieso. Lengte blijft gelijk, maar een
+      // vers gegenereerde reeks op die nieuwe posities (zeldzame edge
+      // case, geen manier om exacte plekken hier zinvol te behouden).
+      setupSequenceField();
+      sequenceOrder = [];
+      for (let i = 0; i < sequenceLength; i++) {
+        sequenceOrder.push(sequenceVisibleIndices[Math.floor(rand(0, sequenceVisibleIndices.length))]);
+      }
       startSequenceRound();
     }
     if (sequenceShowing) updateSequenceShow(t);
