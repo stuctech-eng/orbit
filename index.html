@@ -2245,6 +2245,19 @@
   // Sequentie-lengte is de primaire moeilijkheidsas — geen snelheid.
   const SEQUENCE_LENGTH_SCHEDULE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
+  // Zelfde cover-mechanisme als Patroon, exact gespiegeld — zelfde
+  // gedeelde speelveld, dus dezelfde logica. Geïsoleerde configuratie,
+  // placeholder-waarden, nog niet definitief (zelfde als Patroon's
+  // startwaarden, als redelijk uitgangspunt).
+  const SEQUENCE_ROW_REVEAL_ROUNDS = [3, 6, 9, 12];
+  const SEQUENCE_REVEAL_DURATION_ROW = 900; // ms — rustige infade van een nieuwe rij (niet te verwarren met SEQUENCE_REVEAL_DURATION, dat is de flits-duur per bal)
+
+  let sequenceTopRow = 2;
+  let sequenceBottomRow = 5;
+  let sequenceNextRevealSide = 'top';
+  let sequenceRevealing = false;
+  let sequenceRevealStart = 0;
+
   let sequenceBalls = [];          // {x, y, r, marked, feedback, feedbackColor} — zelfde vorm als patternBalls
   let sequenceBallR = PATTERN_BALL_R_MIN;
   let sequenceOrder = [];          // array van bal-indices, lengte = sequenceLength, herhaling toegestaan
@@ -2269,6 +2282,11 @@
     sequenceShowing = false;
     sequenceAwaitingNextRound = true;
     sequenceRoundNextAt = now() + SEQUENCE_ROUND_PAUSE;
+    // Elke nieuwe sessie begint weer gecentreerd met 4 zichtbare rijen.
+    sequenceTopRow = 2;
+    sequenceBottomRow = 5;
+    sequenceNextRevealSide = 'top';
+    sequenceRevealing = false;
   }
 
   function startSequenceRound(idx) {
@@ -2284,20 +2302,26 @@
     sequenceBallR = patternBallR; // zie audit-opmerking hierboven
     const total = positions.length;
 
+    const visibleIndices = [];
     for (let i = 0; i < total; i++) {
+      const hidden = positions[i].cy < sequenceTopRow || positions[i].cy > sequenceBottomRow;
+      if (!hidden) visibleIndices.push(i);
       sequenceBalls.push({
-        x: positions[i].x, y: positions[i].y, r: sequenceBallR,
+        x: positions[i].x, y: positions[i].y, r: sequenceBallR, cy: positions[i].cy,
+        hidden,
         marked: false, selected: false,
-        feedback: 0, feedbackColor: null
+        feedback: 0, feedbackColor: null,
+        revealFade: 1
       });
     }
 
-    // Willekeurige sequence van `length` bal-indices. Herhaling
-    // uitdrukkelijk toegestaan — een positie mag meerdere keren
-    // voorkomen, dat is bewust onderdeel van de opdracht.
+    // Willekeurige sequence van `length` bal-indices, uitsluitend uit de
+    // ZICHTBARE posities — een verborgen bal kan nooit in de reeks zitten.
+    // Herhaling blijft uitdrukkelijk toegestaan — een zichtbare positie
+    // mag meerdere keren voorkomen.
     sequenceOrder = [];
     for (let i = 0; i < length; i++) {
-      sequenceOrder.push(Math.floor(rand(0, total)));
+      sequenceOrder.push(visibleIndices[Math.floor(rand(0, visibleIndices.length))]);
     }
 
     sequenceShowing = true;
@@ -2331,10 +2355,11 @@
   }
 
   function handleSequenceTap(x, y) {
-    if (!sequenceActive || sequenceShowing || sequenceAwaitingNextRound) return;
+    if (!sequenceActive || sequenceShowing || sequenceAwaitingNextRound || sequenceRevealing) return;
     let hit = -1, best = Infinity;
     for (let i = 0; i < sequenceBalls.length; i++) {
       const b = sequenceBalls[i];
+      if (b.hidden) continue; // verborgen onder de cover — kan nooit geraakt worden
       const d = Math.hypot(x - b.x, y - b.y);
       if (d <= b.r * TAP_HIT_TOLERANCE && d < best) { best = d; hit = i; }
     }
@@ -2365,8 +2390,48 @@
 
   function finishSequenceRound() {
     sequenceRoundNumber++;
+    // Geen aparte moeilijkheidsstap — onderdeel van deze level-up, exact
+    // zoals bij Patroon.
+    if (SEQUENCE_ROW_REVEAL_ROUNDS.includes(sequenceRoundNumber) && (sequenceTopRow > 0 || sequenceBottomRow < PATTERN_ROWS - 1)) {
+      revealSequenceRow();
+      return;
+    }
     const idx = Math.min(sequenceRoundNumber, SEQUENCE_LENGTH_SCHEDULE.length - 1);
     startSequenceRound(idx);
+  }
+
+  function revealSequenceRow() {
+    if (sequenceNextRevealSide === 'top' && sequenceTopRow > 0) {
+      sequenceTopRow--;
+      sequenceNextRevealSide = 'bottom';
+    } else if (sequenceBottomRow < PATTERN_ROWS - 1) {
+      sequenceBottomRow++;
+      sequenceNextRevealSide = 'top';
+    } else if (sequenceTopRow > 0) {
+      sequenceTopRow--;
+      sequenceNextRevealSide = 'bottom';
+    }
+    for (const b of sequenceBalls) {
+      if (b.cy >= sequenceTopRow && b.cy <= sequenceBottomRow && b.hidden) {
+        b.hidden = false;
+        b.revealFade = 0;
+      }
+    }
+    sequenceRevealing = true;
+    sequenceRevealStart = now();
+  }
+
+  function updateSequenceReveal(t) {
+    const elapsed = t - sequenceRevealStart;
+    const progress = Math.min(1, elapsed / SEQUENCE_REVEAL_DURATION_ROW);
+    for (const b of sequenceBalls) {
+      if (!b.hidden && b.revealFade < 1) b.revealFade = progress;
+    }
+    if (progress >= 1) {
+      sequenceRevealing = false;
+      const idx = Math.min(sequenceRoundNumber, SEQUENCE_LENGTH_SCHEDULE.length - 1);
+      startSequenceRound(idx);
+    }
   }
 
   function endSequenceSession() {
@@ -2410,11 +2475,12 @@
     drawBackground();
     // Zelfde zelfherstellende resize-check als Patroon — zie framePattern()
     // voor de volledige toelichting.
-    if (sequenceActive && !sequenceShowing && !sequenceAwaitingNextRound
+    if (sequenceActive && !sequenceShowing && !sequenceAwaitingNextRound && !sequenceRevealing
       && (Math.abs(W - sequenceResizeW) > 8 || Math.abs(H - sequenceResizeH) > 8)) {
       startSequenceRound(Math.max(0, sequenceRoundNumber));
     }
     if (sequenceShowing) updateSequenceShow(t);
+    if (sequenceRevealing) updateSequenceReveal(t);
     for (const b of sequenceBalls) drawPatternBall(b, t); // hergebruikt Patroon's rendering ongewijzigd
     if (sequenceAwaitingNextRound && t >= sequenceRoundNextAt) {
       sequenceAwaitingNextRound = false;
@@ -3194,6 +3260,7 @@
     if (patternShowing) patternShowStart += pausedMs; // same principle, Patroon's own timeline
     if (patternAwaitingNextRound) patternRoundNextAt += pausedMs;
     if (patternRevealing) patternRevealStart += pausedMs;
+    if (sequenceRevealing) sequenceRevealStart += pausedMs;
     if (trackingAwaitingNextRound) trackingRoundNextAt += pausedMs;
     if (sequenceShowing) sequenceShowStart += pausedMs; // same principle, Sequence Memory's own timeline
     if (sequenceAwaitingNextRound) sequenceRoundNextAt += pausedMs;

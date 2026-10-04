@@ -55,6 +55,18 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Sequence Memory — zelfde cover-mechanisme als Patroon
+
+Exact gespiegeld op Patroon's net gebouwde veldgroei-mechanisme — zelfde gedeelde speelveld (`placePatternPositions()`), dus dezelfde logica.
+
+- `sequenceTopRow`/`sequenceBottomRow` (grenzen), `SEQUENCE_ROW_REVEAL_ROUNDS = [3,6,9,12]` (geïsoleerde configuratie, zelfde placeholder-waarden als Patroon).
+- Sessie start altijd gecentreerd met 16 ballen (4 rijen).
+- De reeks-generator kiest voortaan uitsluitend uit zichtbare posities — een verborgen bal kan nooit in de sequence zitten (net zoals een verborgen bal bij Patroon nooit doelbal kan worden).
+- Tikken op een verborgen bal heeft geen effect; verborgen ballen worden niet getekend.
+- Rij-vrijgave: boven→onder→boven→onder, rustige infade, hergebruikt het bestaande pauze/auto-herstart-patroon — geen nieuwe architectuur.
+- **Getest**: 16 ballen bij sessiestart (screenshot bevestigd), na ronde 3 exact 20 ballen (screenshot bevestigd, bovenrij zichtbaar infadend).
+- Classic, Getallen volgen en Patroon apart geregressietest — alle drie ongewijzigd en foutloos (bevestigt dat de gedeelde plaatsingsfunctie voor beide modi intact blijft).
+
 ## Patroon — cover-mechanisme gebouwd (ORBIT Memory veldgroei)
 
 Volgens het vastgelegde ontwerp (zie COVER_MECHANISME_AUDIT.md), met de twee aanpassingen uit de laatste review: één zichtbare-rijen-representatie (grenzen i.p.v. losse tellers) en de vrijgavemomenten volledig geïsoleerd in één configuratie.
