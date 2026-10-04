@@ -2243,7 +2243,12 @@
   const SEQUENCE_MAX_ERRORS = 3;
   const SEQUENCE_ROUND_PAUSE = 1100;
   // Sequentie-lengte is de primaire moeilijkheidsas — geen snelheid.
-  const SEQUENCE_LENGTH_SCHEDULE = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  // Fase 1 — Simon: volledig voorspelbaar. Fase 3 (adaptief/random) is
+  // bewust NOG NIET inhoudelijk gebouwd — alleen de overgang ernaartoe.
+  // Geïsoleerde configuratie, placeholder-waarden waar aangegeven.
+  const SEQUENCE_SIMON_START = 3;
+  const SEQUENCE_SIMON_MAX = 10;        // placeholder — hoogste Simon-level
+  const SEQUENCE_RESET_LENGTH = 4;      // placeholder — lengte bij de overgang naar Fase 3
 
   // Zelfde cover-mechanisme als Patroon, exact gespiegeld — zelfde
   // gedeelde speelveld, dus dezelfde logica. Geïsoleerde configuratie,
@@ -2264,6 +2269,12 @@
   let sequenceInputIndex = 0;      // 0-based: hoeveel stappen van de sequence al correct ingevoerd
   let sequenceLength = 3;
   let sequenceRoundNumber = 0;
+  // 'simon' = Fase 1 (voorspelbaar, +1 bij goed). 'adaptive' = Fase 3 —
+  // de overgang ernaartoe is gebouwd, de inhoudelijke berekening bewust
+  // nog niet: lengte blijft op SEQUENCE_RESET_LENGTH staan totdat de
+  // random/adaptieve regels zijn ontworpen (zie SEQUENCE_SIMON_BOUWPLAN.md).
+  let sequencePhase = 'simon';
+  let sequenceRoundOutcome = null; // null (sessie net gestart) | 'success' | 'fail' — bepaalt wat finishSequenceRound() doet
   let sequenceSessionErrors = 0;
   let sequenceSessionStart = 0;
   let sequenceActive = false;
@@ -2287,11 +2298,16 @@
     sequenceBottomRow = 5;
     sequenceNextRevealSide = 'top';
     sequenceRevealing = false;
+    // Elke nieuwe sessie begint altijd weer bij Fase 1.
+    sequencePhase = 'simon';
+    sequenceLength = SEQUENCE_SIMON_START;
+    sequenceRoundOutcome = null;
   }
 
-  function startSequenceRound(idx) {
-    const length = SEQUENCE_LENGTH_SCHEDULE[Math.min(idx, SEQUENCE_LENGTH_SCHEDULE.length - 1)];
-    sequenceLength = length;
+  function startSequenceRound() {
+    // sequenceLength wordt door de aanroeper al op de juiste waarde gezet
+    // (finishSequenceRound() voor de Simon-progressie/overgang, of de
+    // resize-safety-check hieronder, die 'm ongemoeid laat).
     sequenceInputIndex = 0;
     sequenceActive = true;
     sequenceBalls = [];
@@ -2320,7 +2336,7 @@
     // Herhaling blijft uitdrukkelijk toegestaan — een zichtbare positie
     // mag meerdere keren voorkomen.
     sequenceOrder = [];
-    for (let i = 0; i < length; i++) {
+    for (let i = 0; i < sequenceLength; i++) {
       sequenceOrder.push(visibleIndices[Math.floor(rand(0, visibleIndices.length))]);
     }
 
@@ -2373,31 +2389,63 @@
       GameEvents.emit('correctAnswer');
       sequenceInputIndex++;
       if (sequenceInputIndex >= sequenceOrder.length) {
+        // Volledige poging correct: Simon-progressie (+1, of de overgang
+        // naar Fase 3) gebeurt in finishSequenceRound() hierna.
+        sequenceRoundOutcome = 'success';
         sequenceAwaitingNextRound = true;
         sequenceRoundNextAt = now() + SEQUENCE_ROUND_PAUSE;
       }
     } else {
-      // Kernregel (vastgelegd, geen giswerk): fout +1, maar de huidige
-      // sequencepositie blijft actief — NIET terug naar stap 1, NIET
-      // opnieuw tonen. sequenceInputIndex verandert hier bewust niet.
+      // Simon-regel (vastgelegd): een foute tik beëindigt de HUIDIGE
+      // poging direct — dit vervangt, voor wat er ná een fout gebeurt,
+      // de oudere regel die ervan uitging dat je op dezelfde stap kon
+      // blijven wachten tot een herkansing. Zelfde sequence-lengte wordt
+      // zo meteen opnieuw aangeboden, met een nieuw gegenereerde
+      // volgorde (anders zou de speler de foute poging kunnen onthouden).
       ball.feedback = 1; ball.feedbackColor = 'red';
       haptic([10, 40, 10]);
       GameEvents.emit('wrongAnswer');
       sequenceSessionErrors++;
-      if (sequenceSessionErrors >= SEQUENCE_MAX_ERRORS) endSequenceSession();
+      if (sequenceSessionErrors >= SEQUENCE_MAX_ERRORS) {
+        endSequenceSession();
+        return;
+      }
+      sequenceRoundOutcome = 'fail';
+      sequenceAwaitingNextRound = true;
+      sequenceRoundNextAt = now() + SEQUENCE_ROUND_PAUSE;
     }
   }
 
   function finishSequenceRound() {
     sequenceRoundNumber++;
+
+    if (sequenceRoundOutcome === null) {
+      // Sessie-start-overgang (naar ronde 1) — geen eerdere poging om te
+      // beoordelen, dus de lengte blijft exact SEQUENCE_SIMON_START.
+    } else if (sequenceRoundOutcome === 'success') {
+      if (sequencePhase === 'simon') {
+        sequenceLength++;
+        if (sequenceLength > SEQUENCE_SIMON_MAX) {
+          // De overgang — gebeurt precies één keer, op dit exacte moment.
+          sequencePhase = 'adaptive';
+          sequenceLength = SEQUENCE_RESET_LENGTH;
+        }
+      }
+      // Fase 'adaptive': bewust nog GEEN inhoudelijke berekening — de
+      // lengte blijft op SEQUENCE_RESET_LENGTH staan totdat de
+      // random/adaptieve regels zijn ontworpen (zie SEQUENCE_SIMON_BOUWPLAN.md).
+      // Geen placeholder-randomizer, zoals afgesproken.
+    }
+    // Bij 'fail': sequenceLength blijft bewust ongewijzigd — dezelfde
+    // lengte wordt hieronder opnieuw aangeboden.
+
     // Geen aparte moeilijkheidsstap — onderdeel van deze level-up, exact
     // zoals bij Patroon.
     if (SEQUENCE_ROW_REVEAL_ROUNDS.includes(sequenceRoundNumber) && (sequenceTopRow > 0 || sequenceBottomRow < PATTERN_ROWS - 1)) {
       revealSequenceRow();
       return;
     }
-    const idx = Math.min(sequenceRoundNumber, SEQUENCE_LENGTH_SCHEDULE.length - 1);
-    startSequenceRound(idx);
+    startSequenceRound();
   }
 
   function revealSequenceRow() {
@@ -2429,8 +2477,7 @@
     }
     if (progress >= 1) {
       sequenceRevealing = false;
-      const idx = Math.min(sequenceRoundNumber, SEQUENCE_LENGTH_SCHEDULE.length - 1);
-      startSequenceRound(idx);
+      startSequenceRound();
     }
   }
 
@@ -2477,7 +2524,7 @@
     // voor de volledige toelichting.
     if (sequenceActive && !sequenceShowing && !sequenceAwaitingNextRound && !sequenceRevealing
       && (Math.abs(W - sequenceResizeW) > 8 || Math.abs(H - sequenceResizeH) > 8)) {
-      startSequenceRound(Math.max(0, sequenceRoundNumber));
+      startSequenceRound();
     }
     if (sequenceShowing) updateSequenceShow(t);
     if (sequenceRevealing) updateSequenceReveal(t);

@@ -55,6 +55,28 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Sequence Memory — Simon-fase gebouwd (Fase 1 + overgang, exact binnen scope)
+
+Precies binnen de vastgelegde, aangescherpte scope: Fase 1 volledig, de overgang naar Fase 3 volledig, Fase 3's inhoud bewust NIET gebouwd (geen placeholder-randomizer).
+
+- `SEQUENCE_LENGTH_SCHEDULE` (vaste array) vervangen door geïsoleerde configuratie: `SEQUENCE_SIMON_START=3`, `SEQUENCE_SIMON_MAX=10`, `SEQUENCE_RESET_LENGTH=4` (placeholders).
+- Nieuwe state `sequencePhase` ('simon'|'adaptive').
+- **Simon-regel**: goed → lengte +1. Fout → huidige poging direct afgebroken, dezelfde lengte opnieuw aangeboden met een nieuw gegenereerde volgorde. Fout telt mee in de bestaande `sequenceSessionErrors`, 3 cumulatief → bestaande Game Over-flow, ongewijzigd.
+- **Overgang**: ná een correcte poging boven `SEQUENCE_SIMON_MAX` schakelt `sequencePhase` naar 'adaptive' en `sequenceLength` reset naar `SEQUENCE_RESET_LENGTH` — gebeurt precies één keer.
+- **Fase 3 bewust leeg**: in de 'adaptive'-fase gebeurt er simpelweg niets met de lengte (geen enkel code-pad wijzigt 'm) — duidelijk gemarkeerd als toekomstige uitbreiding, geen verborgen randomizer.
+
+**Twee bugs gevonden en gefixt tijdens het bouwen, vóór oplevering:**
+1. De reeks-generator verwees nog naar een oude, verwijderde lokale variabele (`length` i.p.v. `sequenceLength`) — dit resolvde stilletjes naar `window.length` (altijd 0), waardoor de sequence leeg bleef. Geen foutmelding, dus alleen gevonden door direct de state te inspecteren.
+2. De allereerste sessie-start-overgang werd stilzwijgend als "succesvolle ronde" behandeld, waardoor de lengte al naar 4 sprong vóórdat ronde 1 (lengte 3) ooit getoond werd. Opgelost met een expliciete `null`-starttoestand voor `sequenceRoundOutcome`, die alleen bij een echte tik-uitkomst (succes/fout) wordt ingevuld.
+
+**Getest** (via directe state-inspectie, nadat renderingsgebaseerde detectie zichzelf tweemaal onbetrouwbaar toonde bij de combinatie met het cover-mechanisme se rij-vrijgave-vertraging):
+- Nieuwe sessie start op lengte 3, fase 'simon'.
+- Lengte loopt exact 3→4→5→6→7→8→9→10 op bij opeenvolgend succes, inclusief tijdens een rij-vrijgave ertussen (ronde 3) — geen verstoring van de progressie.
+- Een fout houdt de lengte exact gelijk (bevestigd op lengte 4).
+- 3 cumulatieve fouten → bestaande Game Over-flow, correct getoond ("NIEUW RECORD / 3").
+- Ná lengte 10: fase wordt 'adaptive', lengte reset naar 4, gebeurt precies één keer (bevestigd: 8x 'simon', daarna 'adaptive').
+- Classic, Getallen volgen, Patroon: apart geregressietest, alle drie ongewijzigd en foutloos.
+
 ## Sequence Memory — zelfde cover-mechanisme als Patroon
 
 Exact gespiegeld op Patroon's net gebouwde veldgroei-mechanisme — zelfde gedeelde speelveld (`placePatternPositions()`), dus dezelfde logica.
