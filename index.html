@@ -803,8 +803,48 @@
     margin-top: 28px;
   }
 </style>
+<style>
+  /* Fase D — AccessController. Hoogste z-index van de pagina, standaard
+     zichtbaar via pure HTML/CSS (dus al blokkerend vóór er ook maar iets
+     van JS draait). Losse <style>-blok, bewust gescheiden van de rest
+     van de CSS hierboven — geen bestaande regel gewijzigd. */
+  #accessGate {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #000;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    touch-action: none;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+  #accessGate.hidden { display: none; }
+  .ag-content { padding: 24px; max-width: 320px; }
+  .ag-brand { font-size: 13px; letter-spacing: 0.28em; opacity: 0.6; margin-bottom: 24px; }
+  .ag-message { font-size: 16px; font-weight: 300; line-height: 1.6; opacity: 0.8; margin-bottom: 24px; }
+  .ag-action {
+    display: none;
+    padding: 14px 28px;
+    border-radius: 999px;
+    background: #fff;
+    color: #000;
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+</style>
 </head>
 <body>
+<div id="accessGate">
+  <div class="ag-content">
+    <div class="ag-brand">ORBIT</div>
+    <div class="ag-message" id="agMessage">Checking access…</div>
+    <a class="ag-action" id="agAction" href="https://orbit-platform-nine.vercel.app/games.html">Return to ORBIT Platform</a>
+  </div>
+</div>
 <div id="stage">
   <canvas id="c"></canvas>
 </div>
@@ -966,6 +1006,53 @@
   <button class="close" id="replayTutorialBtn" style="margin-top:8px;">Tutorial opnieuw bekijken</button>
   <button class="close" id="closeSettingsOverlay">Sluiten</button>
 </div>
+
+<script>
+// Fase D — AccessController. Apart, klein script, VÓÓR de bestaande
+// game-IIFE hieronder — die wordt letterlijk geen regel gewijzigd. Dit
+// script controleert alleen of er een geldig handoff-token is; het
+// raakt geen enkele gameplay-variabele aan. De game-engine initialiseert
+// hieronder gewoon zoals altijd, maar blijft visueel/interactief
+// geblokkeerd (hoogste z-index, touch-action: none op #accessGate)
+// totdat dit script de overlay verbergt.
+(function () {
+  var gate = document.getElementById('accessGate');
+  var message = document.getElementById('agMessage');
+  var action = document.getElementById('agAction');
+
+  function showBlocked(text) {
+    message.textContent = text;
+    action.style.display = 'inline-block';
+  }
+
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('token');
+
+  if (!token) {
+    showBlocked('Sign in required. Please return to the ORBIT Platform to play.');
+    return;
+  }
+
+  fetch('/api/verify-handoff-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token })
+  })
+    .then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+    })
+    .then(function (result) {
+      if (result.ok && result.data.valid) {
+        gate.classList.add('hidden');
+      } else {
+        showBlocked('Access expired. Please return to the ORBIT Platform to play again.');
+      }
+    })
+    .catch(function () {
+      showBlocked('Could not verify access. Please return to the ORBIT Platform and try again.');
+    });
+})();
+</script>
 
 <script>
 (function () {

@@ -1,0 +1,9 @@
+{
+  "name": "orbit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ORBIT — the game itself. See docs/ORBIT_DESIGN_BIBLE.md. The main engine in index.html is never touched for platform/access concerns — only api/verify-handoff-token.js (Fase D, AccessController) was added alongside it.",
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2"
+  }
+}

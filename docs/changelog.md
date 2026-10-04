@@ -4,6 +4,38 @@ Bijgehouden per feature/fix, nieuwste bovenaan. Zie `docs/ORBIT_DESIGN_BIBLE.md`
 
 ---
 
+## AccessController v2 geïntegreerd — eerste wijziging ooit vanuit `orbit-platform` (8 augustus 2026)
+
+**Niets aan de gameplay zelf gewijzigd.** De bestaande game-IIFE
+(destijds 2085 regels) is bij implementatie geverifieerd met een
+byte-voor-byte diff tegen de vorige staat: **nul wijzigingen.**
+
+Toegevoegd, volledig gescheiden van de engine:
+- `#accessGate`-overlay — hoogste z-index van de pagina, standaard
+  zichtbaar via pure CSS (blokkeert dus al vóór er JS draait),
+  `touch-action: none`. Vóór deze wijziging kon de productie-URL
+  volledig zonder controle geopend worden — dat is hiermee gesloten
+- Eigen, klein script vóór de bestaande hoofd-`<script>`, dat alleen
+  een `?token=`-querystring-parameter controleert via een nieuwe
+  serverless route — raakt geen enkele gameplay-variabele aan
+- `api/verify-handoff-token.js` — **eerste serverless function ooit
+  in deze repo.** Stateless: geen Firestore, geen Firebase Admin SDK,
+  kent alleen een gedeeld secret (`ACCESS_TOKEN_SECRET`, in Vercel
+  Environment Variables) om een JWT-handtekening te controleren. Deze
+  game beheert zelf nooit toegang/entitlements — dat gebeurt
+  uitsluitend op `orbit-platform` (zie dat repo's
+  `docs/access-controller-v2-uid-technisch-ontwerp.md` voor het
+  volledige ontwerp)
+- `package.json` — nieuw bestand (bestond nog niet), alleen
+  `jsonwebtoken` als dependency
+
+**Architectuurgrens, expliciet bewaakt:** deze game blijft een
+zelfstandig product. Niets hierboven kent de interne staat van
+`orbit-platform` (geen `uid`-betekenis, geen entitlement-logica) —
+alleen of een ontvangen token geldig is voor `gameId: 'orbit'`.
+
+---
+
 ## Cognitive Engine — plateau-assist toegevoegd
 
 - **Idee:** als een speler lang op hetzelfde niveau blijft steken (niet vooruit, niet terug), moet de engine daar zelf iets aan doen — anders blijft iemand precies onder zijn skill-plafond vastzitten zonder ooit de Flow Zone te verlaten.
