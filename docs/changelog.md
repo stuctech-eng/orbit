@@ -55,6 +55,20 @@ Na akkoord: `score = ballen × 100 − fouten × 30`. Ballen blijft de voortgang
 - **Fix:** `persistSave()` leest nu eerst wat er daadwerkelijk op schijf staat en behoudt per veld de beste waarde (nooit een regressie op hoogste level/score/totalen/sessies, en `tutorialCompleted` kan nooit meer van `true` terug naar `false` vallen).
 - **Getest:** dezelfde race die de bug blootlegde opnieuw gedraaid ná de fix — voortgang blijft nu behouden (`highestLadderIndex` bleef 8 i.p.v. terug te vallen op 0, `tutorialCompleted` bleef `true`).
 
+## Patroon — cover-mechanisme gebouwd (ORBIT Memory veldgroei)
+
+Volgens het vastgelegde ontwerp (zie COVER_MECHANISME_AUDIT.md), met de twee aanpassingen uit de laatste review: één zichtbare-rijen-representatie (grenzen i.p.v. losse tellers) en de vrijgavemomenten volledig geïsoleerd in één configuratie.
+
+- **Zichtbare-rijen-staat**: `patternTopRow`/`patternBottomRow` (grenzen, inclusief) — rij `cy` is zichtbaar als `patternTopRow <= cy <= patternBottomRow`. Start gecentreerd: rijen 2-5 (16 ballen), rijen 0-1 en 6-7 verborgen.
+- **Geïsoleerde configuratie**: `PATTERN_ROW_REVEAL_ROUNDS = [3, 6, 9, 12]` — één array, placeholder-waarden, bewust nog niet definitief. Nergens anders in de logica verspreid.
+- **Vrijgave-mechanisme**: hergebruikt het bestaande pauze/auto-herstart-patroon van Patroon volledig (geen nieuwe architectuur) — rustige infade (900ms) i.p.v. een letterlijke schuifanimatie, daarna automatisch door naar de volgende ronde.
+- **Volgorde**: boven, onder, boven, onder — alternerend via `patternNextRevealSide`.
+- Verborgen ballen: kunnen nooit doelbal worden (target-selectie beperkt tot zichtbare posities), tikken erop heeft geen effect, worden simpelweg niet getekend (de cover ís het weglaten van de tekenstap — geen apart overlay-element nodig).
+- Bal-grootte en posities van reeds zichtbare ballen blijven exact ongemoeid bij een vrijgave — alleen hun verborgen-status/infade-waarde verandert.
+- Nieuwe sessie start altijd weer gecentreerd met 4 rijen, ongeacht hoever een vorige sessie al open stond.
+- Kleine audit-vondst verwerkt: rij-index (`cy`) wordt nu meegegeven door `placePatternPositions()` — was er eerder niet, nodig om te bepalen welke bal bij welke rij hoort.
+- **Getest**: exact 16 ballen bij sessiestart (screenshot bevestigd), na ronde 3 exact 20 ballen (bovenrij vrijgegeven, screenshot bevestigd), na ronde 6 exact 24 ballen (onderrij vrijgegeven, boven→onder-volgorde bevestigd, screenshot bevestigd). Classic, Getallen volgen en Sequence Memory apart geregressietest — alle drie ongewijzigd en foutloos.
+
 ## BUG: onderste rij ballen te krap tegen schermrand (Patroon + Sequence Memory)
 
 - **Root cause:** marge onderaan stond op 36px — nauwelijks meer dan de duim-indicator-ruimte zelf, waardoor de onderste rij tegen de rand aan oogde en op een echt toestel (met home-indicator) deels afgesneden leek.
