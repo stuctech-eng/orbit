@@ -1359,6 +1359,21 @@ window.ScoreSync = (function () {
       setTimeout(() => tone(250, 0.7, 0.04, 'sine', 1400), 150);
     }
     function playTick() { tone(400, 0.4, 0.045, 'sine', 1800); }
+
+    // Sequence Memory — elke zichtbare bal krijgt zijn eigen, vaste toon,
+    // net als een echt Simon-spel. Warme C-majeur-toonladder (C4-D6, 16
+    // tonen), zelfde zachte stijl (sine + lowpass) als de rest van het
+    // geluidsontwerp — geen harde chiptune-pieptjes. Toonhoogte loopt
+    // mee met de positie in het rooster (linksboven laag, rechtsonder
+    // hoog), consistent met hoe sequenceVisibleIndices is opgebouwd.
+    const SEQUENCE_TONE_SCALE = [
+      261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25,
+      587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50, 1174.66
+    ];
+    function playSequenceTone(visibleIndex) {
+      const freq = SEQUENCE_TONE_SCALE[visibleIndex % SEQUENCE_TONE_SCALE.length];
+      tone(freq, 0.4, 0.045, 'sine', 1900);
+    }
     function playLevelUp() {
       tone(392, 0.35, 0.04, 'sine', 1800);
       setTimeout(() => tone(494, 0.4, 0.042, 'sine', 1800), 130);
@@ -1407,7 +1422,7 @@ window.ScoreSync = (function () {
     GameEvents.on('wrongAnswer', playWrong);
     GameEvents.on('levelUp', playLevelUp);
 
-    return { ensureAudio };
+    return { ensureAudio, playSequenceTone };
   })();
 
   // ---------- Save / Resume ----------
@@ -2489,6 +2504,7 @@ window.ScoreSync = (function () {
   let sequenceNextRevealSide = 'top';
   let sequenceRevealing = false;
   let sequenceRevealStart = 0;
+  let sequenceLastShowStep = -1; // welke stap van het voordoen al een toon kreeg
 
   let sequenceBalls = [];          // {x, y, r, marked, feedback, feedbackColor} — zelfde vorm als patternBalls
   let sequenceBallR = PATTERN_BALL_R_MIN;
@@ -2546,14 +2562,24 @@ window.ScoreSync = (function () {
   // willekeurige plek op het scherm wijzen, wat een Simon-achtige
   // "dezelfde plek, groeiende reeks"-ervaring onmogelijk zou maken.
   let sequenceVisibleIndices = [];
+  // Stabiele bal-index -> positie-in-zichtbare-lijst, dus -> vaste
+  // toonhoogte (SEQUENCE_TONE_SCALE). Opnieuw opgebouwd telkens
+  // setupSequenceField draait, zodat een resize het toonhoogte-patroon
+  // consistent laat meegroeien met de zichtbare ballen.
+  let sequenceToneIndexByBall = {};
+
   function setupSequenceField() {
     sequenceBalls = [];
     const positions = placePatternPositions(PATTERN_BALL_R_MIN);
     sequenceBallR = patternBallR; // zie audit-opmerking hierboven
     sequenceVisibleIndices = [];
+    sequenceToneIndexByBall = {};
     for (let i = 0; i < positions.length; i++) {
       const hidden = positions[i].cy < sequenceTopRow || positions[i].cy > sequenceBottomRow;
-      if (!hidden) sequenceVisibleIndices.push(i);
+      if (!hidden) {
+        sequenceToneIndexByBall[i] = sequenceVisibleIndices.length;
+        sequenceVisibleIndices.push(i);
+      }
       sequenceBalls.push({
         x: positions[i].x, y: positions[i].y, r: sequenceBallR, cy: positions[i].cy,
         hidden,
@@ -2573,6 +2599,7 @@ window.ScoreSync = (function () {
     for (const b of sequenceBalls) { b.selected = false; b.feedback = 0; b.feedbackColor = null; }
     sequenceShowing = true;
     sequenceShowStart = now();
+    sequenceLastShowStep = -1;
   }
 
   // Puur uit verstreken tijd afgeleid, zelfde robuuste patroon als
@@ -2596,6 +2623,10 @@ window.ScoreSync = (function () {
     const stepElapsed = afterDelay - currentStep * stepDuration;
     const activeIndex = sequenceOrder[currentStep];
     const isOn = stepElapsed < SEQUENCE_REVEAL_DURATION;
+    if (isOn && currentStep !== sequenceLastShowStep) {
+      sequenceLastShowStep = currentStep;
+      AudioManager.playSequenceTone(sequenceToneIndexByBall[activeIndex]);
+    }
     for (let i = 0; i < sequenceBalls.length; i++) {
       sequenceBalls[i].marked = (i === activeIndex) && isOn;
     }
@@ -2617,7 +2648,7 @@ window.ScoreSync = (function () {
       ball.selected = true; // blijft wit, ook als deze positie later in de reeks herhaalt
       ball.feedback = 1; ball.feedbackColor = 'white';
       haptic(12);
-      GameEvents.emit('correctAnswer');
+      AudioManager.playSequenceTone(sequenceToneIndexByBall[hit]); // zelfde toon als bij het voordoen — Simon-regel
       sequenceInputIndex++;
       if (sequenceInputIndex >= sequenceOrder.length) {
         // Volledige poging correct: Simon-progressie (+1, of de overgang
