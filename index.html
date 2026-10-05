@@ -976,6 +976,9 @@
     <button id="pauseHomeBtn">🏠 Home</button>
     <button id="pauseNewSessionBtn">↺ Nieuwe sessie</button>
     <button id="pauseSettingsBtn">⚙ Instellingen</button>
+    <button id="pausePlatformBtn">🌐 ORBIT Platform</button>
+    <button id="pauseScoresBtn">📊 Mijn scores</button>
+    <button id="pauseLeaderboardBtn">🏆 Leaderboard</button>
   </div>
 </div>
 
@@ -3944,6 +3947,9 @@ window.ScoreSync = (function () {
     updateIndicatorVisibility();
   });
   document.getElementById('pauseSettingsBtn').addEventListener('click', () => openSettings('pause'));
+  document.getElementById('pausePlatformBtn').addEventListener('click', () => { persistSave(); window.location.href = '/games.html'; });
+  document.getElementById('pauseScoresBtn').addEventListener('click', () => { persistSave(); window.location.href = '/pages/scores.html'; });
+  document.getElementById('pauseLeaderboardBtn').addEventListener('click', () => { persistSave(); window.location.href = '/pages/leaderboard.html'; });
 
   // Home menu
   document.getElementById('resumeBtn').addEventListener('click', goToGameplay);
