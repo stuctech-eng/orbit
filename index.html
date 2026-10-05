@@ -2111,7 +2111,9 @@ window.ScoreSync = (function () {
   // bovenaan, duim-bereik onderaan); de celgrootte (en dus de bal-straal)
   // wordt uitgerekend om dat exacte rooster precies te laten passen.
   const PATTERN_COLS = 4;
-  const PATTERN_ROWS = 8;
+  const PATTERN_ROWS = 6; // was 8 — kleinere ballen voelden klein t.o.v. Tracking;
+                          // bij 6 rijen wordt de kolombreedte de begrenzer, wat de
+                          // straal vanzelf naar Tracking's maat (~43-48px) brengt
   function placePatternPositions(baseR) {
     const marginX = 6;
     const marginTop = 26;
