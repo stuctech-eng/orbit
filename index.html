@@ -1055,6 +1055,139 @@
 </script>
 
 <script>
+// Fase H — ScoreSync. Apart, geïsoleerd script, VÓÓR de bestaande
+// game-IIFE hieronder — die wordt alleen met één regel per
+// Game-Over-moment aangevuld (een enkele ScoreSync.notifyResult(...)-
+// aanroep), verder ongewijzigd. Dit blok kent geen Firebase, geen
+// Auth — uitsluitend het score-token uit de URL en een lokale
+// pending-wachtrij. Het score-token leeft alleen in het geheugen van
+// deze pagina-instantie, nooit in localStorage.
+window.ScoreSync = (function () {
+  var PENDING_KEY = 'orbit_pending_scores_v1';
+  var MIN_CLASSIC_INTERVAL_MS = 30000; // throttle — niet per ladderstap
+  var lastClassicAttempt = 0;
+
+  var params = new URLSearchParams(window.location.search);
+  var scoreToken = params.get('scoreToken'); // alleen in het geheugen
+
+  function loadPending() {
+    try {
+      var raw = localStorage.getItem(PENDING_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+
+  function savePending(pending) {
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify(pending)); } catch (e) {}
+  }
+
+  function setPending(modeId, result) {
+    var pending = loadPending();
+    pending[modeId] = result; // hoogstens één entry per modus
+    savePending(pending);
+  }
+
+  function clearPending(modeId) {
+    var pending = loadPending();
+    delete pending[modeId];
+    savePending(pending);
+  }
+
+  // Normale inzending — gebruikt bij Game Over, Classic-throttled-
+  // moment, en elke flush-poging. Token via de Authorization-header.
+  function trySubmit(modeId, result) {
+    if (!scoreToken) return Promise.resolve(false);
+
+    return fetch('/api/submit-score', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + scoreToken
+      },
+      body: JSON.stringify({ gameId: 'orbit', modeId: modeId, result: result })
+    })
+      .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+      .then(function (r) {
+        if (r.ok && r.data.success) {
+          clearPending(modeId);
+          return true;
+        }
+        // SCORE_TOKEN_EXPIRED of elke andere fout: blijft pending,
+        // wordt bij de volgende app-start (vers token) opnieuw
+        // geprobeerd. Geen zichtbaar effect voor de speler (H5).
+        return false;
+      })
+      .catch(function () { return false; });
+  }
+
+  // Beacon — alleen bij pagehide/visibilitychange. Geen bevestiging
+  // mogelijk, dus de pending-entry is al gezet VOORDAT dit wordt
+  // geprobeerd (zie notifyResult) — dit is uitsluitend een extra
+  // afleverkans, nooit de enige plek waar de score lokaal bewaard
+  // wordt. Token in de body, want sendBeacon staat geen custom
+  // headers toe — zelfde server-side verificatie als de normale
+  // fetch-aanroep, geen apart/zwakker auth-pad.
+  function tryBeacon(modeId, result) {
+    if (!scoreToken || !navigator.sendBeacon) return;
+    var payload = JSON.stringify({
+      scoreToken: scoreToken,
+      gameId: 'orbit',
+      modeId: modeId,
+      result: result
+    });
+    navigator.sendBeacon('/api/submit-score', new Blob([payload], { type: 'application/json' }));
+  }
+
+  // Aangeroepen vanuit de game-engine — exact één regel per bestaande
+  // Game-Over/record-functie. Zet altijd eerst de pending-entry,
+  // probeert daarna een normale inzending.
+  function notifyResult(modeId, result) {
+    if (modeId === 'classic') {
+      var nowMs = Date.now();
+      if (nowMs - lastClassicAttempt < MIN_CLASSIC_INTERVAL_MS) {
+        // Throttled — toch de pending-entry bijwerken (het beste
+        // nog-niet-bevestigde resultaat), maar geen netwerkaanroep nu.
+        setPending(modeId, result);
+        return;
+      }
+      lastClassicAttempt = nowMs;
+    }
+    setPending(modeId, result);
+    trySubmit(modeId, result);
+  }
+
+  // App-start-flush — alles wat nog in de wachtrij staat opnieuw
+  // proberen met het verse token van deze sessie.
+  function flushPending() {
+    var pending = loadPending();
+    Object.keys(pending).forEach(function (modeId) {
+      trySubmit(modeId, pending[modeId]);
+    });
+  }
+
+  // Laatste afleverpoging bij het verdwijnen van de pagina — de
+  // pending-entries staan al lokaal (elke notifyResult zet 'm eerst),
+  // dit is uitsluitend een extra kans via sendBeacon.
+  function flushViaBeacon() {
+    var pending = loadPending();
+    Object.keys(pending).forEach(function (modeId) {
+      tryBeacon(modeId, pending[modeId]);
+    });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushViaBeacon();
+  });
+  window.addEventListener('pagehide', flushViaBeacon);
+
+  // App-start: direct proberen te legen, met het token van déze sessie.
+  flushPending();
+
+  return { notifyResult: notifyResult };
+})();
+</script>
+
+<script>
 (function () {
   const stage = document.getElementById('stage');
   const canvas = document.getElementById('c');
@@ -1816,6 +1949,7 @@
     if (isNewBest) save.trackingBest = result;
     save.trackingLast = result;
     persistSave();
+    if (isNewBest && window.ScoreSync) window.ScoreSync.notifyResult('tracking', result);
 
     showTrackingGameOver(result, save.trackingBest, isNewBest);
   }
@@ -2174,6 +2308,7 @@
     const isNewBest = !save.patternBest || result.balls > save.patternBest.balls;
     if (isNewBest) save.patternBest = result;
     persistSave();
+    if (isNewBest && window.ScoreSync) window.ScoreSync.notifyResult('pattern', result);
 
     showPatternGameOver(result, save.patternBest, isNewBest);
   }
@@ -2591,6 +2726,7 @@
     const isNewBest = !save.sequenceBest || result.length > save.sequenceBest.length;
     if (isNewBest) save.sequenceBest = result;
     persistSave();
+    if (isNewBest && window.ScoreSync) window.ScoreSync.notifyResult('sequence', result);
 
     showSequenceGameOver(result, save.sequenceBest, isNewBest);
   }
@@ -2913,6 +3049,7 @@
       c.feedbackColor = null;
     }
 
+    if (ladderIndex > save.highestLadderIndex && window.ScoreSync) window.ScoreSync.notifyResult('classic', { ladderIndex: ladderIndex, score: save.score });
     save.highestLadderIndex = Math.max(save.highestLadderIndex, ladderIndex);
     persistSave();
   }
