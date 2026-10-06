@@ -709,6 +709,9 @@
     justify-content: center;
     background: #000;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Zelfde truc als #telefoonNumberOverlay: duwt het verticaal-
+       gecentreerde speelveld iets omlaag t.o.v. het exacte midden. */
+    padding-bottom: 8vh;
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     touch-action: manipulation;
@@ -784,10 +787,13 @@
     pointer-events: none;
   }
   .tel-action-row {
-    /* Zelfde 3-koloms-grid als .tel-keypad, zodat de knoppen altijd
-       precies onder hun kolom uitlijnen — ongeacht schermbreedte. */
+    /* Zelfde 3-koloms-grid ALS zelfde gap als .tel-keypad — zonder
+       identieke gap vielen de kolommen net iets breder uit dan het
+       cijferrooster, waardoor de groene knop te groot leek en
+       backspace niet precies onder # uitkwam. */
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
     align-items: center;
     justify-items: center;
     width: min(340px, 90vw);
@@ -1692,7 +1698,34 @@ window.ScoreSync = (function () {
     // Bewust geen melodie/toonhoogte-per-toets (dat is Sequence Memory's
     // eigen, andere spelmechaniek) — hier gewoon een prettige, korte
     // bevestiging, zelfde zachte sine+lowpass-stijl als de rest.
-    function playTelefoonKey() { tone(620, 0.09, 0.035, 'sine', 2200); }
+    // Echte DTMF-frequenties (dubbele toon, zoals een fysieke
+    // telefoontoets) — standaard telefonie-tabel, geen verzonnen toon.
+    const DTMF_FREQS = {
+      '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+      '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+      '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+      '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
+    };
+    function playTelefoonKey(digit) {
+      if (!actx || !settings.sound) return;
+      const freqs = DTMF_FREQS[digit];
+      if (!freqs) { tone(620, 0.09, 0.035, 'sine', 2200); return; } // defensieve fallback
+      const t0 = actx.currentTime;
+      const dur = 0.09;
+      const gain = actx.createGain();
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.045, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      gain.connect(actx.destination);
+      freqs.forEach((f) => {
+        const osc = actx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, t0);
+        osc.connect(gain);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.03);
+      });
+    }
 
     return { ensureAudio, playSequenceTone, playTelefoonKey };
   })();
@@ -3226,7 +3259,7 @@ window.ScoreSync = (function () {
     if (telefoonPhase !== 'input') return;
     if (telefoonEnteredDigits.length >= telefoonCurrentNumber.length) return;
     telefoonEnteredDigits += d;
-    AudioManager.playTelefoonKey();
+    AudioManager.playTelefoonKey(d);
     updateTelefoonInputDisplay();
     // Standaard: wacht op een tik op de groene knop (lang-indrukken
     // daarop schakelt dit om naar automatisch controleren, zie
