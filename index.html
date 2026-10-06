@@ -820,21 +820,11 @@
     touch-action: manipulation;
   }
   .tel-check-btn:active { background: #2aa84a; }
-  .tel-key-backspace-row {
-    appearance: none;
-    border: none;
-    background: none;
-    color: rgba(255,255,255,0.55);
-    font-size: 24px;
-    padding: 12px 24px;
-    min-width: 44px;
-    min-height: 44px;
-    font-family: inherit;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: manipulation;
-  }
-  .tel-key-backspace-row:active { color: rgba(255,255,255,0.9); }
+  /* Backspace zit nu ín het hoofdrooster, op de plek van de voormalige
+     (decoratieve) #-toets — gebruikt .tel-key als basis (zelfde ronde
+     vorm/grootte als de cijfertoetsen), alleen de icoongrootte wijkt af
+     omdat dit geen cijfer+letter-opbouw heeft maar één los ⌫-teken. */
+  .tel-key-backspace-ingrid { font-size: 28px; color: rgba(255,255,255,0.65); }
   .tel-auto-label {
     margin-top: 18px;
     font-size: 12px;
@@ -1144,12 +1134,12 @@
     <button class="tel-key" data-digit="9"><span class="tel-key-digit">9</span><span class="tel-key-letters">WXYZ</span></button>
     <button class="tel-key tel-key-decorative" disabled aria-hidden="true"><span class="tel-key-digit">＊</span></button>
     <button class="tel-key" data-digit="0"><span class="tel-key-digit">0</span><span class="tel-key-letters">+</span></button>
-    <button class="tel-key tel-key-decorative" disabled aria-hidden="true"><span class="tel-key-digit">#</span></button>
+    <button class="tel-key tel-key-backspace-ingrid" id="telBackspaceBtn" aria-label="Wis laatste cijfer">⌫</button>
   </div>
   <div class="tel-action-row">
     <div></div>
     <button class="tel-check-btn" id="telCheckBtn" aria-label="Controleer">📞</button>
-    <button class="tel-key-backspace-row" id="telBackspaceBtn">⌫</button>
+    <div></div>
   </div>
   <div class="tel-auto-label" id="telAutoLabel">Automatisch controleren aan</div>
 </div>
