@@ -720,8 +720,8 @@
   .tel-keypad {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    width: min(300px, 82vw);
+    gap: 16px;
+    width: min(340px, 90vw); /* was 300px/82vw — toetsen iets groter, dichter bij de ~88px-bal-maat van de andere modi */
   }
   .tel-key {
     appearance: none;
@@ -741,7 +741,7 @@
   }
   .tel-key:active { background: rgba(255,255,255,0.22); }
   .tel-key .tel-key-digit {
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 500;
     line-height: 1;
   }
@@ -1072,9 +1072,6 @@
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
     <button id="homeStatsBtn">📊 Statistieken</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
-    <button id="homePlatformBtn">🌐 ORBIT Platform</button>
-    <button id="homeScoresBtn">📊 Mijn scores</button>
-    <button id="homeLeaderboardBtn">🏆 Leaderboard</button>
   </div>
 </div>
 
@@ -1178,6 +1175,10 @@
     <button class="toggle" id="toggleHaptics" aria-label="Trilling aan/uit"><span class="knob"></span></button>
   </div>
   <button class="close" id="replayTutorialBtn" style="margin-top:8px;">Tutorial opnieuw bekijken</button>
+  <div style="border-top:1px solid rgba(255,255,255,0.1); margin:16px 0 4px;"></div>
+  <button class="close" id="homePlatformBtn">🌐 ORBIT Platform</button>
+  <button class="close" id="homeScoresBtn">📊 Mijn scores</button>
+  <button class="close" id="homeLeaderboardBtn">🏆 Leaderboard</button>
   <button class="close" id="closeSettingsOverlay">Sluiten</button>
 </div>
 
