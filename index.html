@@ -3040,29 +3040,64 @@ window.ScoreSync = (function () {
   // is daarom een vrijwel lege stub die alleen de memorize->input-
   // overgang bewaakt (zelfde t-gebaseerde, pause-veilige patroon als
   // de andere modi — geen setTimeout, want dat zou niet pauzeren).
-  const TELEFOON_VISIBLE_MS = 2800;  // onthoudtijd — vaste waarde voor v1, later evt. configureerbaar
+  // Adaptief moeilijkheidsmodel — expliciete constanten, geen verspreide
+  // magic numbers. Eén dial (telefoonCurrentBlocks) bepaalt zowel de
+  // nummerlengte als de timing — simpel, voorspelbaar, uitlegbaar,
+  // geen twee los bijgehouden adaptieve dimensies nodig.
+  const TELEFOON_MIN_BLOCKS = 2;             // "06 38" — 4 cijfers, startniveau
+  const TELEFOON_MAX_BLOCKS = 5;             // "06 38 17 49 26" — volledig 10-cijferig nummer
+  const TELEFOON_MIN_BLOCK_VISIBLE_MS = 500;  // bij MAX_BLOCKS (moeilijkst)
+  const TELEFOON_MAX_BLOCK_VISIBLE_MS = 1100; // bij MIN_BLOCKS (makkelijkst)
+  const TELEFOON_MIN_FINAL_VISIBLE_MS = 1400; // bij MAX_BLOCKS
+  const TELEFOON_MAX_FINAL_VISIBLE_MS = 2600; // bij MIN_BLOCKS
+  const TELEFOON_CORRECT_STREAK_TO_ADVANCE = 3; // 3 op rij goed op dit niveau -> één stap omhoog
   const TELEFOON_ROUND_PAUSE = 1100; // ms rustmoment na een correct nummer, zelfde waarde als de andere modi
 
-  let telefoonPhase = 'memorize';       // 'memorize' | 'input' | 'awaiting-next'
-  let telefoonCurrentNumber = '';       // ruwe 10-cijferige string, bv. "0638174926"
+  // Bepaalt block-/eindzichtbaarheidstijd lineair tussen de grenzen,
+  // puur afgeleid van het huidige aantal blokken — geen apart model.
+  function telefoonTimingForBlocks(blocks) {
+    const frac = (blocks - TELEFOON_MIN_BLOCKS) / (TELEFOON_MAX_BLOCKS - TELEFOON_MIN_BLOCKS);
+    return {
+      blockMs: Math.round(TELEFOON_MAX_BLOCK_VISIBLE_MS - frac * (TELEFOON_MAX_BLOCK_VISIBLE_MS - TELEFOON_MIN_BLOCK_VISIBLE_MS)),
+      finalMs: Math.round(TELEFOON_MAX_FINAL_VISIBLE_MS - frac * (TELEFOON_MAX_FINAL_VISIBLE_MS - TELEFOON_MIN_FINAL_VISIBLE_MS))
+    };
+  }
+
+  let telefoonPhase = 'memorize-building'; // 'memorize-building' | 'memorize-final' | 'input' | 'awaiting-next'
+  let telefoonCurrentNumber = '';          // ruwe cijferstring, lengte = 2 x huidig aantal blokken
   let telefoonEnteredDigits = '';
   let telefoonCorrectStreak = 0;        // primaire score: opeenvolgend correcte nummers deze sessie
   let telefoonSessionErrors = 0;        // aantal VOLLEDIG foute inzendingen (0 of 1 in v1 — sessie eindigt direct daarna)
   let telefoonSessionStart = 0;
-  let telefoonMemorizeUntil = 0;
+  let telefoonMemorizeUntil = 0;   // einde van de 'memorize-final'-fase
+  let telefoonNextBlockAt = 0;     // tijdstip waarop het volgende blok verschijnt (memorize-building)
+  let telefoonRevealBlockIndex = 1; // hoeveel blokken al zichtbaar zijn tijdens het opbouwen
   let telefoonRoundNextAt = 0;
   let telefoonActive = false;
+  // Persistente moeilijkheidsgraad — NIET per sessie gereset (sectie 15:
+  // "ORBIT onthoudt je niveau"). Record (telefoonBest) blijft hier
+  // bewust los van, zoals vastgelegd: record ≠ huidige moeilijkheid.
+  let telefoonCurrentBlocks = (save.telefoonDifficulty && save.telefoonDifficulty >= TELEFOON_MIN_BLOCKS && save.telefoonDifficulty <= TELEFOON_MAX_BLOCKS)
+    ? save.telefoonDifficulty
+    : TELEFOON_MIN_BLOCKS;
+  let telefoonConsecutiveCorrectAtLevel = 0; // streak op het HUIDIGE niveau, voor de 3-op-rij-regel
 
-  function generateTelefoonNumber() {
-    // Pure functie, makkelijk los testbaar: altijd 06 + 8 willekeurige
-    // cijfers, nooit een bestaand/echt nummer (puur random gegenereerd).
+  function generateTelefoonNumber(blockCount) {
+    // Pure functie, makkelijk los testbaar: altijd 06 + (blockCount-1)
+    // blokken van 2 willekeurige cijfers — lengte = 2 x blockCount,
+    // nooit een bestaand/echt nummer (puur random gegenereerd).
     let digits = '06';
-    for (let i = 0; i < 8; i++) digits += String(Math.floor(rand(0, 10)));
+    for (let b = 1; b < blockCount; b++) {
+      digits += String(Math.floor(rand(0, 10))) + String(Math.floor(rand(0, 10)));
+    }
     return digits;
   }
   function formatTelefoonNumber(digits) {
-    // "0638174926" -> "06 3817 4926"
-    return digits.slice(0, 2) + ' ' + digits.slice(2, 6) + ' ' + digits.slice(6, 10);
+    // "0638174926" -> "06 38 17 49 26" — generiek per 2 cijfers, werkt
+    // voor elke (even) lengte, dus voor elk aantal blokken.
+    const parts = [];
+    for (let i = 0; i < digits.length; i += 2) parts.push(digits.slice(i, i + 2));
+    return parts.join(' ');
   }
 
   const telefoonNumberOverlayEl = document.getElementById('telefoonNumberOverlay');
@@ -3072,6 +3107,8 @@ window.ScoreSync = (function () {
   const telContactbarTextEl = document.getElementById('telContactbarText');
 
   function startTelefoonSession() {
+    // Sectie 14/15: record en sessie-stats resetten, maar telefoonCurrentBlocks
+    // NIET aanraken — dat is de persistente, "onthouden" moeilijkheidsgraad.
     telefoonCorrectStreak = 0;
     telefoonSessionErrors = 0;
     telefoonSessionStart = now();
@@ -3080,20 +3117,29 @@ window.ScoreSync = (function () {
   }
 
   function startTelefoonRound() {
-    telefoonCurrentNumber = generateTelefoonNumber();
+    telefoonCurrentNumber = generateTelefoonNumber(telefoonCurrentBlocks);
     telefoonEnteredDigits = '';
-    telNumberDisplayEl.textContent = formatTelefoonNumber(telefoonCurrentNumber);
+    telefoonRevealBlockIndex = 1;
+    telNumberDisplayEl.textContent = formatTelefoonNumber(telefoonCurrentNumber.slice(0, 2)); // eerst alleen "06"
     telInputDisplayEl.innerHTML = '&nbsp;';
     telContactbarTextEl.textContent = 'nog ' + telefoonCurrentNumber.length + ' cijfers';
     telefoonKeypadOverlayEl.classList.remove('visible');
     telefoonNumberOverlayEl.classList.add('visible');
-    telefoonPhase = 'memorize';
-    telefoonMemorizeUntil = now() + TELEFOON_VISIBLE_MS;
+    telefoonPhase = 'memorize-building';
+    const timing = telefoonTimingForBlocks(telefoonCurrentBlocks);
+    if (telefoonCurrentBlocks <= 1) {
+      // Edge case, praktisch niet bereikt gezien MIN_BLOCKS=2, maar
+      // defensief: meteen door naar de eindweergave.
+      telefoonPhase = 'memorize-final';
+      telefoonMemorizeUntil = now() + timing.finalMs;
+    } else {
+      telefoonNextBlockAt = now() + timing.blockMs;
+    }
   }
 
   function updateTelefoonInputDisplay() {
     telInputDisplayEl.textContent = telefoonEnteredDigits
-      ? formatTelefoonNumber(telefoonEnteredDigits.padEnd(10, ' ')).trimEnd()
+      ? formatTelefoonNumber(telefoonEnteredDigits.padEnd(telefoonCurrentNumber.length, ' ')).trimEnd()
       : '\u00a0';
     const remaining = telefoonCurrentNumber.length - telefoonEnteredDigits.length;
     telContactbarTextEl.textContent = remaining > 0 ? ('nog ' + remaining + ' cijfer' + (remaining === 1 ? '' : 's')) : 'controleren…';
@@ -3101,10 +3147,10 @@ window.ScoreSync = (function () {
 
   function telefoonDigitPress(d) {
     if (telefoonPhase !== 'input') return;
-    if (telefoonEnteredDigits.length >= 10) return;
+    if (telefoonEnteredDigits.length >= telefoonCurrentNumber.length) return;
     telefoonEnteredDigits += d;
     updateTelefoonInputDisplay();
-    if (telefoonEnteredDigits.length === 10) checkTelefoonNumber();
+    if (telefoonEnteredDigits.length === telefoonCurrentNumber.length) checkTelefoonNumber();
   }
   function telefoonBackspace() {
     // Onbeperkt corrigeren toegestaan — een getikt cijfer wissen is
@@ -3120,12 +3166,25 @@ window.ScoreSync = (function () {
     const correct = telefoonEnteredDigits === telefoonCurrentNumber;
     if (correct) {
       telefoonCorrectStreak++;
+      telefoonConsecutiveCorrectAtLevel++;
+      // Sectie 5: pas ná 3 op rij op DIT niveau, kleine stap omhoog —
+      // nooit een grote sprong, nooit verder dan MAX_BLOCKS.
+      if (telefoonConsecutiveCorrectAtLevel >= TELEFOON_CORRECT_STREAK_TO_ADVANCE && telefoonCurrentBlocks < TELEFOON_MAX_BLOCKS) {
+        telefoonCurrentBlocks++;
+        telefoonConsecutiveCorrectAtLevel = 0;
+      }
+      save.telefoonDifficulty = telefoonCurrentBlocks;
       haptic(12);
       GameEvents.emit('correctAnswer');
       telefoonPhase = 'awaiting-next';
       telefoonRoundNextAt = now() + TELEFOON_ROUND_PAUSE;
     } else {
       telefoonSessionErrors++;
+      // Sectie 5/6: één stap omlaag, nooit verder dan MIN_BLOCKS, geen
+      // grote terugval — "ORBIT zoekt het niveau", geen "strafgevoel".
+      telefoonCurrentBlocks = Math.max(TELEFOON_MIN_BLOCKS, telefoonCurrentBlocks - 1);
+      telefoonConsecutiveCorrectAtLevel = 0;
+      save.telefoonDifficulty = telefoonCurrentBlocks;
       haptic([10, 40, 10]);
       GameEvents.emit('wrongAnswer');
       endTelefoonSession();
@@ -3133,7 +3192,19 @@ window.ScoreSync = (function () {
   }
 
   function frameTelefoon(t) {
-    if (telefoonPhase === 'memorize' && t >= telefoonMemorizeUntil) {
+    if (telefoonPhase === 'memorize-building' && t >= telefoonNextBlockAt) {
+      telefoonRevealBlockIndex++;
+      const shownDigits = telefoonCurrentNumber.slice(0, telefoonRevealBlockIndex * 2);
+      telNumberDisplayEl.textContent = formatTelefoonNumber(shownDigits);
+      if (telefoonRevealBlockIndex >= telefoonCurrentBlocks) {
+        telefoonPhase = 'memorize-final';
+        telefoonMemorizeUntil = t + telefoonTimingForBlocks(telefoonCurrentBlocks).finalMs;
+      } else {
+        telefoonNextBlockAt = t + telefoonTimingForBlocks(telefoonCurrentBlocks).blockMs;
+      }
+      return;
+    }
+    if (telefoonPhase === 'memorize-final' && t >= telefoonMemorizeUntil) {
       telefoonPhase = 'input';
       telefoonNumberOverlayEl.classList.remove('visible');
       telefoonKeypadOverlayEl.classList.add('visible');
@@ -3149,6 +3220,9 @@ window.ScoreSync = (function () {
     const elapsedMs = now() - telefoonSessionStart;
     const result = { correct: telefoonCorrectStreak, errors: telefoonSessionErrors, timeMs: Math.round(elapsedMs) };
 
+    // Record blijft uitsluitend op 'correct' gebaseerd, los van de
+    // moeilijkheidsgraad waarop het behaald is (sectie 13/14) — geen
+    // nieuw universeel scoremechanisme.
     const isNewBest = !save.telefoonBest || result.correct > save.telefoonBest.correct;
     if (isNewBest) save.telefoonBest = result;
     persistSave();
@@ -3967,7 +4041,8 @@ window.ScoreSync = (function () {
     if (trackingAwaitingNextRound) trackingRoundNextAt += pausedMs;
     if (sequenceShowing) sequenceShowStart += pausedMs; // same principle, Sequence Memory's own timeline
     if (sequenceAwaitingNextRound) sequenceRoundNextAt += pausedMs;
-    if (telefoonPhase === 'memorize') telefoonMemorizeUntil += pausedMs;
+    if (telefoonPhase === 'memorize-building') telefoonNextBlockAt += pausedMs;
+    if (telefoonPhase === 'memorize-final') telefoonMemorizeUntil += pausedMs;
     if (telefoonPhase === 'awaiting-next') telefoonRoundNextAt += pausedMs;
     paused = false;
     continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
