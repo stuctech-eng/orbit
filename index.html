@@ -109,6 +109,17 @@
     filter: none;
   }
   #welcome button.primary:active { background: rgba(77,163,255,0.22); }
+  /* Groene highlight voor "Spelmodus" — zelfde opbouw als .primary
+     hierboven, bewust een andere kleur zodat de twee uitgelichte
+     knoppen (Verder spelen / Spelmodus) los van elkaar herkenbaar
+     blijven, niet verward worden als "hetzelfde soort actie". */
+  #welcome button.highlight-green {
+    border-color: #34c759;
+    background: rgba(52,199,89,0.1);
+    box-shadow: 0 0 22px rgba(52,199,89,0.35);
+    filter: none;
+  }
+  #welcome button.highlight-green:active { background: rgba(52,199,89,0.22); }
 
   /* Blue accent — approved for active/selected elements and highlights
      only (see ORBIT_DESIGN_BIBLE.md 6.x en de UI-overleg-beslissing).
@@ -1158,7 +1169,7 @@
   <div class="title">ORBIT</div>
   <div class="menuStack">
     <button id="resumeBtn" class="primary">▶ Verder spelen</button>
-    <button id="openModeSelectBtn">🎮 Spelmodus</button>
+    <button id="openModeSelectBtn" class="highlight-green">🎮 Spelmodus</button>
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
     <button id="homeStatsBtn">📊 Statistieken</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
