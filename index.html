@@ -720,8 +720,17 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     min-height: 44px;
-    margin-bottom: 14px;
+    margin-bottom: 4px;
     white-space: nowrap;
+    transition: color 0.2s ease;
+  }
+  .tel-input-display.wrong { color: #ff6b6b; }
+  .tel-wrong-caption {
+    color: rgba(255,107,107,0.85);
+    font-size: 13px;
+    min-height: 16px;
+    margin-bottom: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   }
   .tel-contactbar {
     display: flex;
@@ -790,8 +799,11 @@
     background: #34c759; /* iOS systeemgroen, zelfde toon als de bel-knop */
     color: #fff;
     border-radius: 50%;
-    width: 64px;
-    height: 64px;
+    /* Zelfde sizing-techniek als .tel-key: aspect-ratio + volledige
+       breedte van zijn grid-cel, dus altijd exact even groot als de
+       cijfertoetsen, ongeacht schermbreedte. */
+    aspect-ratio: 1;
+    width: 100%;
     font-size: 26px;
     display: flex;
     align-items: center;
@@ -1109,6 +1121,7 @@
 
 <div id="telefoonKeypadOverlay">
   <div class="tel-input-display" id="telInputDisplay">&nbsp;</div>
+  <div class="tel-wrong-caption" id="telWrongCaption"></div>
   <div class="tel-contactbar">
     <span class="tel-contactbar-icon">👤</span>
     <span id="telContactbarText">nog 10 cijfers</span>
@@ -3096,30 +3109,34 @@ window.ScoreSync = (function () {
   // overgang bewaakt (zelfde t-gebaseerde, pause-veilige patroon als
   // de andere modi — geen setTimeout, want dat zou niet pauzeren).
   // Adaptief moeilijkheidsmodel — expliciete constanten, geen verspreide
-  // magic numbers. Eén dial (telefoonCurrentBlocks) bepaalt zowel de
-  // nummerlengte als de timing — simpel, voorspelbaar, uitlegbaar,
-  // geen twee los bijgehouden adaptieve dimensies nodig.
-  const TELEFOON_MIN_BLOCKS = 2;             // "06 38" — 4 cijfers, startniveau
-  const TELEFOON_MAX_BLOCKS = 5;             // "06 38 17 49 26" — volledig 10-cijferig nummer
-  const TELEFOON_MIN_BLOCK_VISIBLE_MS = 500;  // bij MAX_BLOCKS (moeilijkst)
-  const TELEFOON_MAX_BLOCK_VISIBLE_MS = 1100; // bij MIN_BLOCKS (makkelijkst)
-  const TELEFOON_MIN_FINAL_VISIBLE_MS = 1400; // bij MAX_BLOCKS
-  const TELEFOON_MAX_FINAL_VISIBLE_MS = 2600; // bij MIN_BLOCKS
-  const TELEFOON_CORRECT_STREAK_TO_ADVANCE = 3; // 3 op rij goed op dit niveau -> één stap omhoog
+  // magic numbers. Eén dial (telefoonCurrentLength, in CIJFERS — niet
+  // meer in hele blokken) bepaalt zowel de nummerlengte als de timing.
+  // Groei/krimp gaat één cijfer per keer (op verzoek aangescherpt van
+  // oorspronkelijk hele blokken van 2), voor een geleidelijkere curve.
+  // De weergave blijft wel per 2 cijfers gegroepeerd (formatTelefoonNumber),
+  // dus bij een oneven lengte eindigt het laatste groepje op 1 cijfer.
+  const TELEFOON_MIN_LENGTH = 4;              // "06 38" — startniveau
+  const TELEFOON_MAX_LENGTH = 10;             // "06 38 17 49 26" — volledig 10-cijferig nummer
+  const TELEFOON_MIN_DIGIT_VISIBLE_MS = 280;  // bij MAX_LENGTH (moeilijkst) — per reveal-stap van max. 2 cijfers
+  const TELEFOON_MAX_DIGIT_VISIBLE_MS = 600;  // bij MIN_LENGTH (makkelijkst)
+  const TELEFOON_MIN_FINAL_VISIBLE_MS = 1400; // bij MAX_LENGTH
+  const TELEFOON_MAX_FINAL_VISIBLE_MS = 2600; // bij MIN_LENGTH
+  const TELEFOON_CORRECT_STREAK_TO_ADVANCE = 3; // 3 op rij goed op dit niveau -> 1 cijfer erbij
   const TELEFOON_ROUND_PAUSE = 1100; // ms rustmoment na een correct nummer, zelfde waarde als de andere modi
+  const TELEFOON_ERROR_PAUSE = 2200; // langer dan ROUND_PAUSE — tijd om de rode fout-feedback echt te kunnen lezen
 
-  // Bepaalt block-/eindzichtbaarheidstijd lineair tussen de grenzen,
-  // puur afgeleid van het huidige aantal blokken — geen apart model.
-  function telefoonTimingForBlocks(blocks) {
-    const frac = (blocks - TELEFOON_MIN_BLOCKS) / (TELEFOON_MAX_BLOCKS - TELEFOON_MIN_BLOCKS);
+  // Bepaalt reveal-/eindzichtbaarheidstijd lineair tussen de grenzen,
+  // puur afgeleid van de huidige nummerlengte — geen apart model.
+  function telefoonTimingForLength(length) {
+    const frac = (length - TELEFOON_MIN_LENGTH) / (TELEFOON_MAX_LENGTH - TELEFOON_MIN_LENGTH);
     return {
-      blockMs: Math.round(TELEFOON_MAX_BLOCK_VISIBLE_MS - frac * (TELEFOON_MAX_BLOCK_VISIBLE_MS - TELEFOON_MIN_BLOCK_VISIBLE_MS)),
+      digitMs: Math.round(TELEFOON_MAX_DIGIT_VISIBLE_MS - frac * (TELEFOON_MAX_DIGIT_VISIBLE_MS - TELEFOON_MIN_DIGIT_VISIBLE_MS)),
       finalMs: Math.round(TELEFOON_MAX_FINAL_VISIBLE_MS - frac * (TELEFOON_MAX_FINAL_VISIBLE_MS - TELEFOON_MIN_FINAL_VISIBLE_MS))
     };
   }
 
   let telefoonPhase = 'memorize-building'; // 'memorize-building' | 'memorize-final' | 'input' | 'awaiting-next'
-  let telefoonCurrentNumber = '';          // ruwe cijferstring, lengte = 2 x huidig aantal blokken
+  let telefoonCurrentNumber = '';          // ruwe cijferstring, lengte = telefoonCurrentLength
   let telefoonEnteredDigits = '';
   const TELEFOON_MAX_ERRORS = 3; // sessie eindigt pas bij de 3e volledig foute inzending
 
@@ -3128,26 +3145,24 @@ window.ScoreSync = (function () {
   let telefoonSessionErrors = 0;        // aantal volledig foute inzendingen deze sessie, tot TELEFOON_MAX_ERRORS
   let telefoonSessionStart = 0;
   let telefoonMemorizeUntil = 0;   // einde van de 'memorize-final'-fase
-  let telefoonNextBlockAt = 0;     // tijdstip waarop het volgende blok verschijnt (memorize-building)
-  let telefoonRevealBlockIndex = 1; // hoeveel blokken al zichtbaar zijn tijdens het opbouwen
+  let telefoonNextDigitAt = 0;     // tijdstip waarop de volgende reveal-stap verschijnt (memorize-building)
+  let telefoonRevealDigitCount = 2; // hoeveel cijfers al zichtbaar zijn tijdens het opbouwen (start op "06")
   let telefoonRoundNextAt = 0;
   let telefoonActive = false;
   // Persistente moeilijkheidsgraad — NIET per sessie gereset (sectie 15:
   // "ORBIT onthoudt je niveau"). Record (telefoonBest) blijft hier
   // bewust los van, zoals vastgelegd: record ≠ huidige moeilijkheid.
-  let telefoonCurrentBlocks = (save.telefoonDifficulty && save.telefoonDifficulty >= TELEFOON_MIN_BLOCKS && save.telefoonDifficulty <= TELEFOON_MAX_BLOCKS)
+  let telefoonCurrentLength = (save.telefoonDifficulty && save.telefoonDifficulty >= TELEFOON_MIN_LENGTH && save.telefoonDifficulty <= TELEFOON_MAX_LENGTH)
     ? save.telefoonDifficulty
-    : TELEFOON_MIN_BLOCKS;
+    : TELEFOON_MIN_LENGTH;
   let telefoonConsecutiveCorrectAtLevel = 0; // streak op het HUIDIGE niveau, voor de 3-op-rij-regel
 
-  function generateTelefoonNumber(blockCount) {
-    // Pure functie, makkelijk los testbaar: altijd 06 + (blockCount-1)
-    // blokken van 2 willekeurige cijfers — lengte = 2 x blockCount,
-    // nooit een bestaand/echt nummer (puur random gegenereerd).
+  function generateTelefoonNumber(length) {
+    // Pure functie, makkelijk los testbaar: altijd 06 + losse willekeurige
+    // cijfers tot de gevraagde lengte (ook oneven lengtes mogelijk, sinds
+    // de groei per 1 cijfer gaat) — nooit een bestaand/echt nummer.
     let digits = '06';
-    for (let b = 1; b < blockCount; b++) {
-      digits += String(Math.floor(rand(0, 10))) + String(Math.floor(rand(0, 10)));
-    }
+    while (digits.length < length) digits += String(Math.floor(rand(0, 10)));
     return digits;
   }
   function formatTelefoonNumber(digits) {
@@ -3162,10 +3177,11 @@ window.ScoreSync = (function () {
   const telefoonKeypadOverlayEl = document.getElementById('telefoonKeypadOverlay');
   const telNumberDisplayEl = document.getElementById('telNumberDisplay');
   const telInputDisplayEl = document.getElementById('telInputDisplay');
+  const telWrongCaptionEl = document.getElementById('telWrongCaption');
   const telContactbarTextEl = document.getElementById('telContactbarText');
 
   function startTelefoonSession() {
-    // Sectie 14/15: record en sessie-stats resetten, maar telefoonCurrentBlocks
+    // Sectie 14/15: record en sessie-stats resetten, maar telefoonCurrentLength
     // NIET aanraken — dat is de persistente, "onthouden" moeilijkheidsgraad.
     telefoonCorrectStreak = 0;
     telefoonBestStreakThisSession = 0;
@@ -3176,23 +3192,25 @@ window.ScoreSync = (function () {
   }
 
   function startTelefoonRound() {
-    telefoonCurrentNumber = generateTelefoonNumber(telefoonCurrentBlocks);
+    telefoonCurrentNumber = generateTelefoonNumber(telefoonCurrentLength);
     telefoonEnteredDigits = '';
-    telefoonRevealBlockIndex = 1;
+    telefoonRevealDigitCount = 2;
     telNumberDisplayEl.textContent = formatTelefoonNumber(telefoonCurrentNumber.slice(0, 2)); // eerst alleen "06"
     telInputDisplayEl.innerHTML = '&nbsp;';
+    telInputDisplayEl.classList.remove('wrong');
+    telWrongCaptionEl.textContent = '';
     telContactbarTextEl.textContent = 'nog ' + telefoonCurrentNumber.length + ' cijfers';
     telefoonKeypadOverlayEl.classList.remove('visible');
     telefoonNumberOverlayEl.classList.add('visible');
     telefoonPhase = 'memorize-building';
-    const timing = telefoonTimingForBlocks(telefoonCurrentBlocks);
-    if (telefoonCurrentBlocks <= 1) {
-      // Edge case, praktisch niet bereikt gezien MIN_BLOCKS=2, maar
+    const timing = telefoonTimingForLength(telefoonCurrentLength);
+    if (telefoonCurrentNumber.length <= 2) {
+      // Edge case, praktisch niet bereikt gezien MIN_LENGTH=4, maar
       // defensief: meteen door naar de eindweergave.
       telefoonPhase = 'memorize-final';
       telefoonMemorizeUntil = now() + timing.finalMs;
     } else {
-      telefoonNextBlockAt = now() + timing.blockMs;
+      telefoonNextDigitAt = now() + timing.digitMs;
     }
   }
 
@@ -3233,24 +3251,24 @@ window.ScoreSync = (function () {
       telefoonCorrectStreak++;
       if (telefoonCorrectStreak > telefoonBestStreakThisSession) telefoonBestStreakThisSession = telefoonCorrectStreak;
       telefoonConsecutiveCorrectAtLevel++;
-      // Sectie 5: pas ná 3 op rij op DIT niveau, kleine stap omhoog —
-      // nooit een grote sprong, nooit verder dan MAX_BLOCKS.
-      if (telefoonConsecutiveCorrectAtLevel >= TELEFOON_CORRECT_STREAK_TO_ADVANCE && telefoonCurrentBlocks < TELEFOON_MAX_BLOCKS) {
-        telefoonCurrentBlocks++;
+      // Sectie 5: pas ná 3 op rij op DIT niveau, 1 cijfer erbij — nooit
+      // een grote sprong, nooit verder dan MAX_LENGTH.
+      if (telefoonConsecutiveCorrectAtLevel >= TELEFOON_CORRECT_STREAK_TO_ADVANCE && telefoonCurrentLength < TELEFOON_MAX_LENGTH) {
+        telefoonCurrentLength++;
         telefoonConsecutiveCorrectAtLevel = 0;
       }
-      save.telefoonDifficulty = telefoonCurrentBlocks;
+      save.telefoonDifficulty = telefoonCurrentLength;
       haptic(12);
       GameEvents.emit('correctAnswer');
       telefoonPhase = 'awaiting-next';
       telefoonRoundNextAt = now() + TELEFOON_ROUND_PAUSE;
     } else {
       telefoonSessionErrors++;
-      // Sectie 5/6: één stap omlaag, nooit verder dan MIN_BLOCKS, geen
+      // Sectie 5/6: 1 cijfer omlaag, nooit verder dan MIN_LENGTH, geen
       // grote terugval — "ORBIT zoekt het niveau", geen "strafgevoel".
-      telefoonCurrentBlocks = Math.max(TELEFOON_MIN_BLOCKS, telefoonCurrentBlocks - 1);
+      telefoonCurrentLength = Math.max(TELEFOON_MIN_LENGTH, telefoonCurrentLength - 1);
       telefoonConsecutiveCorrectAtLevel = 0;
-      save.telefoonDifficulty = telefoonCurrentBlocks;
+      save.telefoonDifficulty = telefoonCurrentLength;
       // Een fout breekt de LOPENDE reeks (die telt alleen opeenvolgend
       // correct) — de beste reeks van deze sessie blijft daarentegen
       // bewaard in telefoonBestStreakThisSession, ook als de sessie
@@ -3261,22 +3279,29 @@ window.ScoreSync = (function () {
       if (telefoonSessionErrors >= TELEFOON_MAX_ERRORS) {
         endTelefoonSession();
       } else {
+        // Sessie gaat door, maar de speler moet wel zien dat dit nummer
+        // fout was — anders merkt hij niets van deze fout vóór de
+        // volgende ronde al begint (expliciet gevraagd).
+        telInputDisplayEl.classList.add('wrong');
+        telWrongCaptionEl.textContent = 'Fout — was ' + formatTelefoonNumber(telefoonCurrentNumber);
         telefoonPhase = 'awaiting-next';
-        telefoonRoundNextAt = now() + TELEFOON_ROUND_PAUSE;
+        telefoonRoundNextAt = now() + TELEFOON_ERROR_PAUSE;
       }
     }
   }
 
   function frameTelefoon(t) {
-    if (telefoonPhase === 'memorize-building' && t >= telefoonNextBlockAt) {
-      telefoonRevealBlockIndex++;
-      const shownDigits = telefoonCurrentNumber.slice(0, telefoonRevealBlockIndex * 2);
-      telNumberDisplayEl.textContent = formatTelefoonNumber(shownDigits);
-      if (telefoonRevealBlockIndex >= telefoonCurrentBlocks) {
+    if (telefoonPhase === 'memorize-building' && t >= telefoonNextDigitAt) {
+      // Reveal-stappen blijven 2 cijfers tegelijk tonen (leesritme), maar
+      // nooit verder dan de werkelijke — mogelijk oneven — lengte. Dit is
+      // puur de weergave-chunking, los van de groei-stapgrootte (1 cijfer).
+      telefoonRevealDigitCount = Math.min(telefoonRevealDigitCount + 2, telefoonCurrentNumber.length);
+      telNumberDisplayEl.textContent = formatTelefoonNumber(telefoonCurrentNumber.slice(0, telefoonRevealDigitCount));
+      if (telefoonRevealDigitCount >= telefoonCurrentNumber.length) {
         telefoonPhase = 'memorize-final';
-        telefoonMemorizeUntil = t + telefoonTimingForBlocks(telefoonCurrentBlocks).finalMs;
+        telefoonMemorizeUntil = t + telefoonTimingForLength(telefoonCurrentLength).finalMs;
       } else {
-        telefoonNextBlockAt = t + telefoonTimingForBlocks(telefoonCurrentBlocks).blockMs;
+        telefoonNextDigitAt = t + telefoonTimingForLength(telefoonCurrentLength).digitMs;
       }
       return;
     }
@@ -4160,7 +4185,7 @@ window.ScoreSync = (function () {
     if (trackingAwaitingNextRound) trackingRoundNextAt += pausedMs;
     if (sequenceShowing) sequenceShowStart += pausedMs; // same principle, Sequence Memory's own timeline
     if (sequenceAwaitingNextRound) sequenceRoundNextAt += pausedMs;
-    if (telefoonPhase === 'memorize-building') telefoonNextBlockAt += pausedMs;
+    if (telefoonPhase === 'memorize-building') telefoonNextDigitAt += pausedMs;
     if (telefoonPhase === 'memorize-final') telefoonMemorizeUntil += pausedMs;
     if (telefoonPhase === 'awaiting-next') telefoonRoundNextAt += pausedMs;
     paused = false;
