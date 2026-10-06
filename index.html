@@ -768,13 +768,37 @@
     opacity: 0.3;
     pointer-events: none;
   }
+  .tel-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 56px;
+    margin-top: 24px;
+  }
+  .tel-check-btn {
+    appearance: none;
+    border: none;
+    background: #34c759; /* iOS systeemgroen, zelfde toon als de bel-knop */
+    color: #fff;
+    border-radius: 50%;
+    width: 64px;
+    height: 64px;
+    font-size: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  .tel-check-btn:active { background: #2aa84a; }
   .tel-key-backspace-row {
     appearance: none;
     border: none;
     background: none;
     color: rgba(255,255,255,0.55);
     font-size: 24px;
-    margin-top: 24px;
     padding: 12px 24px;
     min-width: 44px;
     min-height: 44px;
@@ -784,6 +808,17 @@
     touch-action: manipulation;
   }
   .tel-key-backspace-row:active { color: rgba(255,255,255,0.9); }
+  .tel-auto-label {
+    margin-top: 18px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    min-height: 16px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+  .tel-auto-label.visible { opacity: 1; }
 
 
   #pauseOverlay {
@@ -1083,7 +1118,11 @@
     <button class="tel-key" data-digit="0"><span class="tel-key-digit">0</span><span class="tel-key-letters">+</span></button>
     <button class="tel-key tel-key-decorative" disabled aria-hidden="true"><span class="tel-key-digit">#</span></button>
   </div>
-  <button class="tel-key-backspace-row" id="telBackspaceBtn">⌫</button>
+  <div class="tel-action-row">
+    <button class="tel-check-btn" id="telCheckBtn" aria-label="Controleer">📞</button>
+    <button class="tel-key-backspace-row" id="telBackspaceBtn">⌫</button>
+  </div>
+  <div class="tel-auto-label" id="telAutoLabel">Automatisch controleren aan</div>
 </div>
 
 <div id="tutorialOverlay">
@@ -1439,7 +1478,7 @@ window.ScoreSync = (function () {
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
-  let settings = Object.assign({ haptics: true, sound: true }, loadSettings() || {});
+  let settings = Object.assign({ haptics: true, sound: true, telefoonAutoCheck: false }, loadSettings() || {});
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
   }
@@ -3150,7 +3189,12 @@ window.ScoreSync = (function () {
     if (telefoonEnteredDigits.length >= telefoonCurrentNumber.length) return;
     telefoonEnteredDigits += d;
     updateTelefoonInputDisplay();
-    if (telefoonEnteredDigits.length === telefoonCurrentNumber.length) checkTelefoonNumber();
+    // Standaard: wacht op een tik op de groene knop (lang-indrukken
+    // daarop schakelt dit om naar automatisch controleren, zie
+    // telCheckBtn-wiring hieronder).
+    if (settings.telefoonAutoCheck && telefoonEnteredDigits.length === telefoonCurrentNumber.length) {
+      checkTelefoonNumber();
+    }
   }
   function telefoonBackspace() {
     // Onbeperkt corrigeren toegestaan — een getikt cijfer wissen is
@@ -3263,6 +3307,49 @@ window.ScoreSync = (function () {
     btn.addEventListener('click', () => telefoonDigitPress(btn.getAttribute('data-digit')));
   });
   document.getElementById('telBackspaceBtn').addEventListener('click', telefoonBackspace);
+
+  // Groene controleerknop — korte tik controleert het nummer (alleen
+  // zinvol als het volledig is ingevoerd); 2 seconden ingedrukt houden
+  // schakelt de automatisch-controleren-instelling om. Zelfde
+  // pointer-gebaseerde aanpak als de rest van ORBIT's touch-handling.
+  const telCheckBtnEl = document.getElementById('telCheckBtn');
+  const telAutoLabelEl = document.getElementById('telAutoLabel');
+  const TELEFOON_LONGPRESS_MS = 2000;
+  let telCheckLongPressTimer = null;
+  let telCheckLongPressFired = false;
+
+  function refreshTelAutoLabel() {
+    telAutoLabelEl.textContent = settings.telefoonAutoCheck ? 'Automatisch controleren aan' : 'Automatisch controleren uit';
+  }
+  function flashTelAutoLabel() {
+    refreshTelAutoLabel();
+    telAutoLabelEl.classList.add('visible');
+    clearTimeout(telAutoLabelEl._hideTimer);
+    telAutoLabelEl._hideTimer = setTimeout(() => telAutoLabelEl.classList.remove('visible'), 2200);
+  }
+
+  telCheckBtnEl.addEventListener('pointerdown', () => {
+    telCheckLongPressFired = false;
+    telCheckLongPressTimer = setTimeout(() => {
+      telCheckLongPressFired = true;
+      settings.telefoonAutoCheck = !settings.telefoonAutoCheck;
+      saveSettings();
+      haptic([10, 30, 10, 30]); // ander patroon dan correct/fout — duidelijk "instelling gewijzigd"
+      flashTelAutoLabel();
+    }, TELEFOON_LONGPRESS_MS);
+  });
+  function telCheckCancelPress() {
+    clearTimeout(telCheckLongPressTimer);
+  }
+  telCheckBtnEl.addEventListener('pointerup', telCheckCancelPress);
+  telCheckBtnEl.addEventListener('pointerleave', telCheckCancelPress);
+  telCheckBtnEl.addEventListener('pointercancel', telCheckCancelPress);
+  telCheckBtnEl.addEventListener('click', () => {
+    if (telCheckLongPressFired) { telCheckLongPressFired = false; return; } // was een lang-indrukken, geen normale tik
+    if (telefoonPhase !== 'input') return;
+    if (telefoonEnteredDigits.length !== telefoonCurrentNumber.length) return; // nog niet compleet — niets doen
+    checkTelefoonNumber();
+  });
 
   function launchTelefoonMode() {
     currentMode = 'telefoon';
