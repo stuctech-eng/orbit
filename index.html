@@ -714,9 +714,22 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     min-height: 44px;
-    margin-bottom: 28px;
+    margin-bottom: 14px;
     white-space: nowrap;
   }
+  .tel-contactbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 999px;
+    padding: 10px 18px;
+    margin-bottom: 32px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+  .tel-contactbar-icon { font-size: 13px; opacity: 0.6; }
   .tel-keypad {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -751,12 +764,26 @@
     color: rgba(255,255,255,0.45);
     margin-top: 3px;
   }
-  .tel-key-backspace {
+  .tel-key-decorative {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+  .tel-key-backspace-row {
+    appearance: none;
+    border: none;
     background: none;
     color: rgba(255,255,255,0.55);
-    font-size: 22px;
+    font-size: 24px;
+    margin-top: 24px;
+    padding: 12px 24px;
+    min-width: 44px;
+    min-height: 44px;
+    font-family: inherit;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
   }
-  .tel-key-backspace:active { background: rgba(255,255,255,0.1); }
+  .tel-key-backspace-row:active { color: rgba(255,255,255,0.9); }
 
 
   #pauseOverlay {
@@ -1038,6 +1065,10 @@
 
 <div id="telefoonKeypadOverlay">
   <div class="tel-input-display" id="telInputDisplay">&nbsp;</div>
+  <div class="tel-contactbar">
+    <span class="tel-contactbar-icon">👤</span>
+    <span id="telContactbarText">nog 10 cijfers</span>
+  </div>
   <div class="tel-keypad">
     <button class="tel-key" data-digit="1"><span class="tel-key-digit">1</span></button>
     <button class="tel-key" data-digit="2"><span class="tel-key-digit">2</span><span class="tel-key-letters">ABC</span></button>
@@ -1048,10 +1079,11 @@
     <button class="tel-key" data-digit="7"><span class="tel-key-digit">7</span><span class="tel-key-letters">PQRS</span></button>
     <button class="tel-key" data-digit="8"><span class="tel-key-digit">8</span><span class="tel-key-letters">TUV</span></button>
     <button class="tel-key" data-digit="9"><span class="tel-key-digit">9</span><span class="tel-key-letters">WXYZ</span></button>
-    <div></div>
-    <button class="tel-key" data-digit="0"><span class="tel-key-digit">0</span></button>
-    <button class="tel-key tel-key-backspace" id="telBackspaceBtn">⌫</button>
+    <button class="tel-key tel-key-decorative" disabled aria-hidden="true"><span class="tel-key-digit">＊</span></button>
+    <button class="tel-key" data-digit="0"><span class="tel-key-digit">0</span><span class="tel-key-letters">+</span></button>
+    <button class="tel-key tel-key-decorative" disabled aria-hidden="true"><span class="tel-key-digit">#</span></button>
   </div>
+  <button class="tel-key-backspace-row" id="telBackspaceBtn">⌫</button>
 </div>
 
 <div id="tutorialOverlay">
@@ -3037,6 +3069,7 @@ window.ScoreSync = (function () {
   const telefoonKeypadOverlayEl = document.getElementById('telefoonKeypadOverlay');
   const telNumberDisplayEl = document.getElementById('telNumberDisplay');
   const telInputDisplayEl = document.getElementById('telInputDisplay');
+  const telContactbarTextEl = document.getElementById('telContactbarText');
 
   function startTelefoonSession() {
     telefoonCorrectStreak = 0;
@@ -3051,6 +3084,7 @@ window.ScoreSync = (function () {
     telefoonEnteredDigits = '';
     telNumberDisplayEl.textContent = formatTelefoonNumber(telefoonCurrentNumber);
     telInputDisplayEl.innerHTML = '&nbsp;';
+    telContactbarTextEl.textContent = 'nog ' + telefoonCurrentNumber.length + ' cijfers';
     telefoonKeypadOverlayEl.classList.remove('visible');
     telefoonNumberOverlayEl.classList.add('visible');
     telefoonPhase = 'memorize';
@@ -3061,6 +3095,8 @@ window.ScoreSync = (function () {
     telInputDisplayEl.textContent = telefoonEnteredDigits
       ? formatTelefoonNumber(telefoonEnteredDigits.padEnd(10, ' ')).trimEnd()
       : '\u00a0';
+    const remaining = telefoonCurrentNumber.length - telefoonEnteredDigits.length;
+    telContactbarTextEl.textContent = remaining > 0 ? ('nog ' + remaining + ' cijfer' + (remaining === 1 ? '' : 's')) : 'controleren…';
   }
 
   function telefoonDigitPress(d) {
