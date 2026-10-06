@@ -557,6 +557,23 @@
     padding: 0 24px;
   }
   #sequenceGameOver.visible { opacity: 1; pointer-events: auto; }
+
+  /* Telefoon — eigen Game Over-overlay, zelfde patroon als de andere drie. */
+  #telefoonGameOver {
+    position: fixed;
+    inset: 0;
+    z-index: 24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.92);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    padding: 0 24px;
+  }
+  #telefoonGameOver.visible { opacity: 1; pointer-events: auto; }
   .tgo-panel { text-align: center; width: 100%; max-width: 280px; }
   .tgo-title {
     font-size: 13px;
@@ -635,6 +652,111 @@
     min-height: 44px;
   }
   .tgo-home:active { color: rgba(255,255,255,0.8); }
+
+  /* ---------- Telefoon-modus ---------- */
+  #telefoonNumberOverlay {
+    position: fixed;
+    inset: 0;
+    /* 10, niet 24 (zoals de Game-Over-schermen) — dit IS de actieve
+       gameplay, dus de pauzeknop (#scannerIndicator, z-index 15) moet
+       hier overheen blijven staan en tikbaar blijven, net als bij de
+       andere modi tijdens het spelen. */
+    z-index: 10;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+  #telefoonNumberOverlay.visible { display: flex; }
+  .tel-number {
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    /* clamp() schaalt automatisch mee met de viewport-breedte, zodat
+       het nummer nooit afbreekt of buiten beeld valt, ongeacht
+       toestelbreedte — geen JS-meetwerk nodig. */
+    font-size: clamp(28px, 10vw, 52px);
+  }
+  .tel-label {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 28px);
+    left: 0; right: 0;
+    text-align: center;
+    color: rgba(255,255,255,0.4);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  }
+
+  #telefoonKeypadOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10; /* zelfde reden als telefoonNumberOverlay hierboven */
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    touch-action: manipulation;
+  }
+  #telefoonKeypadOverlay.visible { display: flex; }
+  .tel-input-display {
+    color: #fff;
+    font-size: clamp(22px, 8vw, 36px);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    min-height: 44px;
+    margin-bottom: 28px;
+    white-space: nowrap;
+  }
+  .tel-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: min(300px, 82vw);
+  }
+  .tel-key {
+    appearance: none;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border-radius: 50%;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  .tel-key:active { background: rgba(255,255,255,0.22); }
+  .tel-key .tel-key-digit {
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .tel-key .tel-key-letters {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.45);
+    margin-top: 3px;
+  }
+  .tel-key-backspace {
+    background: none;
+    color: rgba(255,255,255,0.55);
+    font-size: 22px;
+  }
+  .tel-key-backspace:active { background: rgba(255,255,255,0.1); }
 
 
   #pauseOverlay {
@@ -894,6 +1016,44 @@
   </div>
 </div>
 
+<div id="telefoonGameOver">
+  <div class="tgo-panel">
+    <div class="tgo-title">GAME OVER</div>
+    <div class="tgo-recordlabel" id="telgoRecordLabel">–</div>
+    <div class="tgo-score" id="telgoBig">–</div>
+    <div class="tgo-scorelabel">NUMMERS OP RIJ</div>
+    <div class="tgo-stats">
+      <div class="tgo-row"><span class="tgo-label">Fouten</span><span class="tgo-value" id="telgoErrors">–</span></div>
+      <div class="tgo-row"><span class="tgo-label">Tijd</span><span class="tgo-value" id="telgoTime">–</span></div>
+    </div>
+    <button class="tgo-retry" id="telgoRetryBtn">↺ Opnieuw proberen</button>
+    <button class="tgo-home" id="telgoHomeBtn">🏠 Home</button>
+  </div>
+</div>
+
+<div id="telefoonNumberOverlay">
+  <div class="tel-label">Onthoud dit nummer</div>
+  <div class="tel-number" id="telNumberDisplay">06 0000 0000</div>
+</div>
+
+<div id="telefoonKeypadOverlay">
+  <div class="tel-input-display" id="telInputDisplay">&nbsp;</div>
+  <div class="tel-keypad">
+    <button class="tel-key" data-digit="1"><span class="tel-key-digit">1</span></button>
+    <button class="tel-key" data-digit="2"><span class="tel-key-digit">2</span><span class="tel-key-letters">ABC</span></button>
+    <button class="tel-key" data-digit="3"><span class="tel-key-digit">3</span><span class="tel-key-letters">DEF</span></button>
+    <button class="tel-key" data-digit="4"><span class="tel-key-digit">4</span><span class="tel-key-letters">GHI</span></button>
+    <button class="tel-key" data-digit="5"><span class="tel-key-digit">5</span><span class="tel-key-letters">JKL</span></button>
+    <button class="tel-key" data-digit="6"><span class="tel-key-digit">6</span><span class="tel-key-letters">MNO</span></button>
+    <button class="tel-key" data-digit="7"><span class="tel-key-digit">7</span><span class="tel-key-letters">PQRS</span></button>
+    <button class="tel-key" data-digit="8"><span class="tel-key-digit">8</span><span class="tel-key-letters">TUV</span></button>
+    <button class="tel-key" data-digit="9"><span class="tel-key-digit">9</span><span class="tel-key-letters">WXYZ</span></button>
+    <div></div>
+    <button class="tel-key" data-digit="0"><span class="tel-key-digit">0</span></button>
+    <button class="tel-key tel-key-backspace" id="telBackspaceBtn">⌫</button>
+  </div>
+</div>
+
 <div id="tutorialOverlay">
   <div class="tut-brand" id="tutBrand">ORBIT</div>
   <div class="tut-text" id="tutText"></div>
@@ -958,6 +1118,15 @@
       </span>
       <span class="ms-chevron">›</span>
     </button>
+    <button class="ms-card" id="msCardTelefoon" data-mode="telefoon">
+      <span class="ms-icon">☎</span>
+      <span class="ms-body">
+        <span class="ms-name">Telefoon <span class="ms-badge">Nieuw</span></span>
+        <span class="ms-desc">Onthoud het nummer, toets het na</span>
+        <span class="ms-best" id="msBestTelefoon"></span>
+      </span>
+      <span class="ms-chevron">›</span>
+    </button>
   </div>
   <div class="ms-footnote">Elke modus traint andere cognitieve vaardigheden.</div>
   <button class="ms-close" id="msCloseBtn">Terug</button>
@@ -992,6 +1161,8 @@
   <div class="statRow"><span class="label">Beste</span><span class="value" id="statsPattern">–</span></div>
   <div class="statGroupLabel">Sequence Memory</div>
   <div class="statRow"><span class="label">Beste</span><span class="value" id="statsSequence">–</span></div>
+  <div class="statGroupLabel">Telefoon</div>
+  <div class="statRow"><span class="label">Beste</span><span class="value" id="statsTelefoon">–</span></div>
   <div class="statRow" style="margin-top:14px;"><span class="label">Totaal gespeeld</span><span class="value" id="statsSessions">–</span></div>
   <button class="close" id="closeStatsOverlay">Sluiten</button>
 </div>
@@ -2830,6 +3001,169 @@ window.ScoreSync = (function () {
     updateIndicatorVisibility();
   }
 
+  // ---------- Telefoon ----------
+  // Geen canvas-rendering nodig — zien/onthouden/intoetsen is een reeks
+  // statische DOM-schermen, geen bewegende elementen. frameTelefoon()
+  // is daarom een vrijwel lege stub die alleen de memorize->input-
+  // overgang bewaakt (zelfde t-gebaseerde, pause-veilige patroon als
+  // de andere modi — geen setTimeout, want dat zou niet pauzeren).
+  const TELEFOON_VISIBLE_MS = 2800;  // onthoudtijd — vaste waarde voor v1, later evt. configureerbaar
+  const TELEFOON_ROUND_PAUSE = 1100; // ms rustmoment na een correct nummer, zelfde waarde als de andere modi
+
+  let telefoonPhase = 'memorize';       // 'memorize' | 'input' | 'awaiting-next'
+  let telefoonCurrentNumber = '';       // ruwe 10-cijferige string, bv. "0638174926"
+  let telefoonEnteredDigits = '';
+  let telefoonCorrectStreak = 0;        // primaire score: opeenvolgend correcte nummers deze sessie
+  let telefoonSessionErrors = 0;        // aantal VOLLEDIG foute inzendingen (0 of 1 in v1 — sessie eindigt direct daarna)
+  let telefoonSessionStart = 0;
+  let telefoonMemorizeUntil = 0;
+  let telefoonRoundNextAt = 0;
+  let telefoonActive = false;
+
+  function generateTelefoonNumber() {
+    // Pure functie, makkelijk los testbaar: altijd 06 + 8 willekeurige
+    // cijfers, nooit een bestaand/echt nummer (puur random gegenereerd).
+    let digits = '06';
+    for (let i = 0; i < 8; i++) digits += String(Math.floor(rand(0, 10)));
+    return digits;
+  }
+  function formatTelefoonNumber(digits) {
+    // "0638174926" -> "06 3817 4926"
+    return digits.slice(0, 2) + ' ' + digits.slice(2, 6) + ' ' + digits.slice(6, 10);
+  }
+
+  const telefoonNumberOverlayEl = document.getElementById('telefoonNumberOverlay');
+  const telefoonKeypadOverlayEl = document.getElementById('telefoonKeypadOverlay');
+  const telNumberDisplayEl = document.getElementById('telNumberDisplay');
+  const telInputDisplayEl = document.getElementById('telInputDisplay');
+
+  function startTelefoonSession() {
+    telefoonCorrectStreak = 0;
+    telefoonSessionErrors = 0;
+    telefoonSessionStart = now();
+    telefoonActive = true;
+    startTelefoonRound();
+  }
+
+  function startTelefoonRound() {
+    telefoonCurrentNumber = generateTelefoonNumber();
+    telefoonEnteredDigits = '';
+    telNumberDisplayEl.textContent = formatTelefoonNumber(telefoonCurrentNumber);
+    telInputDisplayEl.innerHTML = '&nbsp;';
+    telefoonKeypadOverlayEl.classList.remove('visible');
+    telefoonNumberOverlayEl.classList.add('visible');
+    telefoonPhase = 'memorize';
+    telefoonMemorizeUntil = now() + TELEFOON_VISIBLE_MS;
+  }
+
+  function updateTelefoonInputDisplay() {
+    telInputDisplayEl.textContent = telefoonEnteredDigits
+      ? formatTelefoonNumber(telefoonEnteredDigits.padEnd(10, ' ')).trimEnd()
+      : '\u00a0';
+  }
+
+  function telefoonDigitPress(d) {
+    if (telefoonPhase !== 'input') return;
+    if (telefoonEnteredDigits.length >= 10) return;
+    telefoonEnteredDigits += d;
+    updateTelefoonInputDisplay();
+    if (telefoonEnteredDigits.length === 10) checkTelefoonNumber();
+  }
+  function telefoonBackspace() {
+    // Onbeperkt corrigeren toegestaan — een getikt cijfer wissen is
+    // geen fout zolang het nummer nog niet volledig is ingevoerd
+    // (expliciet vastgelegd besluit, anders dan bv. Sequence's
+    // directe foutregistratie per tik).
+    if (telefoonPhase !== 'input') return;
+    telefoonEnteredDigits = telefoonEnteredDigits.slice(0, -1);
+    updateTelefoonInputDisplay();
+  }
+
+  function checkTelefoonNumber() {
+    const correct = telefoonEnteredDigits === telefoonCurrentNumber;
+    if (correct) {
+      telefoonCorrectStreak++;
+      haptic(12);
+      GameEvents.emit('correctAnswer');
+      telefoonPhase = 'awaiting-next';
+      telefoonRoundNextAt = now() + TELEFOON_ROUND_PAUSE;
+    } else {
+      telefoonSessionErrors++;
+      haptic([10, 40, 10]);
+      GameEvents.emit('wrongAnswer');
+      endTelefoonSession();
+    }
+  }
+
+  function frameTelefoon(t) {
+    if (telefoonPhase === 'memorize' && t >= telefoonMemorizeUntil) {
+      telefoonPhase = 'input';
+      telefoonNumberOverlayEl.classList.remove('visible');
+      telefoonKeypadOverlayEl.classList.add('visible');
+      return;
+    }
+    if (telefoonPhase === 'awaiting-next' && t >= telefoonRoundNextAt) {
+      startTelefoonRound();
+    }
+  }
+
+  function endTelefoonSession() {
+    telefoonActive = false;
+    const elapsedMs = now() - telefoonSessionStart;
+    const result = { correct: telefoonCorrectStreak, errors: telefoonSessionErrors, timeMs: Math.round(elapsedMs) };
+
+    const isNewBest = !save.telefoonBest || result.correct > save.telefoonBest.correct;
+    if (isNewBest) save.telefoonBest = result;
+    persistSave();
+    if (isNewBest && window.ScoreSync) window.ScoreSync.notifyResult('telefoon', result);
+
+    showTelefoonGameOver(result, save.telefoonBest, isNewBest);
+  }
+
+  const telefoonGameOverEl = document.getElementById('telefoonGameOver');
+  const telgoRecordLabelEl = document.getElementById('telgoRecordLabel');
+  const telgoBigEl = document.getElementById('telgoBig');
+  const telgoErrorsEl = document.getElementById('telgoErrors');
+  const telgoTimeEl = document.getElementById('telgoTime');
+
+  function showTelefoonGameOver(result, best, isNewBest) {
+    telgoRecordLabelEl.textContent = isNewBest ? 'NIEUW RECORD' : 'BESTE';
+    telgoRecordLabelEl.classList.toggle('new', isNewBest);
+    telgoBigEl.textContent = String(isNewBest ? result.correct : best.correct);
+    telgoErrorsEl.textContent = String(result.errors);
+    telgoTimeEl.textContent = (result.timeMs / 1000).toFixed(1) + ' sec';
+    telefoonKeypadOverlayEl.classList.remove('visible');
+    telefoonNumberOverlayEl.classList.remove('visible');
+    telefoonGameOverEl.classList.add('visible');
+  }
+  function hideTelefoonGameOver() {
+    telefoonGameOverEl.classList.remove('visible');
+  }
+  document.getElementById('telgoRetryBtn').addEventListener('click', () => {
+    hideTelefoonGameOver();
+    startTelefoonSession();
+  });
+  document.getElementById('telgoHomeBtn').addEventListener('click', () => {
+    hideTelefoonGameOver();
+    showHome();
+  });
+
+  document.querySelectorAll('.tel-key[data-digit]').forEach((btn) => {
+    btn.addEventListener('click', () => telefoonDigitPress(btn.getAttribute('data-digit')));
+  });
+  document.getElementById('telBackspaceBtn').addEventListener('click', telefoonBackspace);
+
+  function launchTelefoonMode() {
+    currentMode = 'telefoon';
+    welcomeEl.classList.add('hidden');
+    pauseOverlayEl.classList.remove('visible');
+    hideTelefoonGameOver();
+    if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
+    else { resumeGame(); }
+    startTelefoonSession();
+    updateIndicatorVisibility();
+  }
+
   // ---------- Cells ----------
   let cells = [];
   let baseRadius = 34;
@@ -3596,6 +3930,8 @@ window.ScoreSync = (function () {
     if (trackingAwaitingNextRound) trackingRoundNextAt += pausedMs;
     if (sequenceShowing) sequenceShowStart += pausedMs; // same principle, Sequence Memory's own timeline
     if (sequenceAwaitingNextRound) sequenceRoundNextAt += pausedMs;
+    if (telefoonPhase === 'memorize') telefoonMemorizeUntil += pausedMs;
+    if (telefoonPhase === 'awaiting-next') telefoonRoundNextAt += pausedMs;
     paused = false;
     continuousPlayStart = now(); // a break resets the fatigue clock — the player just rested
     // A break also resets streak MOMENTUM (not confidence score, not ladder
@@ -3628,6 +3964,11 @@ window.ScoreSync = (function () {
     }
     if (currentMode === 'sequence') {
       frameSequence(t, dt);
+      requestAnimationFrame(frame);
+      return;
+    }
+    if (currentMode === 'telefoon') {
+      frameTelefoon(t);
       requestAnimationFrame(frame);
       return;
     }
@@ -3851,6 +4192,7 @@ window.ScoreSync = (function () {
     document.getElementById('statsTracking').textContent = save.trackingBest ? `${save.trackingBest.balls} ballen` : '–';
     document.getElementById('statsPattern').textContent = save.patternBest ? `${save.patternBest.balls} ballen` : '–';
     document.getElementById('statsSequence').textContent = save.sequenceBest ? String(save.sequenceBest.length) : '–';
+    document.getElementById('statsTelefoon').textContent = save.telefoonBest ? `${save.telefoonBest.correct} op rij` : '–';
     document.getElementById('statsSessions').textContent = String(save.sessions);
   }
 
@@ -3862,6 +4204,7 @@ window.ScoreSync = (function () {
       || trackingGameOverEl.classList.contains('visible')
       || patternGameOverEl.classList.contains('visible')
       || sequenceGameOverEl.classList.contains('visible')
+      || telefoonGameOverEl.classList.contains('visible')
       || modeSelectEl.classList.contains('visible')
       || modeIntroEl.classList.contains('visible');
     scannerIndicatorEl.classList.toggle('hidden', anyOverlayOpen || !gameLaunched);
@@ -3893,6 +4236,12 @@ window.ScoreSync = (function () {
     statsOverlayEl.classList.remove('visible');
     modeSelectEl.classList.remove('visible');
     modeIntroEl.classList.remove('visible');
+    // Telefoon gebruikt, anders dan de canvas-gebaseerde modi, volledig-
+    // scherm DOM-overlays voor zijn gameplay zelf — die moeten hier
+    // expliciet verborgen worden, anders blijven ze zichtbaar over het
+    // Home-scherm heen bij een directe "Home"-tik vanuit het pauzemenu.
+    telefoonNumberOverlayEl.classList.remove('visible');
+    telefoonKeypadOverlayEl.classList.remove('visible');
     welcomeEl.classList.remove('hidden');
     updateIndicatorVisibility();
   }
@@ -3974,6 +4323,13 @@ window.ScoreSync = (function () {
       updateIndicatorVisibility();
       return;
     }
+    if (currentMode === 'telefoon') {
+      paused = false;
+      hideTelefoonGameOver();
+      startTelefoonSession();
+      updateIndicatorVisibility();
+      return;
+    }
     startNewSession();
     if (!gameLaunched) { gameLaunched = true; launchGame(); }
     else { resumeGame(); startRound(); }
@@ -4006,6 +4362,14 @@ window.ScoreSync = (function () {
       else { resumeGame(); }
       hideSequenceGameOver();
       startSequenceSession();
+      updateIndicatorVisibility();
+      return;
+    }
+    if (currentMode === 'telefoon') {
+      if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
+      else { resumeGame(); }
+      hideTelefoonGameOver();
+      startTelefoonSession();
       updateIndicatorVisibility();
       return;
     }
@@ -4066,6 +4430,17 @@ window.ScoreSync = (function () {
         { icon: '📈', label: 'Steeds langer', sub: 'Elke ronde één stap erbij' }
       ],
       launch: launchSequenceMode
+    },
+    telefoon: {
+      title: 'TELEFOON',
+      desc: 'Onthoud het telefoonnummer. Toets het daarna na op het toetsenbord.',
+      features: [
+        { icon: '☎', label: '10 cijfers', sub: '06 + 8 cijfers' },
+        { icon: '👁', label: 'Kort zichtbaar', sub: 'Daarna verdwijnt het nummer' },
+        { icon: '⌫', label: 'Corrigeren mag', sub: 'Vóór het nummer compleet is' },
+        { icon: '📈', label: 'Reeks opbouwen', sub: 'Hoeveel achter elkaar correct?' }
+      ],
+      launch: launchTelefoonMode
     }
   };
 
@@ -4082,6 +4457,9 @@ window.ScoreSync = (function () {
     if (modeKey === 'sequence') {
       return save.sequenceBest ? `Beste: ${save.sequenceBest.length}` : '';
     }
+    if (modeKey === 'telefoon') {
+      return save.telefoonBest ? `Beste: ${save.telefoonBest.correct} op rij` : '';
+    }
     return '';
   }
 
@@ -4091,6 +4469,7 @@ window.ScoreSync = (function () {
     document.getElementById('msCardTracking').classList.toggle('active', currentMode === 'tracking');
     document.getElementById('msCardPattern').classList.toggle('active', currentMode === 'pattern');
     document.getElementById('msCardSequence').classList.toggle('active', currentMode === 'sequence');
+    document.getElementById('msCardTelefoon').classList.toggle('active', currentMode === 'telefoon');
     document.getElementById('msBestClassic').textContent = bestScoreText('classic');
     document.getElementById('msBestTracking').textContent = bestScoreText('tracking');
     document.getElementById('msBestPattern').textContent = bestScoreText('pattern');
@@ -4126,6 +4505,7 @@ window.ScoreSync = (function () {
   document.getElementById('msCardTracking').addEventListener('click', () => openModeIntro('tracking'));
   document.getElementById('msCardPattern').addEventListener('click', () => openModeIntro('pattern'));
   document.getElementById('msCardSequence').addEventListener('click', () => openModeIntro('sequence'));
+  document.getElementById('msCardTelefoon').addEventListener('click', () => openModeIntro('telefoon'));
   document.getElementById('miBackBtn').addEventListener('click', () => {
     modeIntroEl.classList.remove('visible');
     openModeSelect();
