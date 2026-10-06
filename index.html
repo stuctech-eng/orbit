@@ -667,6 +667,9 @@
     justify-content: center;
     background: #000;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Duwt de verticaal-gecentreerde inhoud iets omhoog t.o.v. het
+       exacte midden — simpele CSS-only truc, geen transform nodig. */
+    padding-bottom: 12vh;
     box-sizing: border-box;
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   }
@@ -678,8 +681,11 @@
     white-space: nowrap;
     /* clamp() schaalt automatisch mee met de viewport-breedte, zodat
        het nummer nooit afbreekt of buiten beeld valt, ongeacht
-       toestelbreedte — geen JS-meetwerk nodig. */
-    font-size: clamp(28px, 10vw, 52px);
+       toestelbreedte — geen JS-meetwerk nodig. Bovengrens iets
+       verhoogd (52->60) op verzoek, de vw-gedreven middenwaarde blijft
+       de begrenzer op smalle toestellen, dus de "past in 1 rij"-eis
+       blijft intact. */
+    font-size: clamp(30px, 11vw, 60px);
   }
   .tel-label {
     position: absolute;
@@ -754,14 +760,14 @@
   }
   .tel-key:active { background: rgba(255,255,255,0.22); }
   .tel-key .tel-key-digit {
-    font-size: 32px;
+    font-size: 36px;
     font-weight: 500;
     line-height: 1;
   }
   .tel-key .tel-key-letters {
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 0.12em;
-    color: rgba(255,255,255,0.45);
+    color: rgba(255,255,255,0.65);
     margin-top: 3px;
   }
   .tel-key-decorative {
@@ -769,10 +775,13 @@
     pointer-events: none;
   }
   .tel-action-row {
-    display: flex;
+    /* Zelfde 3-koloms-grid als .tel-keypad, zodat de knoppen altijd
+       precies onder hun kolom uitlijnen — ongeacht schermbreedte. */
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     align-items: center;
-    justify-content: center;
-    gap: 56px;
+    justify-items: center;
+    width: min(340px, 90vw);
     margin-top: 24px;
   }
   .tel-check-btn {
@@ -1119,6 +1128,7 @@
     <button class="tel-key tel-key-decorative" disabled aria-hidden="true"><span class="tel-key-digit">#</span></button>
   </div>
   <div class="tel-action-row">
+    <div></div>
     <button class="tel-check-btn" id="telCheckBtn" aria-label="Controleer">📞</button>
     <button class="tel-key-backspace-row" id="telBackspaceBtn">⌫</button>
   </div>
@@ -1665,7 +1675,13 @@ window.ScoreSync = (function () {
     GameEvents.on('wrongAnswer', playWrong);
     GameEvents.on('levelUp', playLevelUp);
 
-    return { ensureAudio, playSequenceTone };
+    // Telefoon — zacht, neutraal tik-geluidje bij elke toetsaanraking.
+    // Bewust geen melodie/toonhoogte-per-toets (dat is Sequence Memory's
+    // eigen, andere spelmechaniek) — hier gewoon een prettige, korte
+    // bevestiging, zelfde zachte sine+lowpass-stijl als de rest.
+    function playTelefoonKey() { tone(620, 0.09, 0.035, 'sine', 2200); }
+
+    return { ensureAudio, playSequenceTone, playTelefoonKey };
   })();
 
   // ---------- Save / Resume ----------
@@ -3105,8 +3121,11 @@ window.ScoreSync = (function () {
   let telefoonPhase = 'memorize-building'; // 'memorize-building' | 'memorize-final' | 'input' | 'awaiting-next'
   let telefoonCurrentNumber = '';          // ruwe cijferstring, lengte = 2 x huidig aantal blokken
   let telefoonEnteredDigits = '';
-  let telefoonCorrectStreak = 0;        // primaire score: opeenvolgend correcte nummers deze sessie
-  let telefoonSessionErrors = 0;        // aantal VOLLEDIG foute inzendingen (0 of 1 in v1 — sessie eindigt direct daarna)
+  const TELEFOON_MAX_ERRORS = 3; // sessie eindigt pas bij de 3e volledig foute inzending
+
+  let telefoonCorrectStreak = 0;        // LOPENDE reeks — reset naar 0 bij elke fout (ook als de sessie nog doorgaat)
+  let telefoonBestStreakThisSession = 0; // HOOGSTE lopende reeks die deze sessie is bereikt — dit is de uiteindelijke score
+  let telefoonSessionErrors = 0;        // aantal volledig foute inzendingen deze sessie, tot TELEFOON_MAX_ERRORS
   let telefoonSessionStart = 0;
   let telefoonMemorizeUntil = 0;   // einde van de 'memorize-final'-fase
   let telefoonNextBlockAt = 0;     // tijdstip waarop het volgende blok verschijnt (memorize-building)
@@ -3149,6 +3168,7 @@ window.ScoreSync = (function () {
     // Sectie 14/15: record en sessie-stats resetten, maar telefoonCurrentBlocks
     // NIET aanraken — dat is de persistente, "onthouden" moeilijkheidsgraad.
     telefoonCorrectStreak = 0;
+    telefoonBestStreakThisSession = 0;
     telefoonSessionErrors = 0;
     telefoonSessionStart = now();
     telefoonActive = true;
@@ -3188,6 +3208,7 @@ window.ScoreSync = (function () {
     if (telefoonPhase !== 'input') return;
     if (telefoonEnteredDigits.length >= telefoonCurrentNumber.length) return;
     telefoonEnteredDigits += d;
+    AudioManager.playTelefoonKey();
     updateTelefoonInputDisplay();
     // Standaard: wacht op een tik op de groene knop (lang-indrukken
     // daarop schakelt dit om naar automatisch controleren, zie
@@ -3210,6 +3231,7 @@ window.ScoreSync = (function () {
     const correct = telefoonEnteredDigits === telefoonCurrentNumber;
     if (correct) {
       telefoonCorrectStreak++;
+      if (telefoonCorrectStreak > telefoonBestStreakThisSession) telefoonBestStreakThisSession = telefoonCorrectStreak;
       telefoonConsecutiveCorrectAtLevel++;
       // Sectie 5: pas ná 3 op rij op DIT niveau, kleine stap omhoog —
       // nooit een grote sprong, nooit verder dan MAX_BLOCKS.
@@ -3229,9 +3251,19 @@ window.ScoreSync = (function () {
       telefoonCurrentBlocks = Math.max(TELEFOON_MIN_BLOCKS, telefoonCurrentBlocks - 1);
       telefoonConsecutiveCorrectAtLevel = 0;
       save.telefoonDifficulty = telefoonCurrentBlocks;
+      // Een fout breekt de LOPENDE reeks (die telt alleen opeenvolgend
+      // correct) — de beste reeks van deze sessie blijft daarentegen
+      // bewaard in telefoonBestStreakThisSession, ook als de sessie
+      // hierna doorgaat.
+      telefoonCorrectStreak = 0;
       haptic([10, 40, 10]);
       GameEvents.emit('wrongAnswer');
-      endTelefoonSession();
+      if (telefoonSessionErrors >= TELEFOON_MAX_ERRORS) {
+        endTelefoonSession();
+      } else {
+        telefoonPhase = 'awaiting-next';
+        telefoonRoundNextAt = now() + TELEFOON_ROUND_PAUSE;
+      }
     }
   }
 
@@ -3262,7 +3294,7 @@ window.ScoreSync = (function () {
   function endTelefoonSession() {
     telefoonActive = false;
     const elapsedMs = now() - telefoonSessionStart;
-    const result = { correct: telefoonCorrectStreak, errors: telefoonSessionErrors, timeMs: Math.round(elapsedMs) };
+    const result = { correct: telefoonBestStreakThisSession, errors: telefoonSessionErrors, timeMs: Math.round(elapsedMs) };
 
     // Record blijft uitsluitend op 'correct' gebaseerd, los van de
     // moeilijkheidsgraad waarop het behaald is (sectie 13/14) — geen
