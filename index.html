@@ -5074,6 +5074,18 @@ window.ScoreSync = (function () {
     miFeaturesEl.innerHTML = info.features.map((f) =>
       `<div class="mi-feature"><span class="mi-fico">${f.icon}</span><span class="mi-ftext"><span class="mi-flabel">${f.label}</span><br><span class="mi-fsub">${f.sub}</span></span></div>`
     ).join('');
+    if (modeKey === 'telefoon') {
+      // Snelkoppeling naar de Contacten-pagina, met de actuele bron als ondertitel.
+      const useContacts = settings.telefoonSource === 'contacts' && contacts.length > 0;
+      const card = document.createElement('div');
+      card.className = 'mi-feature';
+      card.style.cursor = 'pointer';
+      card.style.borderColor = 'rgba(52,199,89,0.5)';
+      card.innerHTML = '<span class="mi-fico">📇</span><span class="mi-ftext"><span class="mi-flabel">Contacten</span><br><span class="mi-fsub">' +
+        (useContacts ? (contacts.length + ' contact' + (contacts.length === 1 ? '' : 'en') + ' actief — tik om te wijzigen') : 'Random nummers — tik om eigen contacten te gebruiken') + '</span></span>';
+      card.addEventListener('click', () => { modeIntroEl.classList.remove('visible'); openContacts(); });
+      miFeaturesEl.appendChild(card);
+    }
     miStartBtnEl.className = 'mi-start' + (modeKey === 'classic' ? ' classic' : '');
     miStartBtnEl.onclick = () => {
       modeIntroEl.classList.remove('visible');
