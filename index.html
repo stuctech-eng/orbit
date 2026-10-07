@@ -1931,40 +1931,67 @@ window.ScoreSync = (function () {
     GameEvents.on('wrongAnswer', playWrong);
     GameEvents.on('levelUp', playLevelUp);
 
-    // Telefoon — zacht, neutraal tik-geluidje bij elke toetsaanraking.
-    // Bewust geen melodie/toonhoogte-per-toets (dat is Sequence Memory's
-    // eigen, andere spelmechaniek) — hier gewoon een prettige, korte
-    // bevestiging, zelfde zachte sine+lowpass-stijl als de rest.
-    // Echte DTMF-frequenties (dubbele toon, zoals een fysieke
-    // telefoontoets) — standaard telefonie-tabel, geen verzonnen toon.
-    const DTMF_FREQS = {
-      '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
-      '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
-      '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
-      '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
-    };
-    function playTelefoonKey(digit) {
+    // Telefoon — geluiden zoals op een iPhone, geen "speelgoed"-tonen:
+    //  - toetsklik: kort, droog "tok" (zoals het iOS-toetsenbord), geen toon
+    //  - bel-geluid: de Nederlandse ring-toon (425 Hz), zoals bij het
+    //    starten van een gesprek, als je op de groene knop drukt.
+    let clickNoise = null;
+    function getClickNoise() {
+      if (clickNoise) return clickNoise;
+      const len = Math.floor(actx.sampleRate * 0.02);
+      const buf = actx.createBuffer(1, len, actx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let k = 0; k < len; k++) data[k] = (Math.random() * 2 - 1) * (1 - k / len);
+      clickNoise = buf;
+      return clickNoise;
+    }
+    function playTelefoonKey() {
       if (!actx || !settings.sound) return;
-      const freqs = DTMF_FREQS[digit];
-      if (!freqs) { tone(620, 0.09, 0.035, 'sine', 2200); return; } // defensieve fallback
       const t0 = actx.currentTime;
-      const dur = 0.09;
+      // Korte, snel wegvallende "tok": ruisburst door een banddoorlaat +
+      // een heel korte dalende sinus voor het houtachtige lichaam.
+      const src = actx.createBufferSource();
+      src.buffer = getClickNoise();
+      const band = actx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.setValueAtTime(2200, t0);
+      band.Q.setValueAtTime(0.9, t0);
+      const ng = actx.createGain();
+      ng.gain.setValueAtTime(0.16, t0);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.02);
+      src.connect(band).connect(ng).connect(actx.destination);
+      src.start(t0);
+
+      const osc = actx.createOscillator();
+      const og = actx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900, t0);
+      osc.frequency.exponentialRampToValueAtTime(380, t0 + 0.03);
+      og.gain.setValueAtTime(0.07, t0);
+      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.035);
+      osc.connect(og).connect(actx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.05);
+    }
+    function playTelefoonCall() {
+      if (!actx || !settings.sound) return;
+      const t0 = actx.currentTime;
+      const dur = 0.85;
       const gain = actx.createGain();
       gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.045, t0 + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      gain.gain.linearRampToValueAtTime(0.06, t0 + 0.04);
+      gain.gain.setValueAtTime(0.06, t0 + dur - 0.08);
+      gain.gain.linearRampToValueAtTime(0, t0 + dur);
       gain.connect(actx.destination);
-      freqs.forEach((f) => {
-        const osc = actx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(f, t0);
-        osc.connect(gain);
-        osc.start(t0);
-        osc.stop(t0 + dur + 0.03);
-      });
+      const osc = actx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(425, t0);
+      osc.connect(gain);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
     }
 
-    return { ensureAudio, playSequenceTone, playTelefoonKey };
+    return { ensureAudio, playSequenceTone, playTelefoonKey, playTelefoonCall };
   })();
 
   // ---------- Save / Resume ----------
@@ -3653,11 +3680,21 @@ window.ScoreSync = (function () {
     // (expliciet vastgelegd besluit, anders dan bv. Sequence's
     // directe foutregistratie per tik).
     if (telefoonPhase !== 'input') return;
+    AudioManager.playTelefoonKey();
     telefoonEnteredDigits = telefoonEnteredDigits.slice(0, -1);
     updateTelefoonInputDisplay();
   }
 
+  // Bel-geluid bij het controleren; het goed/fout-geluid volgt pas daarna,
+  // anders overlappen ze en klinkt het rommelig. Alleen het geluid wordt
+  // uitgesteld, de spelstatus verandert direct.
+  const TELEFOON_VERDICT_SOUND_DELAY = 900;
+  function emitTelefoonVerdict(eventName) {
+    setTimeout(() => GameEvents.emit(eventName), TELEFOON_VERDICT_SOUND_DELAY);
+  }
+
   function checkTelefoonNumber() {
+    AudioManager.playTelefoonCall();
     const correct = telefoonEnteredDigits === telefoonCurrentNumber;
     if (correct) {
       telefoonCorrectStreak++;
@@ -3672,7 +3709,7 @@ window.ScoreSync = (function () {
       if (!telefoonContactSession) save.telefoonDifficulty = telefoonCurrentLength;
       if (telefoonContactSession && telefoonCurrentNumber.length >= telefoonCurrentContact.number.length) telefoonContactDone = true;
       haptic(12);
-      GameEvents.emit('correctAnswer');
+      emitTelefoonVerdict('correctAnswer');
       telefoonPhase = 'awaiting-next';
       telefoonRoundNextAt = now() + TELEFOON_ROUND_PAUSE;
     } else {
@@ -3688,7 +3725,7 @@ window.ScoreSync = (function () {
       // hierna doorgaat.
       telefoonCorrectStreak = 0;
       haptic([10, 40, 10]);
-      GameEvents.emit('wrongAnswer');
+      emitTelefoonVerdict('wrongAnswer');
       if (telefoonSessionErrors >= TELEFOON_MAX_ERRORS) {
         endTelefoonSession();
       } else {
