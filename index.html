@@ -3488,11 +3488,12 @@ window.ScoreSync = (function () {
   }
 
   function startTelefoonRound() {
-    // Contactmodus: altijd het volledige nummer van een eigen contact; de
-    // moeilijkheid (telefoonCurrentLength) bepaalt dan alleen het tempo.
+    // Contactmodus: zelfde moeilijkheidsprincipe als random — het nummer
+    // bestaat uit de eerste telefoonCurrentLength cijfers van een eigen
+    // contact (start kort, groeit na 3 op rij goed, daalt bij een fout).
     if (settings.telefoonSource === 'contacts' && contacts.length > 0) {
       telefoonCurrentContact = nextTelefoonContact();
-      telefoonCurrentNumber = telefoonCurrentContact.number;
+      telefoonCurrentNumber = telefoonCurrentContact.number.slice(0, telefoonCurrentLength);
     } else {
       telefoonCurrentContact = null;
       telefoonCurrentNumber = generateTelefoonNumber(telefoonCurrentLength);
@@ -3532,6 +3533,7 @@ window.ScoreSync = (function () {
     if (telefoonCurrentContact && settings.telefoonShowName && telefoonEnteredDigits.length >= TELEFOON_NAME_MIN_DIGITS) {
       const matches = contacts.filter((c) => c.number.indexOf(telefoonEnteredDigits) === 0);
       if (matches.length === 1) return matches[0].name;
+      if (matches.indexOf(telefoonCurrentContact) !== -1) return telefoonCurrentContact.name;
     }
     const remaining = telefoonCurrentNumber.length - telefoonEnteredDigits.length;
     return remaining > 0 ? ('nog ' + remaining + ' cijfer' + (remaining === 1 ? '' : 's')) : 'controleren…';
@@ -5134,7 +5136,7 @@ window.ScoreSync = (function () {
         ? 'Nog geen contacten — er worden willekeurige nummers gebruikt.'
         : 'Voeg contacten toe om met je eigen nummers te oefenen.';
     } else if (useContacts) {
-      ctHintEl.textContent = 'Je speelt met je ' + contacts.length + ' contact' + (contacts.length === 1 ? '' : 'en') + ', altijd het volledige nummer.';
+      ctHintEl.textContent = 'Je speelt met je ' + contacts.length + ' contact' + (contacts.length === 1 ? '' : 'en') + ', met dezelfde opbouw als random: eerst een kort stukje, steeds langer.';
     } else {
       ctHintEl.textContent = 'Willekeurige nummers die langzaam langer worden.';
     }
