@@ -3392,6 +3392,7 @@ window.ScoreSync = (function () {
   const TELEFOON_MIN_FINAL_VISIBLE_MS = 1400; // bij MAX_LENGTH
   const TELEFOON_MAX_FINAL_VISIBLE_MS = 2600; // bij MIN_LENGTH
   const TELEFOON_CORRECT_STREAK_TO_ADVANCE = 3; // 3 op rij goed op dit niveau -> 1 cijfer erbij
+  const TELEFOON_CONTACT_STREAK_TO_ADVANCE = 1; // contactmodus: bij elk goed antwoord direct 1 cijfer erbij
   const TELEFOON_ROUND_PAUSE = 1100; // ms rustmoment na een correct nummer, zelfde waarde als de andere modi
   const TELEFOON_ERROR_PAUSE = 2200; // langer dan ROUND_PAUSE — tijd om de rode fout-feedback echt te kunnen lezen
 
@@ -3664,7 +3665,7 @@ window.ScoreSync = (function () {
       telefoonConsecutiveCorrectAtLevel++;
       // Sectie 5: pas ná 3 op rij op DIT niveau, 1 cijfer erbij — nooit
       // een grote sprong, nooit verder dan MAX_LENGTH.
-      if (telefoonConsecutiveCorrectAtLevel >= TELEFOON_CORRECT_STREAK_TO_ADVANCE && telefoonCurrentLength < TELEFOON_MAX_LENGTH) {
+      if (telefoonConsecutiveCorrectAtLevel >= (telefoonContactSession ? TELEFOON_CONTACT_STREAK_TO_ADVANCE : TELEFOON_CORRECT_STREAK_TO_ADVANCE) && telefoonCurrentLength < TELEFOON_MAX_LENGTH) {
         telefoonCurrentLength++;
         telefoonConsecutiveCorrectAtLevel = 0;
       }
