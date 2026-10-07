@@ -1477,6 +1477,7 @@
     </div>
 
     <div class="ct-section" id="ctListTitle">Mijn contacten</div>
+    <div class="ct-hint" id="ctSync"></div>
     <div id="ctList"></div>
   </div>
   <button class="close" id="closeContactsOverlay">Sluiten</button>
@@ -1676,7 +1677,25 @@ window.ScoreSync = (function () {
   // App-start: direct proberen te legen, met het token van déze sessie.
   flushPending();
 
-  return { notifyResult: notifyResult };
+  // Telefoon-contacten (api/contacts.js) — zelfde score-token en
+  // vertrouwensmodel als de score-inzending. Geeft de serverrespons of
+  // null (geen token, verlopen token of netwerkfout).
+  function contactsApi(body) {
+    if (!scoreToken) return Promise.resolve(null);
+    return fetch('/api/contacts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + scoreToken
+      },
+      body: JSON.stringify(Object.assign({ gameId: 'orbit' }, body))
+    })
+      .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+      .then(function (r) { return (r.ok && r.data && r.data.success) ? r.data : null; })
+      .catch(function () { return null; });
+  }
+
+  return { notifyResult: notifyResult, contactsApi: contactsApi, hasToken: !!scoreToken };
 })();
 </script>
 
@@ -3425,8 +3444,59 @@ window.ScoreSync = (function () {
     } catch (e) { return []; }
   }
   let contacts = loadContacts();
+  // Server-synchronisatie (account). De lokale kopie blijft altijd de
+  // werkkopie, zodat alles ook offline werkt; 'dirty' betekent: lokaal
+  // gewijzigd en nog niet bevestigd op de server.
+  const CONTACTS_DIRTY_KEY = 'orbit_contacts_dirty_v1';
+  function isContactsDirty() {
+    try { return localStorage.getItem(CONTACTS_DIRTY_KEY) === '1'; } catch (e) { return false; }
+  }
+  function setContactsDirty(v) {
+    try { if (v) localStorage.setItem(CONTACTS_DIRTY_KEY, '1'); else localStorage.removeItem(CONTACTS_DIRTY_KEY); } catch (e) {}
+  }
+  const contactsHasToken = !!(window.ScoreSync && window.ScoreSync.hasToken);
+  // 'local' = niet ingelogd/geen token, 'synced', 'pending' = wacht op synchronisatie
+  let contactsSyncState = contactsHasToken ? (isContactsDirty() ? 'pending' : 'synced') : 'local';
+  let contactsSyncChain = Promise.resolve();
+
+  function afterContactsSync() {
+    if (typeof refreshContactsUI === 'function' && contactsOverlayEl.classList.contains('visible')) refreshContactsUI();
+  }
+  function pushContacts() {
+    return window.ScoreSync.contactsApi({ action: 'set', items: contacts }).then((r) => {
+      if (r) { setContactsDirty(false); contactsSyncState = 'synced'; } else { contactsSyncState = 'pending'; }
+      afterContactsSync();
+    });
+  }
+  // Start/openen van Contacten: lokaal-gewijzigd -> naar de server; anders
+  // de serverlijst overnemen (of, bij een nog lege server, de lokale lijst
+  // uploaden). Wijzigingen tijdens het ophalen winnen altijd.
+  function syncContacts() {
+    if (!contactsHasToken) return;
+    contactsSyncChain = contactsSyncChain.then(() => {
+      if (isContactsDirty()) return pushContacts();
+      return window.ScoreSync.contactsApi({ action: 'get' }).then((r) => {
+        if (!r) { contactsSyncState = 'pending'; afterContactsSync(); return; }
+        if (isContactsDirty()) return pushContacts();
+        if (!r.exists) {
+          if (contacts.length > 0) return pushContacts();
+          contactsSyncState = 'synced';
+        } else {
+          contacts = r.items.filter((c) => c && typeof c.id === 'string' && typeof c.name === 'string' && /^0\d{9}$/.test(c.number));
+          try { localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts)); } catch (e) {}
+          contactsSyncState = 'synced';
+        }
+        afterContactsSync();
+      });
+    });
+  }
   function saveContacts() {
     try { localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts)); } catch (e) {}
+    setContactsDirty(true);
+    if (contactsHasToken) {
+      contactsSyncState = 'pending';
+      contactsSyncChain = contactsSyncChain.then(pushContacts);
+    }
   }
 
   let telefoonCurrentContact = null; // contact van de huidige ronde, of null bij willekeurige nummers
@@ -5144,6 +5214,7 @@ window.ScoreSync = (function () {
   const ctFormTitleEl = document.getElementById('ctFormTitle');
   const ctListTitleEl = document.getElementById('ctListTitle');
   const ctListEl = document.getElementById('ctList');
+  const ctSyncEl = document.getElementById('ctSync');
   let ctEditingId = null;
 
   function ctResetForm() {
@@ -5171,6 +5242,9 @@ window.ScoreSync = (function () {
       ctHintEl.textContent = 'Willekeurige nummers die langzaam langer worden.';
     }
     ctListTitleEl.textContent = 'Mijn contacten (' + contacts.length + ')';
+    ctSyncEl.textContent = contactsSyncState === 'synced' ? '☁︎ Bewaard op je account'
+      : contactsSyncState === 'pending' ? '☁︎ Wacht op synchronisatie met je account…'
+      : 'Alleen op dit toestel — open ORBIT via het platform om ze op je account te bewaren.';
     while (ctListEl.firstChild) ctListEl.removeChild(ctListEl.firstChild);
     if (contacts.length === 0) {
       const empty = document.createElement('div');
@@ -5230,6 +5304,7 @@ window.ScoreSync = (function () {
   }
 
   function openContacts() {
+    syncContacts();
     ctResetForm();
     refreshContactsUI();
     contactsOverlayEl.classList.add('visible');
@@ -5254,6 +5329,7 @@ window.ScoreSync = (function () {
   ctSourceContactsEl.addEventListener('click', () => { settings.telefoonSource = 'contacts'; saveSettings(); refreshContactsUI(); });
   ctToggleNameEl.addEventListener('click', () => { settings.telefoonShowName = !settings.telefoonShowName; saveSettings(); refreshContactsUI(); });
   document.getElementById('homeContactsBtn').addEventListener('click', openContacts);
+  syncContacts(); // bij het opstarten: account en toestel gelijktrekken
   document.getElementById('closeContactsOverlay').addEventListener('click', closeContacts);
 
   // Settings
