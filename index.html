@@ -950,6 +950,192 @@
     width: 220px;
   }
 
+  /* ---------- Contacten (Telefoon-modus) ---------- */
+  #contactsOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 26;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    color: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  #contactsOverlay.visible { opacity: 1; pointer-events: auto; }
+  #contactsOverlay .title {
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin: 28px 0 16px;
+    flex-shrink: 0;
+  }
+  #contactsOverlay .ct-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: min(360px, 92vw);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-bottom: 16px;
+  }
+  #contactsOverlay .ct-section {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    margin: 22px 0 8px;
+  }
+  #contactsOverlay .ct-section:first-child { margin-top: 0; }
+  #contactsOverlay .ct-segment {
+    display: flex;
+    background: rgba(255,255,255,0.08);
+    border-radius: 999px;
+    padding: 3px;
+  }
+  #contactsOverlay .ct-segment button {
+    appearance: none;
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.6);
+    font-size: 15px;
+    padding: 11px 0;
+    border-radius: 999px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  #contactsOverlay .ct-segment button.active { background: rgba(255,255,255,0.85); color: #000; }
+  #contactsOverlay .ct-hint {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    margin: 8px 2px 0;
+    line-height: 1.4;
+    min-height: 17px;
+  }
+  #contactsOverlay .ct-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 2px 6px;
+    font-size: 15px;
+  }
+  #contactsOverlay .toggle {
+    width: 50px; height: 30px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    position: relative;
+    flex-shrink: 0;
+    touch-action: manipulation;
+  }
+  #contactsOverlay .toggle .knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.15s ease;
+  }
+  #contactsOverlay .toggle.on { background: rgba(255,255,255,0.85); }
+  #contactsOverlay .toggle.on .knob { transform: translateX(20px); background: #000; }
+  #contactsOverlay input {
+    appearance: none;
+    -webkit-appearance: none;
+    -webkit-user-select: text;
+    user-select: text;
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    color: #fff;
+    font-size: 16px; /* 16px voorkomt de automatische zoom van iOS bij focus */
+    font-family: inherit;
+    padding: 13px 14px;
+    margin-bottom: 10px;
+    min-height: 44px;
+    outline: none;
+  }
+  #contactsOverlay input:focus { border-color: rgba(255,255,255,0.4); }
+  #contactsOverlay input::placeholder { color: rgba(255,255,255,0.3); }
+  #contactsOverlay .ct-btnrow { display: flex; gap: 10px; }
+  #contactsOverlay .ct-btn {
+    appearance: none;
+    flex: 1;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 14px;
+    padding: 14px 0;
+    border-radius: 999px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  #contactsOverlay .ct-btn.primary { border-color: rgba(52,199,89,0.6); background: rgba(52,199,89,0.16); }
+  #contactsOverlay .ct-btn:active { background: rgba(255,255,255,0.14); }
+  #contactsOverlay .ct-error { color: #ff6b6b; font-size: 13px; min-height: 18px; margin: 0 2px 8px; }
+  #contactsOverlay .ct-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    min-height: 56px;
+  }
+  #contactsOverlay .ct-item-main {
+    appearance: none;
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    color: #fff;
+    text-align: left;
+    padding: 10px 2px;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  #contactsOverlay .ct-item-name { display: block; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #contactsOverlay .ct-item-num { display: block; font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  #contactsOverlay .ct-item.editing .ct-item-name { color: #34c759; }
+  #contactsOverlay .ct-del {
+    appearance: none;
+    flex-shrink: 0;
+    width: 44px; height: 44px;
+    border: none;
+    background: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 18px;
+    touch-action: manipulation;
+  }
+  #contactsOverlay .ct-empty { color: rgba(255,255,255,0.35); font-size: 14px; padding: 12px 2px; }
+  #contactsOverlay button.close {
+    appearance: none;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    font-size: 14px;
+    padding: 14px 0;
+    border-radius: 999px;
+    min-height: 44px;
+    width: 220px;
+    margin: 8px 0 20px;
+  }
+  #telefoonNumberOverlay .tel-label.named {
+    font-size: 22px;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: rgba(255,255,255,0.85);
+    font-weight: 500;
+  }
+
   #statsOverlay {
     position: fixed;
     inset: 0;
@@ -1122,7 +1308,7 @@
 </div>
 
 <div id="telefoonNumberOverlay">
-  <div class="tel-label">Onthoud dit nummer</div>
+  <div class="tel-label" id="telLabel">Onthoud dit nummer</div>
   <div class="tel-number" id="telNumberDisplay">06 0000 0000</div>
 </div>
 
@@ -1172,6 +1358,7 @@
     <button id="openModeSelectBtn" class="highlight-green">🎮 Spelmodus</button>
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
     <button id="homeStatsBtn">📊 Statistieken</button>
+    <button id="homeContactsBtn">📇 Contacten</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
   </div>
 </div>
@@ -1263,6 +1450,36 @@
   <div class="statRow"><span class="label">Beste</span><span class="value" id="statsTelefoon">–</span></div>
   <div class="statRow" style="margin-top:14px;"><span class="label">Totaal gespeeld</span><span class="value" id="statsSessions">–</span></div>
   <button class="close" id="closeStatsOverlay">Sluiten</button>
+</div>
+
+<div id="contactsOverlay">
+  <div class="title">Contacten</div>
+  <div class="ct-scroll">
+    <div class="ct-section">Telefoon-spel gebruikt</div>
+    <div class="ct-segment">
+      <button id="ctSourceRandom">Random</button>
+      <button id="ctSourceContacts">Contacten</button>
+    </div>
+    <div class="ct-hint" id="ctHint"></div>
+    <div class="ct-row">
+      <span>Naam tonen</span>
+      <button class="toggle" id="ctToggleName" aria-label="Naam tonen aan/uit"><span class="knob"></span></button>
+    </div>
+    <div class="ct-hint">Toont de naam bij het nummer en terwijl je typt.</div>
+
+    <div class="ct-section" id="ctFormTitle">Nieuw contact</div>
+    <input id="ctNameInput" type="text" placeholder="Naam" maxlength="20" autocomplete="off" autocapitalize="words" enterkeyhint="next">
+    <input id="ctNumberInput" type="text" inputmode="numeric" placeholder="Nummer (10 cijfers)" autocomplete="off" enterkeyhint="done">
+    <div class="ct-error" id="ctError"></div>
+    <div class="ct-btnrow">
+      <button class="ct-btn" id="ctCancelBtn" style="display:none;">Annuleren</button>
+      <button class="ct-btn primary" id="ctSaveBtn">Toevoegen</button>
+    </div>
+
+    <div class="ct-section" id="ctListTitle">Mijn contacten</div>
+    <div id="ctList"></div>
+  </div>
+  <button class="close" id="closeContactsOverlay">Sluiten</button>
 </div>
 
 <div id="settingsOverlay">
@@ -1508,7 +1725,7 @@ window.ScoreSync = (function () {
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
-  let settings = Object.assign({ haptics: true, sound: true, telefoonAutoCheck: false }, loadSettings() || {});
+  let settings = Object.assign({ haptics: true, sound: true, telefoonAutoCheck: false, telefoonSource: 'random', telefoonShowName: true }, loadSettings() || {});
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {}
   }
@@ -3191,6 +3408,49 @@ window.ScoreSync = (function () {
     : TELEFOON_MIN_LENGTH;
   let telefoonConsecutiveCorrectAtLevel = 0; // streak op het HUIDIGE niveau, voor de 3-op-rij-regel
 
+  // ---------- Telefoon: eigen contacten ----------
+  // Bewust LOKAAL en los van de spelvoortgang: eigen localStorage-sleutel,
+  // nooit onderdeel van `save`, ScoreSync of Firebase. Geen toegang tot de
+  // echte contacten van het toestel — de speler typt ze zelf in.
+  const CONTACTS_KEY = 'orbit_contacts_v1';
+  const CONTACT_NAME_MAX = 20;
+  const CONTACT_NUMBER_LENGTH = 10;
+  const TELEFOON_NAME_MIN_DIGITS = 4; // vanaf zoveel getypte cijfers verschijnt de naam live
+
+  function loadContacts() {
+    try {
+      const arr = JSON.parse(localStorage.getItem(CONTACTS_KEY) || '[]');
+      if (!Array.isArray(arr)) return [];
+      return arr.filter((c) => c && typeof c.id === 'string' && typeof c.name === 'string' && /^0\d{9}$/.test(c.number));
+    } catch (e) { return []; }
+  }
+  let contacts = loadContacts();
+  function saveContacts() {
+    try { localStorage.setItem(CONTACTS_KEY, JSON.stringify(contacts)); } catch (e) {}
+  }
+
+  let telefoonCurrentContact = null; // contact van de huidige ronde, of null bij willekeurige nummers
+  let telefoonContactQueue = [];
+  let telefoonLastContactId = null;
+  // Elk contact komt precies één keer per "ronde door de lijst" aan bod,
+  // in willekeurige volgorde — bij 10 contacten blijft het dus bij die 10.
+  function nextTelefoonContact() {
+    if (telefoonContactQueue.length === 0) {
+      telefoonContactQueue = contacts.slice();
+      for (let i = telefoonContactQueue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = telefoonContactQueue[i]; telefoonContactQueue[i] = telefoonContactQueue[j]; telefoonContactQueue[j] = tmp;
+      }
+      const last = telefoonContactQueue.length - 1;
+      if (last > 0 && telefoonContactQueue[last].id === telefoonLastContactId) {
+        const tmp = telefoonContactQueue[last]; telefoonContactQueue[last] = telefoonContactQueue[0]; telefoonContactQueue[0] = tmp;
+      }
+    }
+    const c = telefoonContactQueue.pop();
+    telefoonLastContactId = c.id;
+    return c;
+  }
+
   function generateTelefoonNumber(length) {
     // Pure functie, makkelijk los testbaar: altijd 06 + losse willekeurige
     // cijfers tot de gevraagde lengte (ook oneven lengtes mogelijk, sinds
@@ -3213,6 +3473,7 @@ window.ScoreSync = (function () {
   const telInputDisplayEl = document.getElementById('telInputDisplay');
   const telWrongCaptionEl = document.getElementById('telWrongCaption');
   const telContactbarTextEl = document.getElementById('telContactbarText');
+  const telLabelEl = document.getElementById('telLabel');
 
   function startTelefoonSession() {
     // Sectie 14/15: record en sessie-stats resetten, maar telefoonCurrentLength
@@ -3222,18 +3483,34 @@ window.ScoreSync = (function () {
     telefoonSessionErrors = 0;
     telefoonSessionStart = now();
     telefoonActive = true;
+    telefoonContactQueue = [];
     startTelefoonRound();
   }
 
   function startTelefoonRound() {
-    telefoonCurrentNumber = generateTelefoonNumber(telefoonCurrentLength);
+    // Contactmodus: altijd het volledige nummer van een eigen contact; de
+    // moeilijkheid (telefoonCurrentLength) bepaalt dan alleen het tempo.
+    if (settings.telefoonSource === 'contacts' && contacts.length > 0) {
+      telefoonCurrentContact = nextTelefoonContact();
+      telefoonCurrentNumber = telefoonCurrentContact.number;
+    } else {
+      telefoonCurrentContact = null;
+      telefoonCurrentNumber = generateTelefoonNumber(telefoonCurrentLength);
+    }
+    if (telefoonCurrentContact && settings.telefoonShowName) {
+      telLabelEl.textContent = telefoonCurrentContact.name;
+      telLabelEl.classList.add('named');
+    } else {
+      telLabelEl.textContent = 'Onthoud dit nummer';
+      telLabelEl.classList.remove('named');
+    }
     telefoonEnteredDigits = '';
     telefoonRevealDigitCount = 2;
     telNumberDisplayEl.textContent = formatTelefoonNumber(telefoonCurrentNumber.slice(0, 2)); // eerst alleen "06"
     telInputDisplayEl.innerHTML = '&nbsp;';
     telInputDisplayEl.classList.remove('wrong');
     telWrongCaptionEl.textContent = '';
-    telContactbarTextEl.textContent = 'nog ' + telefoonCurrentNumber.length + ' cijfers';
+    telContactbarTextEl.textContent = telefoonContactBarText();
     telefoonKeypadOverlayEl.classList.remove('visible');
     telefoonNumberOverlayEl.classList.add('visible');
     telefoonPhase = 'memorize-building';
@@ -3248,12 +3525,23 @@ window.ScoreSync = (function () {
     }
   }
 
+  // Contactbalk: in contactmodus verschijnt live de naam zodra de getypte
+  // cijfers (>= TELEFOON_NAME_MIN_DIGITS) bij precies één contact passen —
+  // zoals de echte Telefoon-app. Anders blijft de teller "nog N cijfers".
+  function telefoonContactBarText() {
+    if (telefoonCurrentContact && settings.telefoonShowName && telefoonEnteredDigits.length >= TELEFOON_NAME_MIN_DIGITS) {
+      const matches = contacts.filter((c) => c.number.indexOf(telefoonEnteredDigits) === 0);
+      if (matches.length === 1) return matches[0].name;
+    }
+    const remaining = telefoonCurrentNumber.length - telefoonEnteredDigits.length;
+    return remaining > 0 ? ('nog ' + remaining + ' cijfer' + (remaining === 1 ? '' : 's')) : 'controleren…';
+  }
+
   function updateTelefoonInputDisplay() {
     telInputDisplayEl.textContent = telefoonEnteredDigits
       ? formatTelefoonNumber(telefoonEnteredDigits.padEnd(telefoonCurrentNumber.length, ' ')).trimEnd()
       : '\u00a0';
-    const remaining = telefoonCurrentNumber.length - telefoonEnteredDigits.length;
-    telContactbarTextEl.textContent = remaining > 0 ? ('nog ' + remaining + ' cijfer' + (remaining === 1 ? '' : 's')) : 'controleren…';
+    telContactbarTextEl.textContent = telefoonContactBarText();
   }
 
   function telefoonDigitPress(d) {
@@ -4468,6 +4756,7 @@ window.ScoreSync = (function () {
   const pauseOverlayEl = document.getElementById('pauseOverlay');
   const settingsOverlayEl = document.getElementById('settingsOverlay');
   const statsOverlayEl = document.getElementById('statsOverlay');
+  const contactsOverlayEl = document.getElementById('contactsOverlay');
   const scannerIndicatorEl = document.getElementById('scannerIndicator');
   const hapticsToggleEl = document.getElementById('toggleHaptics');
   const soundToggleEl = document.getElementById('toggleSound');
@@ -4491,6 +4780,7 @@ window.ScoreSync = (function () {
       || pauseOverlayEl.classList.contains('visible')
       || settingsOverlayEl.classList.contains('visible')
       || statsOverlayEl.classList.contains('visible')
+      || contactsOverlayEl.classList.contains('visible')
       || trackingGameOverEl.classList.contains('visible')
       || patternGameOverEl.classList.contains('visible')
       || sequenceGameOverEl.classList.contains('visible')
@@ -4524,6 +4814,7 @@ window.ScoreSync = (function () {
     pauseOverlayEl.classList.remove('visible');
     settingsOverlayEl.classList.remove('visible');
     statsOverlayEl.classList.remove('visible');
+    contactsOverlayEl.classList.remove('visible');
     modeSelectEl.classList.remove('visible');
     modeIntroEl.classList.remove('visible');
     // Telefoon gebruikt, anders dan de canvas-gebaseerde modi, volledig-
@@ -4808,6 +5099,131 @@ window.ScoreSync = (function () {
   document.getElementById('homeLeaderboardBtn').addEventListener('click', () => { persistSave(); window.location.href = '/pages/leaderboard.html'; });
   document.getElementById('closeStatsOverlay').addEventListener('click', closeStats);
 
+  // ---------- Contacten-pagina ----------
+  const ctSourceRandomEl = document.getElementById('ctSourceRandom');
+  const ctSourceContactsEl = document.getElementById('ctSourceContacts');
+  const ctHintEl = document.getElementById('ctHint');
+  const ctToggleNameEl = document.getElementById('ctToggleName');
+  const ctNameInputEl = document.getElementById('ctNameInput');
+  const ctNumberInputEl = document.getElementById('ctNumberInput');
+  const ctErrorEl = document.getElementById('ctError');
+  const ctSaveBtnEl = document.getElementById('ctSaveBtn');
+  const ctCancelBtnEl = document.getElementById('ctCancelBtn');
+  const ctFormTitleEl = document.getElementById('ctFormTitle');
+  const ctListTitleEl = document.getElementById('ctListTitle');
+  const ctListEl = document.getElementById('ctList');
+  let ctEditingId = null;
+
+  function ctResetForm() {
+    ctEditingId = null;
+    ctNameInputEl.value = '';
+    ctNumberInputEl.value = '';
+    ctErrorEl.textContent = '';
+    ctFormTitleEl.textContent = 'Nieuw contact';
+    ctSaveBtnEl.textContent = 'Toevoegen';
+    ctCancelBtnEl.style.display = 'none';
+  }
+
+  function refreshContactsUI() {
+    const useContacts = settings.telefoonSource === 'contacts';
+    ctSourceRandomEl.classList.toggle('active', !useContacts);
+    ctSourceContactsEl.classList.toggle('active', useContacts);
+    ctToggleNameEl.classList.toggle('on', !!settings.telefoonShowName);
+    if (contacts.length === 0) {
+      ctHintEl.textContent = useContacts
+        ? 'Nog geen contacten — er worden willekeurige nummers gebruikt.'
+        : 'Voeg contacten toe om met je eigen nummers te oefenen.';
+    } else if (useContacts) {
+      ctHintEl.textContent = 'Je speelt met je ' + contacts.length + ' contact' + (contacts.length === 1 ? '' : 'en') + ', altijd het volledige nummer.';
+    } else {
+      ctHintEl.textContent = 'Willekeurige nummers die langzaam langer worden.';
+    }
+    ctListTitleEl.textContent = 'Mijn contacten (' + contacts.length + ')';
+    while (ctListEl.firstChild) ctListEl.removeChild(ctListEl.firstChild);
+    if (contacts.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'ct-empty';
+      empty.textContent = 'Nog geen contacten.';
+      ctListEl.appendChild(empty);
+      return;
+    }
+    contacts.forEach((c) => {
+      const item = document.createElement('div');
+      item.className = 'ct-item' + (c.id === ctEditingId ? ' editing' : '');
+      const main = document.createElement('button');
+      main.className = 'ct-item-main';
+      const nm = document.createElement('span'); nm.className = 'ct-item-name'; nm.textContent = c.name;
+      const nu = document.createElement('span'); nu.className = 'ct-item-num'; nu.textContent = formatTelefoonNumber(c.number);
+      main.appendChild(nm); main.appendChild(nu);
+      main.addEventListener('click', () => {
+        ctEditingId = c.id;
+        ctNameInputEl.value = c.name;
+        ctNumberInputEl.value = c.number;
+        ctErrorEl.textContent = '';
+        ctFormTitleEl.textContent = 'Contact wijzigen';
+        ctSaveBtnEl.textContent = 'Opslaan';
+        ctCancelBtnEl.style.display = '';
+        refreshContactsUI();
+      });
+      const del = document.createElement('button');
+      del.className = 'ct-del';
+      del.setAttribute('aria-label', 'Verwijder ' + c.name);
+      del.textContent = '✕';
+      del.addEventListener('click', () => {
+        if (!window.confirm('"' + c.name + '" verwijderen?')) return;
+        contacts = contacts.filter((x) => x.id !== c.id);
+        saveContacts();
+        if (ctEditingId === c.id) ctResetForm();
+        refreshContactsUI();
+      });
+      item.appendChild(main); item.appendChild(del);
+      ctListEl.appendChild(item);
+    });
+  }
+
+  function ctSubmit() {
+    const name = ctNameInputEl.value.trim().slice(0, CONTACT_NAME_MAX);
+    const number = ctNumberInputEl.value.replace(/\D/g, '');
+    if (!name) { ctErrorEl.textContent = 'Vul een naam in.'; return; }
+    if (!/^0\d{9}$/.test(number)) { ctErrorEl.textContent = 'Een nummer heeft ' + CONTACT_NUMBER_LENGTH + ' cijfers en begint met 0.'; return; }
+    if (contacts.some((c) => c.number === number && c.id !== ctEditingId)) { ctErrorEl.textContent = 'Dit nummer staat er al in.'; return; }
+    if (ctEditingId) {
+      contacts = contacts.map((c) => c.id === ctEditingId ? { id: c.id, name: name, number: number } : c);
+    } else {
+      contacts.push({ id: 'c' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36), name: name, number: number });
+    }
+    saveContacts();
+    ctResetForm();
+    refreshContactsUI();
+  }
+
+  function openContacts() {
+    ctResetForm();
+    refreshContactsUI();
+    contactsOverlayEl.classList.add('visible');
+    updateIndicatorVisibility();
+  }
+  function closeContacts() {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    contactsOverlayEl.classList.remove('visible');
+    showHome();
+  }
+
+  ctNumberInputEl.addEventListener('input', () => {
+    ctNumberInputEl.value = ctNumberInputEl.value.replace(/\D/g, '').slice(0, CONTACT_NUMBER_LENGTH);
+    ctErrorEl.textContent = '';
+  });
+  ctNameInputEl.addEventListener('input', () => { ctErrorEl.textContent = ''; });
+  ctNameInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ctNumberInputEl.focus(); } });
+  ctNumberInputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); ctSubmit(); } });
+  ctSaveBtnEl.addEventListener('click', ctSubmit);
+  ctCancelBtnEl.addEventListener('click', () => { ctResetForm(); refreshContactsUI(); });
+  ctSourceRandomEl.addEventListener('click', () => { settings.telefoonSource = 'random'; saveSettings(); refreshContactsUI(); });
+  ctSourceContactsEl.addEventListener('click', () => { settings.telefoonSource = 'contacts'; saveSettings(); refreshContactsUI(); });
+  ctToggleNameEl.addEventListener('click', () => { settings.telefoonShowName = !settings.telefoonShowName; saveSettings(); refreshContactsUI(); });
+  document.getElementById('homeContactsBtn').addEventListener('click', openContacts);
+  document.getElementById('closeContactsOverlay').addEventListener('click', closeContacts);
+
   // Settings
   function refreshSettingsUI() {
     hapticsToggleEl.classList.toggle('on', settings.haptics);
@@ -4855,7 +5271,11 @@ window.ScoreSync = (function () {
   // which can shift the whole page during a drag even with touch-action:
   // none in some standalone-PWA edge cases — this is very likely what
   // looked like cells "sinking below the screen" during interaction.
-  document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+  document.addEventListener('touchmove', (e) => {
+    // Uitzondering: de scrollbare lijst op de Contacten-pagina.
+    if (e.target && e.target.closest && e.target.closest('.ct-scroll')) return;
+    e.preventDefault();
+  }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
 })();
 
