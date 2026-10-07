@@ -1957,14 +1957,16 @@ window.ScoreSync = (function () {
     GameEvents.on('wrongAnswer', playWrong);
     GameEvents.on('levelUp', playLevelUp);
 
-    // Telefoon — geluiden zoals op een iPhone, geen "speelgoed"-tonen:
-    //  - toetsklik: kort, droog "tok" (zoals het iOS-toetsenbord), geen toon
-    //  - bel-geluid: de Nederlandse ring-toon (425 Hz), zoals bij het
-    //    starten van een gesprek, als je op de groene knop drukt.
+    // Telefoon — gekozen via de geluidenpagina:
+    //  - toetsklik: "Houten tok" (laag en rond, vingertop op hout)
+    //  - groene knop: "Nederlandse ring" (425 Hz, één lange ring)
+    // Verloop: snelle aanzet, exponentiële uitloop, zoals op de testpagina.
+    const TELEFOON_KEY_VOL = 0.4;   // piek van de houten tok
+    const TELEFOON_CALL_VOL = 0.18; // piek van de ring ("iets harder" dan eerst)
     let clickNoise = null;
     function getClickNoise() {
       if (clickNoise) return clickNoise;
-      const len = Math.floor(actx.sampleRate * 0.02);
+      const len = Math.max(1, Math.floor(actx.sampleRate * 0.012));
       const buf = actx.createBuffer(1, len, actx.sampleRate);
       const data = buf.getChannelData(0);
       for (let k = 0; k < len; k++) data[k] = (Math.random() * 2 - 1) * (1 - k / len);
@@ -1974,50 +1976,48 @@ window.ScoreSync = (function () {
     function playTelefoonKey() {
       if (!actx || !settings.sound) return;
       const t0 = actx.currentTime;
-      // Korte, snel wegvallende "tok": ruisburst door een banddoorlaat +
-      // een heel korte dalende sinus voor het houtachtige lichaam.
-      const src = actx.createBufferSource();
-      src.buffer = getClickNoise();
-      const band = actx.createBiquadFilter();
-      band.type = 'bandpass';
-      band.frequency.setValueAtTime(900, t0);
-      band.Q.setValueAtTime(0.7, t0);
-      const ng = actx.createGain();
-      ng.gain.setValueAtTime(0.10, t0);
-      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.02);
-      src.connect(band).connect(ng).connect(actx.destination);
-      src.start(t0);
-
+      // Lichaam: sinus die snel zakt (260 -> 110 Hz).
       const osc = actx.createOscillator();
       const og = actx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(420, t0);
-      osc.frequency.exponentialRampToValueAtTime(190, t0 + 0.04);
-      og.gain.setValueAtTime(0.10, t0);
-      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.045);
+      osc.frequency.setValueAtTime(260, t0);
+      osc.frequency.exponentialRampToValueAtTime(110, t0 + 0.07 * 0.8);
+      og.gain.setValueAtTime(0.0001, t0);
+      og.gain.exponentialRampToValueAtTime(TELEFOON_KEY_VOL, t0 + 0.002);
+      og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07);
       osc.connect(og).connect(actx.destination);
       osc.start(t0);
-      osc.stop(t0 + 0.05);
+      osc.stop(t0 + 0.12);
+      // Houtige tik: zeer korte, laag gefilterde ruisburst.
+      const src = actx.createBufferSource();
+      src.buffer = getClickNoise();
+      const lp = actx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(700, t0);
+      const ng = actx.createGain();
+      ng.gain.setValueAtTime(0.0001, t0);
+      ng.gain.exponentialRampToValueAtTime(TELEFOON_KEY_VOL * 0.24, t0 + 0.001);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.012);
+      src.connect(lp).connect(ng).connect(actx.destination);
+      src.start(t0);
     }
     function playTelefoonCall() {
       if (!actx || !settings.sound) return;
       const t0 = actx.currentTime;
-      const dur = 0.85;
-      const gain = actx.createGain();
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.05, t0 + 0.06);
-      gain.gain.setValueAtTime(0.05, t0 + dur - 0.1);
-      gain.gain.linearRampToValueAtTime(0, t0 + dur);
-      const soften = actx.createBiquadFilter();
-      soften.type = 'lowpass';
-      soften.frequency.setValueAtTime(700, t0);
-      gain.connect(soften).connect(actx.destination);
+      const dur = 1.0;
       const osc = actx.createOscillator();
+      const lp = actx.createBiquadFilter();
+      const g = actx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(425, t0);
-      osc.connect(gain);
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(900, t0);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(TELEFOON_CALL_VOL, t0 + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(lp).connect(g).connect(actx.destination);
       osc.start(t0);
-      osc.stop(t0 + dur + 0.02);
+      osc.stop(t0 + dur + 0.05);
     }
 
     return { ensureAudio, playSequenceTone, playTelefoonKey, playTelefoonCall };
