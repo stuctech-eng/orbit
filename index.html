@@ -3432,6 +3432,8 @@ window.ScoreSync = (function () {
   let telefoonCurrentContact = null; // contact van de huidige ronde, of null bij willekeurige nummers
   let telefoonContactQueue = [];
   let telefoonLastContactId = null;
+  let telefoonContactSession = false; // deze sessie speelt met eigen contacten
+  let telefoonContactDone = false;    // volledig nummer van het huidige contact is goed
   // Elk contact komt precies één keer per "ronde door de lijst" aan bod,
   // in willekeurige volgorde — bij 10 contacten blijft het dus bij die 10.
   function nextTelefoonContact() {
@@ -3484,6 +3486,14 @@ window.ScoreSync = (function () {
     telefoonSessionStart = now();
     telefoonActive = true;
     telefoonContactQueue = [];
+    telefoonCurrentContact = null;
+    telefoonContactDone = false;
+    // Contactmodus heeft een eigen opbouw (altijd vanaf het begin) en
+    // raakt het onthouden random-niveau niet aan.
+    telefoonContactSession = settings.telefoonSource === 'contacts' && contacts.length > 0;
+    telefoonCurrentLength = (!telefoonContactSession && save.telefoonDifficulty >= TELEFOON_MIN_LENGTH && save.telefoonDifficulty <= TELEFOON_MAX_LENGTH)
+      ? save.telefoonDifficulty : TELEFOON_MIN_LENGTH;
+    telefoonConsecutiveCorrectAtLevel = 0;
     startTelefoonRound();
   }
 
@@ -3491,8 +3501,15 @@ window.ScoreSync = (function () {
     // Contactmodus: zelfde moeilijkheidsprincipe als random — het nummer
     // bestaat uit de eerste telefoonCurrentLength cijfers van een eigen
     // contact (start kort, groeit na 3 op rij goed, daalt bij een fout).
-    if (settings.telefoonSource === 'contacts' && contacts.length > 0) {
-      telefoonCurrentContact = nextTelefoonContact();
+    if (telefoonContactSession) {
+      // Eén contact tegelijk, tot het HELE nummer goed is ingetoetst; pas
+      // dan het volgende contact, met de opbouw weer vanaf het begin.
+      if (!telefoonCurrentContact || telefoonContactDone) {
+        telefoonCurrentContact = nextTelefoonContact();
+        telefoonCurrentLength = TELEFOON_MIN_LENGTH;
+        telefoonConsecutiveCorrectAtLevel = 0;
+        telefoonContactDone = false;
+      }
       telefoonCurrentNumber = telefoonCurrentContact.number.slice(0, telefoonCurrentLength);
     } else {
       telefoonCurrentContact = null;
@@ -3581,7 +3598,8 @@ window.ScoreSync = (function () {
         telefoonCurrentLength++;
         telefoonConsecutiveCorrectAtLevel = 0;
       }
-      save.telefoonDifficulty = telefoonCurrentLength;
+      if (!telefoonContactSession) save.telefoonDifficulty = telefoonCurrentLength;
+      if (telefoonContactSession && telefoonCurrentNumber.length >= telefoonCurrentContact.number.length) telefoonContactDone = true;
       haptic(12);
       GameEvents.emit('correctAnswer');
       telefoonPhase = 'awaiting-next';
@@ -3592,7 +3610,7 @@ window.ScoreSync = (function () {
       // grote terugval — "ORBIT zoekt het niveau", geen "strafgevoel".
       telefoonCurrentLength = Math.max(TELEFOON_MIN_LENGTH, telefoonCurrentLength - 1);
       telefoonConsecutiveCorrectAtLevel = 0;
-      save.telefoonDifficulty = telefoonCurrentLength;
+      if (!telefoonContactSession) save.telefoonDifficulty = telefoonCurrentLength;
       // Een fout breekt de LOPENDE reeks (die telt alleen opeenvolgend
       // correct) — de beste reeks van deze sessie blijft daarentegen
       // bewaard in telefoonBestStreakThisSession, ook als de sessie
@@ -5148,7 +5166,7 @@ window.ScoreSync = (function () {
         ? 'Nog geen contacten — er worden willekeurige nummers gebruikt.'
         : 'Voeg contacten toe om met je eigen nummers te oefenen.';
     } else if (useContacts) {
-      ctHintEl.textContent = 'Je speelt met je ' + contacts.length + ' contact' + (contacts.length === 1 ? '' : 'en') + ', met dezelfde opbouw als random: eerst een kort stukje, steeds langer.';
+      ctHintEl.textContent = 'Je speelt met je ' + contacts.length + ' contact' + (contacts.length === 1 ? '' : 'en') + '. Eén contact tegelijk: het nummer groeit tot het hele nummer goed is, dan het volgende contact.';
     } else {
       ctHintEl.textContent = 'Willekeurige nummers die langzaam langer worden.';
     }
