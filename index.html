@@ -1380,9 +1380,7 @@
 <div id="welcome" class="hidden">
   <div class="title">ORBIT</div>
   <div class="menuStack">
-    <button id="resumeBtn" class="primary">▶ Verder spelen</button>
     <button id="openModeSelectBtn" class="highlight-green">🎮 Spelmodus</button>
-    <button id="newSessionBtn">↺ Nieuwe sessie</button>
     <button id="homeStatsBtn">📊 Statistieken</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
   </div>
@@ -5140,46 +5138,6 @@ window.ScoreSync = (function () {
   document.getElementById('pauseSettingsBtn').addEventListener('click', () => openSettings('pause'));
 
   // Home menu
-  document.getElementById('resumeBtn').addEventListener('click', goToGameplay);
-  document.getElementById('newSessionBtn').addEventListener('click', () => {
-    welcomeEl.classList.add('hidden');
-    if (currentMode === 'tracking') {
-      if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
-      else { resumeGame(); }
-      hideTrackingGameOver();
-      startTrackingSession();
-      updateIndicatorVisibility();
-      return;
-    }
-    if (currentMode === 'pattern') {
-      if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
-      else { resumeGame(); }
-      hidePatternGameOver();
-      startPatternSession();
-      updateIndicatorVisibility();
-      return;
-    }
-    if (currentMode === 'sequence') {
-      if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
-      else { resumeGame(); }
-      hideSequenceGameOver();
-      startSequenceSession();
-      updateIndicatorVisibility();
-      return;
-    }
-    if (currentMode === 'telefoon') {
-      if (!gameLaunched) { gameLaunched = true; requestAnimationFrame(frame); }
-      else { resumeGame(); }
-      hideTelefoonGameOver();
-      startTelefoonSession();
-      updateIndicatorVisibility();
-      return;
-    }
-    startNewSession();
-    if (!gameLaunched) { gameLaunched = true; launchGame(); }
-    else { resumeGame(); startRound(); }
-    updateIndicatorVisibility();
-  });
   // ---------- Spelmodus-overzicht + intro-scherm ----------
   const modeSelectEl = document.getElementById('modeSelectOverlay');
   const modeIntroEl = document.getElementById('modeIntroOverlay');
