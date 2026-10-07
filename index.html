@@ -1384,7 +1384,6 @@
     <button id="openModeSelectBtn" class="highlight-green">🎮 Spelmodus</button>
     <button id="newSessionBtn">↺ Nieuwe sessie</button>
     <button id="homeStatsBtn">📊 Statistieken</button>
-    <button id="homeContactsBtn">📇 Contacten</button>
     <button id="homeSettingsBtn">⚙ Instellingen</button>
   </div>
 </div>
@@ -5445,7 +5444,10 @@ window.ScoreSync = (function () {
   function closeContacts() {
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     contactsOverlayEl.classList.remove('visible');
-    showHome();
+    // Contacten wordt alleen geopend vanaf het Telefoon-startscherm, dus daar
+    // keer je ook naar terug (met de actuele bron/aantal contacten).
+    openModeIntro('telefoon');
+    updateIndicatorVisibility();
   }
 
   ctNumberInputEl.addEventListener('input', () => {
@@ -5460,7 +5462,6 @@ window.ScoreSync = (function () {
   ctSourceRandomEl.addEventListener('click', () => { settings.telefoonSource = 'random'; saveSettings(); refreshContactsUI(); });
   ctSourceContactsEl.addEventListener('click', () => { settings.telefoonSource = 'contacts'; saveSettings(); refreshContactsUI(); });
   ctToggleNameEl.addEventListener('click', () => { settings.telefoonShowName = !settings.telefoonShowName; saveSettings(); refreshContactsUI(); });
-  document.getElementById('homeContactsBtn').addEventListener('click', openContacts);
   syncContacts(); // bij het opstarten: account en toestel gelijktrekken
   document.getElementById('closeContactsOverlay').addEventListener('click', closeContacts);
 
